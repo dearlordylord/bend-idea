@@ -160,6 +160,8 @@ Keep `visibleCandidates(position)` separate from `searchWorkspace(query)`. Both 
 
 Qualified references retain alias-prefix and member ranges. `M.U32.add` must support renaming `M` independently from `U32.add`. Type `Unit` and constructor `Unit{}` are separate symbols. Law-site and fill-site parameters are separate binders even when their positions correspond.
 
+The #17 implementation wraps name tokens in reference PSI so IntelliJ can request native references from this custom language. `symbols.references` calls `symbols.api` for resolution and uses the read-only `workspace.api.BendLoadingConfiguration` boundary for current Base/cache paths; the IntelliJ adapter supplies those paths from toolchain settings. Imported and Base targets must be reacquired from the current physical PSI file because graph declaration caches contain parsed source copies. Match the graph's file identity against the physical VFS file before comparing declaration category, name offset and spelling: nonlocal PSI may use a buffer-local ID even when the graph uses its VFS path. A forward source target may be returned with `eligible = false`; that state is not a compiler judgment.
+
 ### A source signature is not a compiler type — #5, #8 and #18
 
 Represent declared signatures as source-derived data, including quantities, template clauses and parameter origin. A law-backed definition displays the law specification while preserving fill parameter names separately. Later compiler expression types have their own result type and provenance.

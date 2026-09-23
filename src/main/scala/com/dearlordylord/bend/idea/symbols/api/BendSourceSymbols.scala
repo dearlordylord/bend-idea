@@ -48,6 +48,9 @@ enum BendSourceResolution:
   case Ambiguous(candidates: List[BendSourceSymbol])
   case ResolvedBinder(binding: BendSourceBinding)
 
+/** Source eligibility is separate from a navigable declaration location. */
+final case class BendNavigationResolution(target: BendSourceResolution, eligible: Boolean)
+
 /** One semantic owner for source declarations. Later scope and import rules extend this API. */
 object BendSourceSymbols:
   private var transientIds = List.empty[(WeakReference[AnyRef], Long)]
@@ -215,3 +218,19 @@ object BendSourceSymbols:
       case Nil => BendSourceResolution.Unresolved
       case one :: Nil => BendSourceResolution.Resolved(one)
       case several => BendSourceResolution.Ambiguous(several)
+
+  /** Classification from the tolerant declaration header and local annotation syntax. */
+  def referenceCategory(file: PsiFile, offset: Int, spelling: String): Option[BendSymbolCategory] =
+    val source = file.getText
+    if offset < 0 || offset + spelling.length > source.length then None
+    else
+      val after = source.substring(offset + spelling.length).dropWhile(_.isWhitespace)
+      if after.startsWith("{") then Some(BendSymbolCategory.Constructor)
+      else
+        val header = Option(file.findElementAt(offset))
+          .flatMap(element => Option(PsiTreeUtil.getParentOfType(element, classOf[BendHeader])))
+        val prefix = header match
+          case Some(value) => source.substring(value.getTextOffset, offset)
+          case None => source.substring(source.lastIndexOf('\n', offset - 1) + 1, offset)
+        if prefix.contains("->") || prefix.contains(":") then Some(BendSymbolCategory.Datatype)
+        else None

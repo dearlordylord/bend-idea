@@ -60,7 +60,7 @@ final class BendCompletionContributor extends CompletionContributor:
           if !boundNames.contains(name) then
             BendCompletionContributor.addSymbol(result, qualified, name, symbol,
               if graph.files.exists(f => f.source.id == symbol.handle.file && f.namespace.isEmpty)
-              then "Base " else "import ")
+              then "Base " else "import ", source.substring(offset))
         }
         val missingBase = graph.problems.collectFirst { case BendGraphProblem.Missing(_, line, path)
             if line.spelling == "Base" => path }.orElse {
@@ -127,13 +127,17 @@ object BendCompletionContributor:
   private val typeWords = List("Type", "Data", "Kind", "Quant")
 
   private def addSymbol(result: CompletionResultSet, qualified: Option[(String, String)],
-      full: String, symbol: BendSourceSymbol, origin: String): Unit =
+      full: String, symbol: BendSourceSymbol, origin: String, afterCaret: String): Unit =
     val member = qualified match
       case Some((prefix, _)) if full.startsWith(prefix + ".") =>
         Some(full.drop(prefix.length + 1))
       case Some(_) => return
       case None => None
     val lookup = member.getOrElse(full)
+    val trailing = if qualified.nonEmpty then
+      afterCaret.dropWhile(c => c.isLetterOrDigit || c == '_')
+        .takeWhile(c => c.isLetterOrDigit || c == '_' || c == '.')
+    else ""
     val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
     val comments = symbol.comments.replaceAll("\\s+", " ").trim
     val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
@@ -152,6 +156,9 @@ object BendCompletionContributor:
               document.getCharsSequence.charAt(suffixEnd) == '_') do suffixEnd += 1
         if suffixEnd > start + lookup.length then
           document.deleteString(start + lookup.length, suffixEnd)
+        if trailing.startsWith(".") && !document.getCharsSequence.subSequence(
+            start + lookup.length, document.getTextLength).toString.startsWith(trailing) then
+          document.insertString(start + lookup.length, trailing)
         insertion.getEditor.getCaretModel.moveToOffset(start + lookup.length)
       )
     (qualified match

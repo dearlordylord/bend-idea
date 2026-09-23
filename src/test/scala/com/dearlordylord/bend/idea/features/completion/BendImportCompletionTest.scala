@@ -40,7 +40,7 @@ final class BendImportCompletionTest extends BasePlatformTestCase:
     val add = all.find(_.getLookupString == "add").get
     myFixture.getLookup.setCurrentItem(add)
     myFixture.finishLookup('\t')
-    assertTrue(myFixture.getEditor.getDocument.getText.endsWith("L.Nat.add.extra"))
+    assertTrue(myFixture.getEditor.getDocument.getText, myFixture.getEditor.getDocument.getText.endsWith("L.Nat.add.extra"))
 
   def testAliasIsNotUnqualifiedOrReExported(): Unit =
     myFixture.addFileToProject("child.bend", "def child():\n  0\n")

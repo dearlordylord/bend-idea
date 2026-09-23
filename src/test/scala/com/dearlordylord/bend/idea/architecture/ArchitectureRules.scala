@@ -26,6 +26,8 @@ private[architecture] object ArchitectureRules:
     val from = source.head
     val to = target.head
     if from == "bootstrap" then true
+    else if source.take(2) == List("symbols", "references") && to == "symbols" then
+      publicArea(target, "symbols", Set("api", "references"))
     else if from == to then
       // Feature handlers cannot reach another slice's implementation.
       from != "features" || source.lift(1) == target.lift(1) ||

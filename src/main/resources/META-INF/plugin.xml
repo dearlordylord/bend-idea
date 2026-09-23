@@ -22,6 +22,8 @@
                   implementationClass="com.dearlordylord.bend.idea.features.editing.BendCommenter"/>
         <completion.contributor language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"/>
+        <psi.referenceContributor language="Bend"
+                  implementation="com.dearlordylord.bend.idea.symbols.references.BendReferenceContributor"/>
         <externalAnnotator language="Bend"
                            implementationClass="com.dearlordylord.bend.idea.features.checking.BendCheckAnnotator"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.analysis.api.BendCheckService"
@@ -37,6 +39,8 @@
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendLibrarySourceService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendWorkspaceGraphService"/>
+        <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration"
+                        serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendLoadingConfigurationService"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendBaseSymbolCatalog"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendImportedSymbolCatalog"/>
         <applicationConfigurable instance="com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"

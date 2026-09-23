@@ -75,6 +75,19 @@ final class BendImportedSymbolCatalog(project: Project):
           case one :: Nil => BendSourceResolution.Resolved(one)
           case many => BendSourceResolution.Ambiguous(many)
 
+  /** Navigation may expose a later declaration, but its eligibility remains explicit. */
+  def resolveForNavigation(file: PsiFile, offset: Int, spelling: String, basePath: String,
+      packageCache: String, category: Option[BendSymbolCategory] = None): BendNavigationResolution =
+    val eligible = resolve(file, offset, spelling, basePath, packageCache, category)
+    if eligible != BendSourceResolution.Unresolved then BendNavigationResolution(eligible, true)
+    else
+      val later = BendSourceSymbols.declarations(file).filter(s =>
+        s.handle.nameOffset >= offset && s.name == spelling && category.forall(_ == s.category))
+      later match
+        case one :: Nil => BendNavigationResolution(BendSourceResolution.Resolved(one), false)
+        case many if many.nonEmpty => BendNavigationResolution(BendSourceResolution.Ambiguous(many), false)
+        case _ => BendNavigationResolution(BendSourceResolution.Unresolved, false)
+
   private def declarations(source: BendSourceRecord): List[BendSourceSymbol] = synchronized {
     parsed.get(source.id) match
       case Some((text, symbols)) if text == source.text => symbols

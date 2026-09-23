@@ -21,6 +21,7 @@ final class BendParserDefinition extends ParserDefinition:
   override def getStringLiteralElements: TokenSet = TokenSet.create(BendTokens.StringDelimiter, BendTokens.StringContent, BendTokens.Escape, BendTokens.InvalidEscape)
   override def createElement(node: ASTNode): PsiElement = node.getElementType match
     case BendElements.Name => new BendName(node)
+    case BendElements.Reference => new BendReferenceElement(node)
     case BendElements.Header => new BendHeader(node)
     case BendElements.Definition => new BendDefinition(node)
     case BendElements.Datatype => new BendDatatype(node)

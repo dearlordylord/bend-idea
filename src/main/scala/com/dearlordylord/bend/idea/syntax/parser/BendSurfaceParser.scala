@@ -42,6 +42,15 @@ final class BendSurfaceParser extends PsiParser:
       BendTokens.NamespaceName).contains(builder.getTokenType) &&
       text(builder).matches("[A-Za-z_][A-Za-z0-9_.]*") && !text(builder).endsWith(".") && !BendWords.reserved(text(builder))
 
+  private def advanceReference(builder: PsiBuilder): Unit =
+    val incompleteQualified = builder.getTokenType == com.intellij.psi.TokenType.BAD_CHARACTER &&
+      text(builder).matches("[A-Za-z_][A-Za-z0-9_.]*\\.")
+    if nameToken(builder) || incompleteQualified then
+      val reference = builder.mark()
+      builder.advanceLexer()
+      reference.done(BendElements.Reference)
+    else builder.advanceLexer()
+
   private def declaration(builder: PsiBuilder): Unit =
     val item = builder.mark()
     val header = builder.mark()
@@ -71,11 +80,11 @@ final class BendSurfaceParser extends PsiParser:
               (Character.isLetterOrDigit(source.charAt(before)) || source.charAt(before) == '_' || source.charAt(before) == '>' || source.charAt(before) == ')') then stack += ">"
             else if c == '>' && (i == 0 || word.charAt(i - 1) != '-') && stack.lastOption.contains(">") then stack.remove(stack.size - 1)
         case _ => ()
-      builder.advanceLexer()
+      advanceReference(builder)
     header.done(BendElements.Header)
     while !builder.eof() && !declarationStart(builder) do
       if kind == "type" && colonFound && constructorStart(builder) then constructor(builder)
-      else builder.advanceLexer()
+      else advanceReference(builder)
     item.done(kind match
       case "type" => BendElements.Datatype
       case "law" => BendElements.Law
@@ -101,5 +110,5 @@ final class BendSurfaceParser extends PsiParser:
         case "{" => depth += 1; started = true
         case "}" => depth -= 1
         case _ => ()
-      builder.advanceLexer()
+      advanceReference(builder)
     item.done(BendElements.Constructor)

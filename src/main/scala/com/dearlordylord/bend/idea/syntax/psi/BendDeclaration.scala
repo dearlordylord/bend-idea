@@ -6,6 +6,7 @@ import com.intellij.lang.ASTNode
 import com.intellij.psi.{PsiElement, PsiNameIdentifierOwner}
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.IncorrectOperationException
+import com.intellij.psi.impl.source.resolve.reference.ReferenceProvidersRegistry
 
 /** One source declaration; the name element remains an IntelliJ rename target. */
 sealed abstract class BendDeclaration(node: ASTNode) extends ASTWrapperPsiElement(node) with PsiNameIdentifierOwner:
@@ -45,7 +46,12 @@ sealed abstract class BendDeclaration(node: ASTNode) extends ASTWrapperPsiElemen
 
   def proofForms: List[BendProofForm] = BendProofSurface.scan(getText, getTextRange.getStartOffset)
 
-final class BendName(node: ASTNode) extends ASTWrapperPsiElement(node)
+final class BendName(node: ASTNode) extends ASTWrapperPsiElement(node):
+  override def getReferences: Array[com.intellij.psi.PsiReference] =
+    ReferenceProvidersRegistry.getReferencesFromProviders(this)
+final class BendReferenceElement(node: ASTNode) extends ASTWrapperPsiElement(node):
+  override def getReferences: Array[com.intellij.psi.PsiReference] =
+    ReferenceProvidersRegistry.getReferencesFromProviders(this)
 final class BendHeader(node: ASTNode) extends ASTWrapperPsiElement(node)
 final class BendDefinition(node: ASTNode) extends BendDeclaration(node)
 final class BendDatatype(node: ASTNode) extends BendDeclaration(node)
