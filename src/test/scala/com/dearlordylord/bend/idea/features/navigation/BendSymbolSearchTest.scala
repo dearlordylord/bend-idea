@@ -53,10 +53,13 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
     finally super.tearDown()
 
   private def names(): Set[String] =
+    names(GlobalSearchScope.allScope(getProject))
+
+  private def names(scope: GlobalSearchScope): Set[String] =
     val found = mutable.LinkedHashSet.empty[String]
     contributor.processNames(new Processor[String]:
       override def process(value: String): Boolean = found.add(value),
-      GlobalSearchScope.allScope(getProject), null)
+      scope, null)
     found.toSet
 
   private def items(name: String): List[NavigationItem] =
@@ -95,6 +98,15 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
     found.head.navigate(false)
     assertTrue(FileEditorManager.getInstance(getProject).isFileOpen(
       found.head.asInstanceOf[com.intellij.psi.PsiElement].getContainingFile.getVirtualFile))
+
+  def testOpenFilesOutsideTheSearchScopeDoNotContributeNames(): Unit =
+    val included = myFixture.addFileToProject("included.bend", "def inScopeName():\n  0\n")
+    val excluded = myFixture.addFileToProject("excluded.bend", "def outOfScopeName():\n  0\n")
+    myFixture.openFileInEditor(excluded.getVirtualFile)
+
+    val scopedNames = names(GlobalSearchScope.fileScope(included))
+    assertTrue(scopedNames.contains("inScopeName"))
+    assertFalse(scopedNames.contains("outOfScopeName"))
 
   def testOpenUnsavedBufferReplacesItsIndexedDeclarations(): Unit =
     val file = myFixture.addFileToProject("edited.bend", "def before():\n  0\n")

@@ -23,7 +23,8 @@ final class BendChooseByNameContributor extends ChooseByNameContributorEx:
     val project = scope.getProject
     if project == null then return
     val searchScope = BendConfiguredSymbolRoots.searchScope(scope, project)
-    val openFiles = currentFiles(project)
+    val openFiles = currentFiles(project).filter(file =>
+      Option(file.getVirtualFile).exists(searchScope.contains))
     val openSet = openFiles.flatMap(file => Option(file.getVirtualFile)).toSet
     val emitted = mutable.HashSet.empty[String]
     def emit(name: String): Boolean =
