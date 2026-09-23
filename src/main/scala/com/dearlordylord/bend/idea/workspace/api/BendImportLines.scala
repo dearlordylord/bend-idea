@@ -1,13 +1,31 @@
 package com.dearlordylord.bend.idea.workspace.api
 
-/** Loader-compatible recognition of the one built-in library import.
+/** Loader-compatible recognition of the leading import block.
   * The pinned loader scans trimmed source lines before parsing declarations.
   */
 object BendImportLines:
-  private val Base = "^import\\s+Base\\s*(?:#.*)?$".r
   private val AnyImport = "^import(\\s.*|)$".r
 
-  def importsBase(source: String): Boolean =
-    source.linesIterator.map(_.trim)
-      .takeWhile(line => line.isEmpty || line.startsWith("#") || AnyImport.matches(line))
-      .exists(Base.matches)
+  /** Leading import block only, with original spellings and UTF-16 offsets. */
+  def parse(source: String): List[com.dearlordylord.bend.idea.workspace.model.BendImport] =
+    val result = List.newBuilder[com.dearlordylord.bend.idea.workspace.model.BendImport]
+    val Import = "^import\\s+(\\S+)(?:\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*))?\\s*(?:#.*)?$".r
+    var offset = 0
+    var leading = true
+    source.split("\n", -1).foreach { line =>
+      val trimmed = line.trim
+      if leading then
+        if trimmed.isEmpty || trimmed.startsWith("#") then ()
+        else if AnyImport.matches(trimmed) then
+          trimmed match
+            case Import(path, alias) =>
+              result += com.dearlordylord.bend.idea.workspace.model.BendImport(
+                path, Option(alias), offset + line.indexOf("import"))
+            case _ =>
+              result += com.dearlordylord.bend.idea.workspace.model.BendImport(
+                trimmed.stripPrefix("import").trim, None, offset + line.indexOf("import"),
+                Some("an import ('import Base', or 'import <path> as <Name>')"))
+        else leading = false
+      offset += line.length + 1
+    }
+    result.result()

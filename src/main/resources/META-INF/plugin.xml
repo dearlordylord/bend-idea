@@ -25,7 +25,12 @@
                             serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendSettingsStorage"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendLibrarySource"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendLibrarySourceService"/>
+        <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog"
+                        serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendLibrarySourceService"/>
+        <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph"
+                        serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendWorkspaceGraphService"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendBaseSymbolCatalog"/>
+        <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendImportedSymbolCatalog"/>
         <applicationConfigurable instance="com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"
                                  id="com.dearlordylord.bend.idea.settings" displayName="Bend"/>
     </extensions>

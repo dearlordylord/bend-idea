@@ -1,9 +1,10 @@
 package com.dearlordylord.bend.idea.features.completion
 
 import com.dearlordylord.bend.idea.features.templates.api.BendSnippets
-import com.dearlordylord.bend.idea.symbols.api.{BendBaseSymbolCatalog, BendSourceSymbols}
+import com.dearlordylord.bend.idea.symbols.api.{BendImportedSymbolCatalog, BendSourceSymbol, BendSourceSymbols}
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
-import com.dearlordylord.bend.idea.workspace.api.{BendBaseState, BendImportLines, BendLibrarySource}
+import com.dearlordylord.bend.idea.workspace.model.BendGraphProblem
+import com.dearlordylord.bend.idea.workspace.api.{BendBaseState, BendLibrarySource}
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
 import com.intellij.codeInsight.completion.{CompletionContributor, CompletionParameters, CompletionProvider, CompletionResultSet, CompletionType, InsertionContext}
 import com.intellij.codeInsight.lookup.{LookupElement, LookupElementBuilder}
@@ -35,10 +36,13 @@ final class BendCompletionContributor extends CompletionContributor:
         }
         val bindings = BendSourceSymbols.visibleBindings(parameters.getOriginalFile, offset)
         val boundNames = bindings.map(_.name).toSet
-        val currentCandidates = BendSourceSymbols.visibleCandidates(parameters.getOriginalFile, offset)
-          .filterNot(symbol => boundNames.contains(symbol.name))
-        val currentKeys = currentCandidates.map(symbol => (symbol.name, symbol.category)).toSet
-        currentCandidates.foreach { symbol =>
+        val qualified = BendCompletionContributor.qualifiedMember(source, offset)
+        val selected = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).selection
+        val (graph, visibleCurrent, visibleImported) = parameters.getOriginalFile.getProject
+          .getService(classOf[BendImportedSymbolCatalog])
+          .visibleWithCurrent(parameters.getOriginalFile, offset, selected.baseSource,
+            selected.packageCache)
+        visibleCurrent.filterNot(symbol => boundNames.contains(symbol.name)).foreach { symbol =>
           val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
           val comments = symbol.comments.replaceAll("\\s+", " ").trim
           val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
@@ -46,53 +50,26 @@ final class BendCompletionContributor extends CompletionContributor:
             .withTailText(tail, true)
             .withTypeText(symbol.category.toString.toLowerCase))
         }
-        val selected = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).selection
-        val base = parameters.getOriginalFile.getProject.getService(classOf[BendLibrarySource])
-          .base(selected.baseSource, selected.configurationRevision)
-        base match
-          case BendBaseState.Available(snapshot) if BendImportLines.importsBase(source) =>
-            val qualified = BendCompletionContributor.qualifiedMember(source, offset)
-            parameters.getOriginalFile.getProject.getService(classOf[BendBaseSymbolCatalog])
-              .declarations(snapshot).foreach { symbol =>
-              val full = symbol.name
-              val member = qualified.flatMap { case (prefix, _) =>
-                Option.when(full.startsWith(prefix + "."))(full.drop(prefix.length + 1))
-              }
-              if (qualified.isEmpty || member.nonEmpty) &&
-                  !currentKeys.contains((symbol.name, symbol.category)) &&
-                  !boundNames.contains(symbol.name) then
-                val lookup = member.getOrElse(full)
-                val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
-                val comments = symbol.comments.replaceAll("\\s+", " ").trim
-                val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
-                val builder = LookupElementBuilder.create(lookup)
-                  .withPresentableText(full)
-                  .withTailText(tail, true)
-                  .withTypeText("Base " + symbol.category.toString.toLowerCase)
-                  .withInsertHandler((insertion: InsertionContext, _: LookupElement) =>
-                    val document = insertion.getDocument
-                    val start = insertion.getStartOffset
-                    val end = insertion.getTailOffset
-                    val lineStart = document.getText.lastIndexOf('\n', start - 1) + 1
-                    val before = document.getText.substring(lineStart, start)
-                    val replacement = qualified match
-                      case Some((prefix, _)) if before.endsWith(prefix + ".") => lookup
-                      case _ => full
-                    document.replaceString(start, end, replacement)
-                    var suffixEnd = start + replacement.length
-                    while suffixEnd < document.getTextLength &&
-                        (document.getCharsSequence.charAt(suffixEnd).isLetterOrDigit ||
-                          document.getCharsSequence.charAt(suffixEnd) == '_') do suffixEnd += 1
-                    if suffixEnd > start + replacement.length then
-                      document.deleteString(start + replacement.length, suffixEnd)
-                    insertion.getEditor.getCaretModel.moveToOffset(start + replacement.length)
-                  )
-                val target = qualified match
-                  case Some((_, memberPrefix)) => result.withPrefixMatcher(memberPrefix)
-                  case None => result
-                target.addElement(builder)
+        if qualified.isEmpty && site != BendCompletionContributor.Site.TopLevel then
+          graph.edges.filter(_.from == graph.root).flatMap(_.importLine.alias)
+            .distinct.filterNot(boundNames).foreach { alias =>
+              result.addElement(LookupElementBuilder.create(alias).withTypeText("import alias"))
             }
-          case BendBaseState.Missing(path) if Set(BendCompletionContributor.Site.Body,
+        visibleImported.foreach { case (name, symbol) =>
+          if !boundNames.contains(name) then
+            BendCompletionContributor.addSymbol(result, qualified, name, symbol,
+              if graph.files.exists(f => f.source.id == symbol.handle.file && f.namespace.isEmpty)
+              then "Base " else "import ")
+        }
+        val missingBase = graph.problems.collectFirst { case BendGraphProblem.Missing(_, line, path)
+            if line.spelling == "Base" => path }.orElse {
+          parameters.getOriginalFile.getProject.getService(classOf[BendLibrarySource])
+            .base(selected.baseSource, selected.configurationRevision) match
+            case BendBaseState.Missing(path) => Some(path)
+            case _ => None
+        }
+        missingBase match
+          case Some(path) if Set(BendCompletionContributor.Site.Body,
               BendCompletionContributor.Site.Do, BendCompletionContributor.Site.Match,
               BendCompletionContributor.Site.Qualified).contains(site) =>
             result.withPrefixMatcher("").addElement(
@@ -147,6 +124,38 @@ object BendCompletionContributor:
   private val lawWords = List("for", "exs", "where", "Type", "Data", "Kind", "Quant")
   private val typeHeaderWords = List("is")
   private val typeWords = List("Type", "Data", "Kind", "Quant")
+
+  private def addSymbol(result: CompletionResultSet, qualified: Option[(String, String)],
+      full: String, symbol: BendSourceSymbol, origin: String): Unit =
+    val member = qualified match
+      case Some((prefix, _)) if full.startsWith(prefix + ".") =>
+        Some(full.drop(prefix.length + 1))
+      case Some(_) => return
+      case None => None
+    val lookup = member.getOrElse(full)
+    val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
+    val comments = symbol.comments.replaceAll("\\s+", " ").trim
+    val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
+    val builder = LookupElementBuilder.create(symbol.declaration, lookup)
+      .withPresentableText(full)
+      .withTailText(tail, true)
+      .withTypeText(origin + symbol.category.toString.toLowerCase)
+      .withInsertHandler((insertion: InsertionContext, _: LookupElement) =>
+        val document = insertion.getDocument
+        val start = insertion.getStartOffset
+        val end = insertion.getTailOffset
+        document.replaceString(start, end, lookup)
+        var suffixEnd = start + lookup.length
+        while suffixEnd < document.getTextLength &&
+            (document.getCharsSequence.charAt(suffixEnd).isLetterOrDigit ||
+              document.getCharsSequence.charAt(suffixEnd) == '_') do suffixEnd += 1
+        if suffixEnd > start + lookup.length then
+          document.deleteString(start + lookup.length, suffixEnd)
+        insertion.getEditor.getCaretModel.moveToOffset(start + lookup.length)
+      )
+    (qualified match
+      case Some((_, prefix)) => result.withPrefixMatcher(prefix)
+      case None => result).addElement(builder)
 
   private def qualifiedMember(source: String, offset: Int): Option[(String, String)] =
     val before = source.substring(source.lastIndexOf('\n', offset - 1) + 1, offset)

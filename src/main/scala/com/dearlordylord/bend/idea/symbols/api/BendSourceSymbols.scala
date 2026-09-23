@@ -99,8 +99,11 @@ object BendSourceSymbols:
 
   /** Parse captured Base text with the same tolerant declaration model as editor files. */
   def baseDeclarations(project: Project, source: BendBaseSource): List[BendSourceSymbol] =
-    val file = PsiFileFactory.getInstance(project).createFileFromText("base.bend", BendLanguage.instance, source.text)
-    val identity = new FileId(source.identity, true)
+    loadedDeclarations(project, new FileId(source.identity, true), source.text)
+
+  /** A captured dependency contributes its own declarations, not imported aliases. */
+  def loadedDeclarations(project: Project, identity: FileId, text: String): List[BendSourceSymbol] =
+    val file = PsiFileFactory.getInstance(project).createFileFromText("loaded.bend", BendLanguage.instance, text)
     BendLawDeclarations.completionCandidates(declarations(file))(site)
       .map(symbol => symbol.copy(handle = symbol.handle.copy(file = identity)))
 
