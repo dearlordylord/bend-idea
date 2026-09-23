@@ -22,12 +22,15 @@ private[architecture] object ArchitectureRules:
       case `owner` :: area :: _ => areas.contains(area)
       case _ => false
 
-  private def allowed(source: List[String], target: List[String]): Boolean =
+  private def allowed(source: List[String], target: List[String], targetClass: String): Boolean =
     val from = source.head
     val to = target.head
     if from == "bootstrap" then true
     else if source.take(2) == List("symbols", "references") && to == "symbols" then
       publicArea(target, "symbols", Set("api", "references"))
+    else if source.take(2) == List("features", "documentation") &&
+        target.take(2) == List("symbols", "references") &&
+        targetClass.endsWith(".symbols.references.BendPhysicalTargets$") then true
     else if from == to then
       // Feature handlers cannot reach another slice's implementation.
       from != "features" || source.lift(1) == target.lift(1) ||
@@ -58,7 +61,7 @@ private[architecture] object ArchitectureRules:
       val dependencies = cls.getDirectDependenciesFromSelf.asScala.toSeq.flatMap { dependency =>
         val target = dependency.getTargetClass
         val boundary = Option.when(target.getPackageName.startsWith(root + ".") &&
-          !allowed(source, parts(target.getPackageName, root)))(s"A2: ${dependency.getDescription}")
+          !allowed(source, parts(target.getPackageName, root), target.getName))(s"A2: ${dependency.getDescription}")
         // Scala case classes inherit this marker; it grants no file or stream access.
         val effect = Option.when(policyOwners(source.head) &&
           target.getName != "java.io.Serializable" &&

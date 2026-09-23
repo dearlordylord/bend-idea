@@ -28,15 +28,20 @@ final class BendImportedSymbolCatalog(project: Project):
   private def directDeclarations(graph: BendLoadedGraph): List[(String, BendSourceSymbol)] =
     // book_load's alias map is overwritten by each later direct import. Keep all
     // graph edges for diagnostics, but expose only the last edge for each alias.
-    val direct = graph.edges.filter(edge => edge.from == graph.root && edge.importLine.alias.nonEmpty)
-      .reverse.distinctBy(_.importLine.alias).reverse
+    val direct = effectiveDirectEdges(graph)
     direct.flatMap(edge => for
         alias <- edge.importLine.alias.toList
         target <- edge.target.toList
         source <- graph.source(target).toList
-        if graph.files.exists(f => f.source.id == target && f.namespace == edge.namespace)
         symbol <- declarations(source)
       yield (alias + "." + symbol.name, symbol))
+
+  /** Last alias wins, but only if that source actually loaded under the edge's namespace. */
+  private[api] def effectiveDirectEdges(graph: BendLoadedGraph): List[BendLoadedEdge] =
+    graph.edges.filter(edge => edge.from == graph.root && edge.importLine.alias.nonEmpty)
+      .reverse.distinctBy(_.importLine.alias).reverse.filter(edge =>
+        edge.target.exists(target => graph.files.exists(f =>
+          f.source.id == target && f.namespace == edge.namespace)))
 
   private def baseDeclarations(graph: BendLoadedGraph): List[(String, BendSourceSymbol)] =
     graph.files.filter(f => f.namespace.isEmpty && f.source.id != graph.root)

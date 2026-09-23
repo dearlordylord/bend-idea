@@ -22,6 +22,8 @@
                   implementationClass="com.dearlordylord.bend.idea.features.editing.BendCommenter"/>
         <completion.contributor language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"/>
+        <lang.documentationProvider language="Bend"
+                  implementationClass="com.dearlordylord.bend.idea.features.documentation.BendDocumentationProvider"/>
         <psi.referenceContributor language="Bend"
                   implementation="com.dearlordylord.bend.idea.symbols.references.BendReferenceContributor"/>
         <externalAnnotator language="Bend"

@@ -130,6 +130,7 @@ The dependency restrictions are more precise than the drawing:
 - `symbols` may use PSI and the workspace query contract. Workspace graph construction does not call symbol resolution. The IntelliJ source-catalog adapter extracts imports from syntax and supplies them to workspace loading.
 - `analysis` does not call a completion contributor or proof panel. Features consume results; they never parse CLI output.
 - IntelliJ analysis adapters may apply the pure `analysis.checking` publication policy after capturing current revision, generation, toolchain and external-input facts. Feature handlers consume the `analysis.api` service and `analysis.model` status; they do not own publication decisions.
+- Documentation may use `symbols.references.BendPhysicalTargets` to reacquire a documentation link target from current PSI; it does not implement its own filesystem lookup. The compiled A2 check permits this narrow edge.
 - Feature slices do not import one another's handlers. Shared signature rendering belongs in `symbols`; reusable source skeleton rendering belongs in a narrow templates API. Share these APIs explicitly when a second consumer exists.
 - The process adapter is reused by checking and explicit execution, but `CheckBackend` accepts only a check request. Run/build have separate operations; no caller-provided arbitrary mode flag can turn a background check into Run.
 - Settings UI writes a validated configuration. Other packages consume toolchain facts rather than reaching into UI classes.
@@ -166,7 +167,7 @@ The #17 implementation wraps name tokens in reference PSI so IntelliJ can reques
 
 Represent declared signatures as source-derived data, including quantities, template clauses and parameter origin. A law-backed definition displays the law specification while preserving fill parameter names separately. Later compiler expression types have their own result type and provenance.
 
-Keep a law declaration and all candidate fills as separate source elements. Group them for presentation through a logical law relationship. Restrict conflict judgments to fills loaded together in a root. A workspace inventory can find several candidates without declaring them duplicates or proved.
+Keep a law declaration and all candidate fills as separate source elements. Group them for presentation through a logical law relationship. Documentation derives qualified cross-file fill links from the request root's loaded graph and direct aliases, using the last direct import for a repeated alias only when its source actually loaded under that edge's namespace. It also preserves same-file law/fill pairs in imported and Base sources, so viewing an imported law in a proof root retains that root's candidate fills. Link targets retain physical source handles and recheck spelling after edits. Restrict conflict judgments to fills loaded together in a root. A workspace inventory can find several candidates without declaring them duplicates or proved.
 
 ### Shared import loading — #9 and #10
 

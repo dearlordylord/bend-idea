@@ -106,15 +106,18 @@ object BendSourceSymbols:
 
   /** A captured dependency contributes its own declarations, not imported aliases. */
   def loadedDeclarations(project: Project, identity: FileId, text: String): List[BendSourceSymbol] =
+    BendLawDeclarations.completionCandidates(sourceDeclarations(project, identity, text))(site)
+
+  /** All captured declarations for a graph source, with its canonical source identity. */
+  def sourceDeclarations(project: Project, identity: FileId, text: String): List[BendSourceSymbol] =
     val file = PsiFileFactory.getInstance(project).createFileFromText("loaded.bend", BendLanguage.instance, text)
-    BendLawDeclarations.completionCandidates(declarations(file))(site)
-      .map(symbol => symbol.copy(handle = symbol.handle.copy(file = identity)))
+    declarations(file).map(symbol => symbol.copy(handle = symbol.handle.copy(file = identity)))
 
   /** Same-file source links only; a fill never implies a checked or proved law. */
   def logicalLaws(file: PsiFile): List[BendLogicalLaw[BendSourceSymbol]] =
     BendLawDeclarations.relationships(declarations(file))(site)
 
-  private def site(symbol: BendSourceSymbol): BendDeclarationSite =
+  private[api] def site(symbol: BendSourceSymbol): BendDeclarationSite =
     val signature = symbol.signature.source
     val open = signature.indexOf('(')
     var close = -1

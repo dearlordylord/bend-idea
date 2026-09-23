@@ -14,11 +14,17 @@ object BendLawDeclarations:
       val lawSite = site(law)
       val fills = declarations.filter { candidate =>
         val value = site(candidate)
-        value.definition && value.name == lawSite.name &&
-          value.offset > lawSite.offset && !value.hasReturnType && value.bareParameters
+        isFill(lawSite, value, requireOrder = true)
       }
       BendLogicalLaw(law, fills)
     }
+
+  /** Root-relative links may join a qualified fill to an imported law. */
+  def isFill(law: BendDeclarationSite, candidate: BendDeclarationSite,
+      requireOrder: Boolean): Boolean =
+    law.law && candidate.definition && candidate.name == law.name &&
+      (!requireOrder || candidate.offset > law.offset) &&
+      !candidate.hasReturnType && candidate.bareParameters
 
   /** Completion presents one logical name, while declarations() retains both source sites. */
   def completionCandidates[A](declarations: List[A])(site: A => BendDeclarationSite): List[A] =
