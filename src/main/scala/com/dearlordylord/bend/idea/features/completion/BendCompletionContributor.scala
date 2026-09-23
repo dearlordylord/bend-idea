@@ -21,6 +21,7 @@ final class BendCompletionContributor extends CompletionContributor:
       if !parameters.getOriginalFile.getLanguage.isKindOf(com.dearlordylord.bend.idea.syntax.BendLanguage.instance) then return
       val source = parameters.getEditor.getDocument.getText
       val offset = parameters.getEditor.getCaretModel.getOffset
+      if BendImportPathCompletion.add(parameters, result, source, offset) then return
       BendCompletionContributor.context(source, offset).foreach { site =>
         val words = site match
           case BendCompletionContributor.Site.TopLevel => BendCompletionContributor.declarations

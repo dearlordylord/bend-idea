@@ -2,6 +2,7 @@ package com.dearlordylord.bend.idea.workspace.loading
 
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.workspace.model.*
+import com.dearlordylord.bend.idea.workspace.api.BendImportPaths
 import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 import scala.collection.mutable
 
@@ -52,9 +53,7 @@ object BendGraphLoader:
     else
       val rel = normalize(imp.spelling)
       val hash = rel.matches("^0x[0-9a-f]+/.*")
-      val resolved = if hash then normalize(paths.packageCache + "/" + rel)
-        else if rel.startsWith("/") then rel
-        else normalize(parent(source.path) + "/" + rel)
+      val resolved = BendImportPaths.target(source.path, paths.packageCache, imp.spelling)
       val sub = if hash || rel.startsWith("/") then rel
         else if parent(namespace).isEmpty then normalize(rel)
         else normalize(parent(namespace) + "/" + rel)

@@ -1,7 +1,7 @@
 package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.workspace.api.*
-import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.roots.ProjectRootManager
@@ -11,7 +11,54 @@ import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 
 /** VFS/document capture is kept outside workspace policy. */
-final class BendLibrarySourceService(project: Project) extends BendLibrarySource, BendSourceCatalog:
+final class BendLibrarySourceService(project: Project) extends BendLibrarySource, BendSourceCatalog, BendWorkspacePaths:
+  override def children(path: String, limit: Int): List[BendPathEntry] =
+    if limit <= 0 then Nil
+    else
+      val entries = scala.collection.mutable.LinkedHashMap.empty[String, BendPathEntry]
+      try
+        val directory = Path.of(path).toAbsolutePath.normalize()
+        // Reserve the bounded inventory for active source buffers first. A full
+        // disk directory must not hide a newly opened module that is not saved.
+        FileEditorManager.getInstance(project).getOpenFiles.iterator
+          .filter(file => file.isValid && !file.isDirectory && file.getName.endsWith(".bend") &&
+            file.getParent != null &&
+            Path.of(file.getParent.getPath).toAbsolutePath.normalize() == directory)
+          .take(limit).foreach { file =>
+            if entries.size < limit then entries.getOrElseUpdate(file.getName,
+              BendPathEntry(file.getName, false))
+          }
+        if Files.isDirectory(directory) then
+          val stream = Files.newDirectoryStream(directory)
+          try
+            val iterator = stream.iterator()
+            while iterator.hasNext && entries.size < limit do
+              val child = iterator.next()
+              val name = child.getFileName.toString
+              entries.getOrElseUpdate(name, BendPathEntry(name, Files.isDirectory(child)))
+          finally stream.close()
+        // In-memory VFS roots have no on-disk directory to enumerate.
+        if !Files.isDirectory(directory) then
+          ProjectRootManager.getInstance(project).getContentRoots.iterator
+            .flatMap { root =>
+              val base = root.getPath.stripSuffix("/")
+              if directory.toString == base then Some(root)
+              else if directory.toString.startsWith(base + "/") then
+                Option(root.findFileByRelativePath(directory.toString.drop(base.length + 1)))
+              else None
+            }
+            .take(1).foreach { virtualDirectory =>
+              virtualDirectory.getChildren.iterator.take(limit).foreach { child =>
+                if entries.size < limit then entries.getOrElseUpdate(child.getName,
+                  BendPathEntry(child.getName, child.isDirectory))
+              }
+            }
+      catch
+        case _: java.nio.file.InvalidPathException => ()
+        case _: java.io.IOException => ()
+        case _: SecurityException => ()
+      entries.values.toList
+
   override def source(path: String): Option[BendSourceRecord] =
     try
       val local = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(Path.of(path))
