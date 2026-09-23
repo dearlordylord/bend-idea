@@ -117,6 +117,51 @@ object BendSourceSymbols:
   def logicalLaws(file: PsiFile): List[BendLogicalLaw[BendSourceSymbol]] =
     BendLawDeclarations.relationships(declarations(file))(site)
 
+  /** Whether this declaration fills a law in its own source. */
+  def isLocalLawFill(file: PsiFile, symbol: BendSourceSymbol): Boolean =
+    logicalLaws(file).exists(_.fills.exists(_.handle == symbol.handle))
+
+  /** Physical law and candidate fill sites in the supplied bounded project inventory.
+    * Each root is loaded independently, so two proof roots may both contribute fills.
+    */
+  def relatedLawSites(files: List[PsiFile], selected: BendSourceSymbol,
+      basePath: String, packageCache: String): List[BendSourceSymbol] =
+    val inventory = files.map(file => file -> declarations(file))
+    val catalog = selected.declaration.getProject.getService(classOf[BendImportedSymbolCatalog])
+    def importedFills(root: PsiFile, symbols: List[BendSourceSymbol],
+        law: BendSourceSymbol): List[BendSourceSymbol] =
+      val graph = catalog.loaded(root, basePath, packageCache)
+      catalog.effectiveDirectEdges(graph).flatMap { edge =>
+        if !edge.target.contains(law.handle.file) then Nil
+        else edge.importLine.alias.toList.flatMap { alias =>
+          val qualified = site(law).copy(name = alias + "." + law.name)
+          symbols.filter(symbol => BendLawDeclarations.isFill(qualified, site(symbol), requireOrder = false))
+        }
+      }
+    val laws = inventory.flatMap(_._2).filter(_.category == BendSymbolCategory.Law)
+    val law = selected.category match
+      case BendSymbolCategory.Law => Some(selected)
+      case BendSymbolCategory.Definition => laws.find { candidate =>
+        inventory.exists { case (file, symbols) =>
+          symbols.exists(_.handle == selected.handle) &&
+            (logicalLaws(file).exists(link => link.law.handle == candidate.handle &&
+              link.fills.exists(_.handle == selected.handle)) ||
+              importedFills(file, symbols, candidate).exists(_.handle == selected.handle))
+        }
+      }
+      case _ => None
+    law.toList.flatMap { value =>
+      val sameFile = inventory.find { case (file, _) => fileId(file) == value.handle.file }
+        .toList.flatMap { case (file, _) =>
+          logicalLaws(file).find(_.law.handle == value.handle).toList.flatMap(_.fills)
+        }
+      val acrossRoots = inventory.flatMap { case (file, symbols) =>
+        if fileId(file) == value.handle.file then Nil
+        else importedFills(file, symbols, value)
+      }
+      (value :: sameFile ::: acrossRoots).distinctBy(_.handle)
+    }
+
   /** Presentation identity shared by usage search and later rename planning. */
   def usageAnchor(file: PsiFile, symbol: BendSourceSymbol): BendSourceHandle =
     logicalLaws(file).find(link =>
@@ -261,6 +306,7 @@ object BendSourceSymbols:
     else
       val after = source.substring(offset + spelling.length).dropWhile(_.isWhitespace)
       if after.startsWith("{") then Some(BendSymbolCategory.Constructor)
+      else if visibleBindings(file, offset).exists(_.name == spelling) then None
       else
         val header = Option(file.findElementAt(offset))
           .flatMap(element => Option(PsiTreeUtil.getParentOfType(element, classOf[BendHeader])))

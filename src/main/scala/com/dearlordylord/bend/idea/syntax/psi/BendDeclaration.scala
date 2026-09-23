@@ -46,12 +46,43 @@ sealed abstract class BendDeclaration(node: ASTNode) extends ASTWrapperPsiElemen
 
   def proofForms: List[BendProofForm] = BendProofSurface.scan(getText, getTextRange.getStartOffset)
 
-final class BendName(node: ASTNode) extends ASTWrapperPsiElement(node):
+final class BendName(node: ASTNode) extends ASTWrapperPsiElement(node) with PsiNameIdentifierOwner:
+  override def getNameIdentifier: PsiElement = this
+  override def getName: String = getText
+  override def setName(newName: String): PsiElement =
+    val declaration = PsiTreeUtil.getParentOfType(this, classOf[BendDeclaration])
+    if declaration == null then throw new IncorrectOperationException("Bend name has no declaration")
+    declaration.setName(newName)
+    declaration.getNameIdentifier
   override def getReferences: Array[com.intellij.psi.PsiReference] =
     ReferenceProvidersRegistry.getReferencesFromProviders(this)
-final class BendReferenceElement(node: ASTNode) extends ASTWrapperPsiElement(node):
+final class BendReferenceElement(node: ASTNode) extends ASTWrapperPsiElement(node) with PsiNameIdentifierOwner:
+  override def getNameIdentifier: PsiElement = this
+  override def getName: String = getText
+  override def setName(newName: String): PsiElement =
+    if !newName.matches("[A-Za-z_][A-Za-z0-9_]*") || BendWords.reserved(newName) then
+      throw new IncorrectOperationException("Invalid Bend local name")
+    val sample = com.intellij.psi.PsiFileFactory.getInstance(getProject)
+      .createFileFromText("rename.bend", com.dearlordylord.bend.idea.syntax.BendLanguage.instance,
+        s"def rename():\n  $newName\n")
+    val replacement = PsiTreeUtil.findChildrenOfType(sample, classOf[BendReferenceElement])
+      .stream().filter(_.getText == newName).findFirst().orElse(null)
+    if replacement == null then throw new IncorrectOperationException("Cannot create Bend name")
+    replace(replacement)
   override def getReferences: Array[com.intellij.psi.PsiReference] =
     ReferenceProvidersRegistry.getReferencesFromProviders(this)
+final class BendAlias(node: ASTNode) extends ASTWrapperPsiElement(node) with PsiNameIdentifierOwner:
+  override def getNameIdentifier: PsiElement = this
+  override def getName: String = getText
+  override def setName(newName: String): PsiElement =
+    if !newName.matches("[A-Za-z_][A-Za-z0-9_]*") || BendWords.reserved(newName) then
+      throw new IncorrectOperationException("Invalid Bend import alias")
+    val sample = com.intellij.psi.PsiFileFactory.getInstance(getProject)
+      .createFileFromText("rename.bend", com.dearlordylord.bend.idea.syntax.BendLanguage.instance,
+        s"import ./module.bend as $newName\n")
+    val replacement = PsiTreeUtil.findChildOfType(sample, classOf[BendAlias])
+    if replacement == null then throw new IncorrectOperationException("Cannot create Bend alias")
+    replace(replacement)
 final class BendHeader(node: ASTNode) extends ASTWrapperPsiElement(node)
 final class BendDefinition(node: ASTNode) extends BendDeclaration(node)
 final class BendDatatype(node: ASTNode) extends BendDeclaration(node)

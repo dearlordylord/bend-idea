@@ -138,7 +138,7 @@ final class BendEditorTest extends BasePlatformTestCase:
     assertTrue(tokens.contains(("bad.", TokenType.BAD_CHARACTER)))
     assertEquals(2, tokens.count(_ == (("as", BendTokens.Identifier))))
     assertTrue(tokens.contains(("do", BendTokens.Keyword)))
-    assertTrue(tokens.contains(("<", BendTokens.Operator)))
+    assertTrue(tokens.contains(("<", BendTokens.LeftAngle)))
 
   def testNewDeclarationRecoversAfterUnfinishedPreviousOne(): Unit =
     val file = myFixture.configureByText("recover.bend", "def\r\nlaw L: ?TODO\ntype\ndef f(): 1\ndef\n  multiline(): 2")

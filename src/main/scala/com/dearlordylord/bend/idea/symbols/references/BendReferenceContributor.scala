@@ -1,7 +1,7 @@
 package com.dearlordylord.bend.idea.symbols.references
 
 import com.dearlordylord.bend.idea.symbols.api.*
-import com.dearlordylord.bend.idea.syntax.psi.{BendDeclaration, BendName, BendReferenceElement}
+import com.dearlordylord.bend.idea.syntax.psi.{BendAlias, BendDeclaration, BendName, BendReferenceElement}
 import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.intellij.openapi.util.TextRange
 import com.intellij.patterns.PlatformPatterns.psiElement
@@ -68,6 +68,20 @@ final class BendReferenceContributor extends PsiReferenceContributor:
 /** `eligible` distinguishes a forward source location from an in-scope reference. */
 final class BendNameReference(element: PsiElement, range: TextRange, spelling: String,
     alias: Option[Boolean]) extends PsiPolyVariantReferenceBase[PsiElement](element, range, true):
+  override def isReferenceTo(target: PsiElement): Boolean =
+    val ownName = getElement match
+      case name: BendName => Some(name)
+      case _ => None
+    val targetName = target match
+      case declaration: BendDeclaration => Option(declaration.getNameIdentifier)
+      case name: BendName => Some(name)
+      case _ => None
+    if ownName.nonEmpty && targetName.nonEmpty &&
+        ownName.get.getTextOffset == targetName.get.getTextOffset &&
+        BendSourceSymbols.fileId(ownName.get.getContainingFile) ==
+          BendSourceSymbols.fileId(targetName.get.getContainingFile) then false
+    else super.isReferenceTo(target)
+
   def eligible: Boolean =
     if alias.nonEmpty then true
     else navigationResolution.eligible
@@ -78,10 +92,31 @@ final class BendNameReference(element: PsiElement, range: TextRange, spelling: S
       case None => navigationResolution.target match
         case BendSourceResolution.Resolved(symbol) => physicalDeclaration(symbol).toList
         case BendSourceResolution.ResolvedBinder(binding) =>
-          Option(getElement.getContainingFile.findElementAt(binding.handle.nameOffset)).toList
+          Option(getElement.getContainingFile.findElementAt(binding.handle.nameOffset))
+            .flatMap(token => Option(PsiTreeUtil.getParentOfType(token, classOf[BendReferenceElement], false))).toList
         case BendSourceResolution.Ambiguous(candidates) => candidates.flatMap(physicalDeclaration)
         case _ => Nil
     targets.map(target => new PsiElementResolveResult(target): ResolveResult).toArray
+
+  override def handleElementRename(newElementName: String): PsiElement =
+    val element = getElement
+    val current = element.getText
+    val range = getRangeInElement
+    val updated = current.substring(0, range.getStartOffset) + newElementName +
+      current.substring(range.getEndOffset)
+    element match
+      case reference: BendReferenceElement =>
+        val sample = PsiFileFactory.getInstance(element.getProject).createFileFromText(
+          "rename.bend", com.dearlordylord.bend.idea.syntax.BendLanguage.instance,
+          s"def rename():\n  $updated\n")
+        val replacement = PsiTreeUtil.findChildrenOfType(sample, classOf[BendReferenceElement])
+          .stream().filter(_.getText == updated).findFirst().orElse(null)
+        if replacement == null then throw new com.intellij.util.IncorrectOperationException("Cannot rename Bend reference")
+        element.replace(replacement)
+      case name: BendName =>
+        if PsiTreeUtil.getParentOfType(name, classOf[BendDeclaration]) == null then name
+        else name.setName(newElementName)
+      case _ => throw new com.intellij.util.IncorrectOperationException("Cannot rename Bend reference")
 
   private def navigationResolution: BendNavigationResolution =
     val file = getElement.getContainingFile
@@ -111,6 +146,7 @@ final class BendNameReference(element: PsiElement, range: TextRange, spelling: S
         val at = "\\bas\\s+([A-Za-z_][A-Za-z0-9_]*)".r.findAllMatchIn(line)
           .find(_.group(1) == spelling).map(_.start(1))
         at.flatMap(index => Option(file.findElementAt(edge.importLine.offset + index)))
+          .flatMap(token => Option(PsiTreeUtil.getParentOfType(token, classOf[BendAlias], false)))
       }
 
   private def physicalDeclaration(symbol: BendSourceSymbol): Option[PsiElement] =

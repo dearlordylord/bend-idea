@@ -1,0 +1,27 @@
+{
+  parserClass="experiment.BendGeneratedParser"
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+  psiClassPrefix="Bend"
+  psiPackage="experiment.psi"
+  psiImplPackage="experiment.psi.impl"
+  elementTypeHolderClass="experiment.psi.BendTypes"
+  elementTypeClass="experiment.psi.BendElementType"
+  tokenTypeClass="experiment.psi.BendTokenType"
+  tokens=[
+    NAME='regexp:[A-Za-z_][A-Za-z0-9_.]*'
+    STRING='regexp:"([^"\\]|\\.)*"'
+    COMMENT='regexp:#[^\n]*'
+  ]
+}
+
+file ::= item*
+private item ::= declaration | match_expr | case_clause | do_expr | STRING | COMMENT | NAME
+
+// Deliberately no external layout predicate: test what generated grammar alone supplies.
+declaration ::= ('def' | 'law' | 'type') NAME header_tail? ':' body_item* {pin=2}
+private header_tail ::= (NAME | '(' | ')' | '{' | '}' | ',' | '<' | '>')*
+private body_item ::= match_expr | case_clause | do_expr | STRING | COMMENT | NAME
+match_expr ::= 'match' NAME ':' case_clause* {pin=1}
+case_clause ::= 'case' pattern ':' body_item* {pin=1}
+pattern ::= NAME ('{' NAME? '}')?
+do_expr ::= 'do' NAME ':' body_item* {pin=1}

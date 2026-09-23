@@ -3,14 +3,10 @@ package com.dearlordylord.bend.idea.symbols.references
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.symbols.api.*
 import com.dearlordylord.bend.idea.syntax.BendLanguage
-import com.dearlordylord.bend.idea.syntax.psi.{BendDeclaration, BendName, BendReferenceElement}
-import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
+import com.dearlordylord.bend.idea.syntax.psi.{BendAlias, BendDeclaration, BendName, BendReferenceElement}
 import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.roots.ProjectRootManager
-import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.{PsiElement, PsiFile, PsiManager, PsiReference}
-import com.intellij.psi.search.{GlobalSearchScope, LocalSearchScope, SearchScope}
+import com.intellij.psi.{PsiElement, PsiFile, PsiReference}
+import com.intellij.psi.search.{LocalSearchScope, SearchScope}
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.{Processor, QueryExecutor}
@@ -31,7 +27,7 @@ final class BendUsageSearch extends QueryExecutor[PsiReference, ReferencesSearch
     val identity = BendUsageIdentity.of(targetName)
     if identity.isEmpty then return true
     val scope = parameters.getEffectiveSearchScope
-    val candidates = BendUsageFiles.files(target.getContainingFile, scope)
+    val candidates = BendSourceFiles.files(target.getContainingFile, scope)
     val identities = mutable.HashMap.empty[(PsiFile, Int), Option[BendUsageIdentity]]
     def identityOf(element: PsiElement): Option[BendUsageIdentity] =
       identities.getOrElseUpdate((element.getContainingFile, element.getTextOffset),
@@ -45,9 +41,14 @@ final class BendUsageSearch extends QueryExecutor[PsiReference, ReferencesSearch
           ProgressManager.checkCanceled()
           if element.getText.contains(identity.get.searchWord) then
             for reference <- element.getReferences do
-              if !reference.getElement.isInstanceOf[BendName] ||
-                  reference.getElement.getTextOffset != targetName.getTextOffset ||
-                  reference.getElement.getContainingFile != targetName.getContainingFile then
+              val ownDeclaration = reference.getElement match
+                case name: BendName =>
+                  val sameFile = name.getContainingFile == targetName.getContainingFile ||
+                    (name.getContainingFile.getVirtualFile != null &&
+                      name.getContainingFile.getVirtualFile == targetName.getContainingFile.getVirtualFile)
+                  sameFile && name.getTextOffset == targetName.getTextOffset
+                case _ => false
+              if !ownDeclaration then
                 val resolved = reference.resolve()
                 if resolved != null && inScope(scope, reference) &&
                     identityOf(resolved).contains(identity.get) &&
@@ -89,67 +90,10 @@ private[references] object BendUsageIdentity:
       val lineStart = source.lastIndexOf('\n', offset - 1) + 1
       val before = source.substring(lineStart, offset)
       val alias = before.matches(".*\\bimport\\s+.*\\bas\\s+")
-      if alias then Some(BendUsageIdentity(BendSourceSymbols.fileId(file), "Alias", offset, name.getText))
+      if alias || name.isInstanceOf[BendAlias] then
+        Some(BendUsageIdentity(BendSourceSymbols.fileId(file), "Alias", offset, name.getText))
       else
         // Local binders are source-local and retain their own declaration offset.
         BendSourceSymbols.bindingDeclaredAt(file, offset)
           .map(binding => BendUsageIdentity(binding.handle.file, "Binder", offset, binding.name))
     }
-
-/** No project-wide PSI collection or index read. Traversal and content size are capped. */
-private[references] object BendUsageFiles:
-  private val MaxVisited = 4096
-  private val MaxFiles = 512
-  private val MaxText = 1024 * 1024
-
-  def files(origin: PsiFile, scope: SearchScope): List[PsiFile] =
-    val project = origin.getProject
-    scope match
-      case local: LocalSearchScope =>
-        return local.getScope.iterator.map(_.getContainingFile).filter(_ != null)
-          .filter(f => f.getLanguage == BendLanguage.instance && f.getTextLength <= MaxText)
-          .take(MaxFiles).toList.distinct
-      case _ => ()
-    val seen = mutable.HashSet.empty[VirtualFile]
-    val accepted = mutable.ListBuffer.empty[PsiFile]
-    val queue = mutable.Queue.empty[VirtualFile]
-    val queued = mutable.HashSet.empty[VirtualFile]
-    var visited = 0
-    def enqueue(file: VirtualFile): Unit =
-      if file != null && visited + queue.size < MaxVisited && queued.add(file) then
-        queue.enqueue(file)
-    Option(origin.getVirtualFile).foreach(enqueue)
-    FileEditorManager.getInstance(project).getOpenFiles.iterator
-      .filter(_.getName.endsWith(".bend")).foreach(enqueue)
-    ProjectRootManager.getInstance(project).getContentRoots.foreach(enqueue)
-    // A configured Base file can live outside content roots.
-    val (base, cache) = project.getService(classOf[BendLoadingConfiguration]).paths
-    val local = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-    Option(local.findFileByPath(base)).foreach(enqueue)
-    Option(local.findFileByPath(cache)).foreach(enqueue)
-    val manager = PsiManager.getInstance(project)
-    val documents = FileDocumentManager.getInstance()
-    while queue.nonEmpty && visited < MaxVisited && accepted.size < MaxFiles do
-      ProgressManager.checkCanceled()
-      val next = queue.dequeue()
-      if seen.add(next) && next.isValid then
-        visited += 1
-        if next.isDirectory then
-          val children = next.getChildren.iterator
-          while children.hasNext && visited + queue.size < MaxVisited do enqueue(children.next())
-        else if next.getName.endsWith(".bend") && inScope(scope, next) then
-          // A cached document has the current size even when the saved VFS file is large.
-          val document = documents.getCachedDocument(next)
-          val textLength = if document == null then next.getLength else document.getTextLength.toLong
-          if textLength <= MaxText then
-            Option(manager.findFile(next)).filter(_.getLanguage == BendLanguage.instance)
-              .filter(_.getTextLength <= MaxText).foreach(accepted += _)
-    if !accepted.contains(origin) && origin.getTextLength <= MaxText &&
-        Option(origin.getVirtualFile).exists(inScope(scope, _)) then
-      accepted.prepend(origin)
-    accepted.toList
-
-  private def inScope(scope: SearchScope, file: VirtualFile): Boolean = scope match
-    case global: GlobalSearchScope => global.contains(file)
-    case _: LocalSearchScope => false
-    case _ => false

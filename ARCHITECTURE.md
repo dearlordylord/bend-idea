@@ -339,6 +339,8 @@ If extracting modules, start with portable identity, graph policy and analysis c
 
 Prefer handwritten recursive descent/Pratt parsing with `PsiBuilder`, following the approved spec. Bend's contextual layout and adjacency require dedicated rules either way. Grammar-Kit can generate stable PSI boilerplate if that saves maintenance; selecting it does not remove those rules. Do not reuse the compiler's elaborated term tree as editable syntax.
 
+The bounded #16 [generated PSI evaluation](design/parser-experiment/README.md) includes an isolated generated grammar and the supplied prototype's passing typed-node fixtures. Generation alone cannot enforce Bend's indentation and column-zero recovery boundaries; the prototype still needs Scala layout hooks and a second token/PSI vocabulary. Keep the handwritten parser for this slice. Revisit generation if later expression PSI work makes generated boilerplate materially smaller than the required external rules.
+
 Prefer CLI checks now, an isolated structured helper when #41 is implemented, and a persistent helper only after latency measurements justify its reset/caching complexity. A future LSP transport can sit behind analysis ports. It does not change the source subsystem. JetBrains' built-in LSP integration still excludes IDEA open source builds, which conflicts with making it a baseline requirement. [Current LSP availability](https://plugins.jetbrains.com/docs/intellij/language-server-protocol.html)
 
 ### Functional implementation style

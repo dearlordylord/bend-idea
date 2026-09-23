@@ -53,8 +53,11 @@ final class BendSyntaxHighlighter extends SyntaxHighlighterBase:
       else if tokenType == BendTokens.Quantity then BendColors.Quantity
       else if tokenType == BendTokens.Hole then BendColors.Hole
       else if tokenType == BendTokens.Rewrite || tokenType == BendTokens.Wildcard then BendColors.Rewrite
-      else if tokenType == BendTokens.Operator then BendColors.Operator
-      else if tokenType == BendTokens.Bracket then BendColors.Bracket
+      else if tokenType == BendTokens.Operator || tokenType == BendTokens.LeftAngle ||
+          tokenType == BendTokens.RightAngle then BendColors.Operator
+      else if Set(BendTokens.LeftParen, BendTokens.RightParen,
+          BendTokens.LeftBrace, BendTokens.RightBrace, BendTokens.LeftBracket,
+          BendTokens.RightBracket).contains(tokenType) then BendColors.Bracket
       else if tokenType == BendTokens.Separator then BendColors.Separator
       else if tokenType == TokenType.BAD_CHARACTER then BendColors.Bad
       else null

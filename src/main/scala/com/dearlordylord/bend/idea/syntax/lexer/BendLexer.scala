@@ -137,10 +137,22 @@ final class BendLexer extends LexerBase:
       kind = BendTokens.Rewrite
     else if "(){}[]".contains(c) then
       tokenEnd += 1
-      kind = BendTokens.Bracket
+      kind = c match
+        case '(' => BendTokens.LeftParen
+        case ')' => BendTokens.RightParen
+        case '{' => BendTokens.LeftBrace
+        case '}' => BendTokens.RightBrace
+        case '[' => BendTokens.LeftBracket
+        case _ => BendTokens.RightBracket
     else if ",;:".contains(c) then
       tokenEnd += 1
       kind = BendTokens.Separator
+    else if c == '<' && char(startOffset + 1) != '-' && char(startOffset + 1) != '=' then
+      tokenEnd += 1
+      kind = BendTokens.LeftAngle
+    else if c == '>' && char(startOffset + 1) != '=' then
+      tokenEnd += 1
+      kind = BendTokens.RightAngle
     else if "+-*/%=!~@&|<>^\\.".contains(c) then
       tokenEnd += 1
       while tokenEnd < end && "+-*/%=!~@&|<>^\\.".contains(char(tokenEnd)) do tokenEnd += 1

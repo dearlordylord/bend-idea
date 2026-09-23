@@ -22,6 +22,7 @@ final class BendParserDefinition extends ParserDefinition:
   override def createElement(node: ASTNode): PsiElement = node.getElementType match
     case BendElements.Name => new BendName(node)
     case BendElements.Reference => new BendReferenceElement(node)
+    case BendElements.Alias => new BendAlias(node)
     case BendElements.Header => new BendHeader(node)
     case BendElements.Definition => new BendDefinition(node)
     case BendElements.Datatype => new BendDatatype(node)

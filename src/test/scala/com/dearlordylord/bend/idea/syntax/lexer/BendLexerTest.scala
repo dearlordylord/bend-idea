@@ -43,8 +43,8 @@ final class BendLexerTest:
     assertTrue(contains(BendTokens.Rewrite, "{==}"))
     assertTrue(contains(BendTokens.Hole, "?TODO"))
     assertTrue(contains(BendTokens.Keyword, "do"))
-    assertTrue(contains(BendTokens.Operator, "<"))
-    assertTrue(contains(BendTokens.Operator, ">"))
+    assertTrue(contains(BendTokens.LeftAngle, "<"))
+    assertTrue(contains(BendTokens.RightAngle, ">"))
     assertTrue(contains(BendTokens.Operator, "~"))
 
   @Test def unfinishedImportDoesNotColorNextLineAsPath(): Unit =

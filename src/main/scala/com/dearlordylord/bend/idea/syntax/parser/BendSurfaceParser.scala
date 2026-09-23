@@ -13,6 +13,7 @@ final class BendSurfaceParser extends PsiParser:
     val file = builder.mark()
     while !builder.eof() do
       if declarationStart(builder) then declaration(builder)
+      else if builder.getTokenType == BendTokens.NamespaceName then alias(builder)
       else builder.advanceLexer()
     file.done(root)
     builder.getTreeBuilt
@@ -45,11 +46,17 @@ final class BendSurfaceParser extends PsiParser:
   private def advanceReference(builder: PsiBuilder): Unit =
     val incompleteQualified = builder.getTokenType == com.intellij.psi.TokenType.BAD_CHARACTER &&
       text(builder).matches("[A-Za-z_][A-Za-z0-9_.]*\\.")
-    if nameToken(builder) || incompleteQualified then
+    if builder.getTokenType == BendTokens.NamespaceName then alias(builder)
+    else if nameToken(builder) || incompleteQualified then
       val reference = builder.mark()
       builder.advanceLexer()
       reference.done(BendElements.Reference)
     else builder.advanceLexer()
+
+  private def alias(builder: PsiBuilder): Unit =
+    val marker = builder.mark()
+    builder.advanceLexer()
+    marker.done(BendElements.Alias)
 
   private def declaration(builder: PsiBuilder): Unit =
     val item = builder.mark()
@@ -71,7 +78,7 @@ final class BendSurfaceParser extends PsiParser:
         case "[" => stack += "]"
         case close if stack.lastOption.contains(close) => stack.remove(stack.size - 1)
         case ":" if stack.isEmpty => colonFound = true
-        case _ if builder.getTokenType == BendTokens.Operator =>
+        case _ if Set(BendTokens.Operator, BendTokens.LeftAngle, BendTokens.RightAngle).contains(builder.getTokenType) =>
           val source = builder.getOriginalText
           for i <- word.indices do
             val c = word.charAt(i)
@@ -91,7 +98,7 @@ final class BendSurfaceParser extends PsiParser:
       case _ => BendElements.Definition)
 
   private def constructorStart(builder: PsiBuilder): Boolean =
-    indentation(builder) > 0 && nameToken(builder) && builder.lookAhead(1) == BendTokens.Bracket &&
+    indentation(builder) > 0 && nameToken(builder) && builder.lookAhead(1) == BendTokens.LeftBrace &&
       Option(builder.getOriginalText).exists { source =>
         var next = builder.getCurrentOffset + text(builder).length
         while next < source.length && (source.charAt(next) == ' ' || source.charAt(next) == '\t') do next += 1
