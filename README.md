@@ -57,6 +57,8 @@ Keep the rule graph synchronized with ARCHITECTURE.md when adding packages or ch
 
 Launch `runIde`, open an `example.bend` file, and confirm the Bend file type and icon in both light and dark themes. Confirm the plugin loads without installing the Scala plugin or a Bend/JavaScript toolchain. Close the sandbox when finished. The automated editor fixture separately checks registered file recognition, preserved editor contents and both icon resources; Plugin Verifier checks binary compatibility.
 
+If IDEA's chrome is dark but a Bend editor is light, check **Settings → Appearance & Behavior → Appearance → Editor color scheme**. The UI **Theme** and **Editor color scheme** are separate settings: **Dark** with **Classic Light** makes both Bend and ordinary text editors light. Select **Dark Theme default** (or another dark editor scheme) for a dark editor. Bend token colors inherit the selected editor scheme and remain configurable under **Editor → Color Scheme → Bend**.
+
 Issue #3 adds a restartable UTF-16 lexer, configurable Bend token colors and the standard hash line-comment action. The editor fixtures exercise highlighting after an edit inside a string, comment toggling including the last line without a newline, and undo through the IntelliJ action. The parser definition currently supplies a token tree; tolerant declaration PSI is owned by issue #5.
 
 Issue #4 adds explicit Bend 2 keyword completion and editable `def`, `type`, `law`, `match`, `do` and `import` snippets. Suggestions are withheld inside comments and string literals, including unfinished strings. The completion fixtures invoke IntelliJ lookup and live-template editing, including a linked law placeholder and the final caret position.
