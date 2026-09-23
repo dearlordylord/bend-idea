@@ -22,6 +22,7 @@ final class ArchitectureTest:
     assertTrue("Native declaration PSI must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.psi.BendDeclaration"))
     assertTrue("The symbols API must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols$"))
     assertTrue("The shared scope policy must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.scope.BendScope$"))
+    assertTrue("Structured case/do scope must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.scope.BendStructuredScope$"))
     ArchitectureRules.check(classes, "com.dearlordylord.bend.idea")
 
   @Test def rejectsForbiddenCompiledScalaDependencies(): Unit =

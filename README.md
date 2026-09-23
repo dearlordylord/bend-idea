@@ -64,3 +64,5 @@ Issue #4 adds explicit Bend 2 keyword completion and editable `def`, `type`, `la
 Issue #5 adds a tolerant declaration PSI and source symbol API. Current-file completion reads the current editor buffer for functions, laws, datatypes and constructors, retaining declared signatures, quantities/templates and adjacent source comments. It uses source order and does not insert a call automatically. Parser recovery remains deliberately surface-level until later scope and expression slices.
 
 Issue #6 adds source scope for parameters, lambdas and ordinary/parallel lets. Completion follows binding order and nearest shadowing, including incomplete RHS edits and parenthesized continuations. Quantity and template annotations remain source text; this local scope model does not claim compiler resource analysis.
+
+Issue #7 extends local completion to match case patterns and do-block continuations. Case binders stay inside their branch; typed do bindings become available after their right-hand side, and a continued `Array.set` exposes its array binding. Editor fixtures cover nested patterns, sibling branches, indentation, inline forms, and incomplete bodies.

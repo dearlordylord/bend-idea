@@ -4,7 +4,7 @@ package com.dearlordylord.bend.idea.symbols.scope
 final case class ScopeToken(text: String, start: Int, end: Int, name: Boolean)
 
 enum BindingOrigin:
-  case Parameter, Lambda, Let
+  case Parameter, Lambda, Let, Pattern, Do
 
 /** A source binder is eligible only in [from, until). Its spelling retains quantity/template syntax. */
 final case class ScopeBinding(name: String, nameOffset: Int, source: String,
@@ -17,7 +17,10 @@ object BendScope:
     val header = tokens.filter(_.start < headerEnd)
     val body = tokens.filter(_.start >= headerEnd)
     val limit = bodyLimit(source, body, headerEnd, declarationEnd)
-    parameterBindings(source, header, limit) ++ bodyBindings(source, body.filter(_.start < limit), limit)
+    val active = body.filter(_.start < limit)
+    val structured = BendStructuredScope.inspect(source, active, limit)
+    parameterBindings(source, header, limit) ++
+      bodyBindings(source, active, limit, structured) ++ structured.bindings
 
   /** The surface parser deliberately retains malformed neighbors; a fresh column-zero line
     * outside delimiters is no longer in this declaration's body.
@@ -64,7 +67,8 @@ object BendScope:
         }
       }.toList
 
-  private def bodyBindings(source: String, tokens: Vector[ScopeToken], end: Int): List[ScopeBinding] =
+  private def bodyBindings(source: String, tokens: Vector[ScopeToken], end: Int,
+      structured: BendStructuredScope.Result): List[ScopeBinding] =
     val out = List.newBuilder[ScopeBinding]
     val enclosing = Array.fill(tokens.size)(end)
     val stack = scala.collection.mutable.ArrayBuffer.empty[Int]
@@ -85,7 +89,7 @@ object BendScope:
         val stop = expressionEnd(source, tokens, i + 1, enclosing(i), end)
         out += ScopeBinding(name.text, name.start, source.substring(quantity, name.end), BindingOrigin.Lambda,
           tokens(i).end, stop)
-      if tokens(i).text == "=" then
+      if tokens(i).text == "=" && !structured.consumedAssignments.contains(i) then
         val start = statementStart(source, tokens, i)
         val left = tokens.slice(start, i)
         val colon = left.indexWhere(_.text == ":")
@@ -96,7 +100,7 @@ object BendScope:
         if valid then
           val boundary = statementEnd(source, tokens, i + 1, enclosing(i), end)
           val from = boundary._1
-          val stop = enclosing(i)
+          val stop = math.min(enclosing(i), structured.regionEnd(tokens(i).start, end))
           binders.foreach { name =>
             val previous = left.indexWhere(_.start == name.start) - 1
             val start = if previous >= 0 && Set("-", "+", "~").contains(left(previous).text) &&

@@ -14,7 +14,7 @@ enum BendSymbolCategory:
   case Definition, Datatype, Law, Constructor, Binder
 
 enum BendBindingKind:
-  case Parameter, Lambda, Let
+  case Parameter, Lambda, Let, Pattern, Do
 
 /** Snapshot-local locator; reacquire the PSI declaration after edits. */
 final case class BendSourceHandle(file: FileId, category: BendSymbolCategory, nameOffset: Int)
@@ -122,7 +122,9 @@ object BendSourceSymbols:
           b.name, b.source, b.origin match
             case BindingOrigin.Parameter => BendBindingKind.Parameter
             case BindingOrigin.Lambda => BendBindingKind.Lambda
-            case BindingOrigin.Let => BendBindingKind.Let,
+            case BindingOrigin.Let => BendBindingKind.Let
+            case BindingOrigin.Pattern => BendBindingKind.Pattern
+            case BindingOrigin.Do => BendBindingKind.Do,
           b.from, b.until))
     }
 
