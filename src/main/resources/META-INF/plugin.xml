@@ -1,12 +1,19 @@
 <idea-plugin>
     <id>com.dearlordylord.bend.idea</id>
-    <name>Bend</name>
+    <name>Bend2</name>
     <vendor url="https://github.com/dearlordylord/bend-idea">dearlordylord</vendor>
     <description><![CDATA[
         Native Bend 2 language support with highlighting, line comments,
         keyword completion and editable snippets.
         Editing support loads without a Bend installation.
     ]]></description>
+    <change-notes><![CDATA[
+<p>Version 0.1.1:</p>
+<ul>
+  <li>Navigate to an imported Bend module from its import path</li>
+  <li>Allow installation on newer IntelliJ IDEA builds; verified with IDEA Ultimate 2026.1</li>
+</ul>
+    ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckingStartup"/>
