@@ -56,7 +56,9 @@ private[architecture] object ArchitectureRules:
         val target = dependency.getTargetClass
         val boundary = Option.when(target.getPackageName.startsWith(root + ".") &&
           !allowed(source, parts(target.getPackageName, root)))(s"A2: ${dependency.getDescription}")
+        // Scala case classes inherit this marker; it grants no file or stream access.
         val effect = Option.when(policyOwners(source.head) &&
+          target.getName != "java.io.Serializable" &&
           forbiddenPolicyDependencies.exists(target.getName.startsWith))(s"A4: ${dependency.getDescription}")
         boundary.toSeq ++ effect.toSeq
       }

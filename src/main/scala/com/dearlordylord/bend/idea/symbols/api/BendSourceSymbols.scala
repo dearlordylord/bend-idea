@@ -1,11 +1,15 @@
 package com.dearlordylord.bend.idea.symbols.api
 
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.workspace.api.BendBaseSource
+import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.psi.*
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens, BendWords}
 import com.dearlordylord.bend.idea.symbols.scope.{BendScope, BindingOrigin, ScopeToken}
 import com.dearlordylord.bend.idea.symbols.declarations.{BendDeclarationSite, BendLawDeclarations, BendLogicalLaw}
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiFileFactory
+import com.intellij.openapi.project.Project
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
 import scala.jdk.CollectionConverters.*
@@ -92,6 +96,13 @@ object BendSourceSymbols:
           )
         }
       }
+
+  /** Parse captured Base text with the same tolerant declaration model as editor files. */
+  def baseDeclarations(project: Project, source: BendBaseSource): List[BendSourceSymbol] =
+    val file = PsiFileFactory.getInstance(project).createFileFromText("base.bend", BendLanguage.instance, source.text)
+    val identity = new FileId(source.identity, true)
+    BendLawDeclarations.completionCandidates(declarations(file))(site)
+      .map(symbol => symbol.copy(handle = symbol.handle.copy(file = identity)))
 
   /** Same-file source links only; a fill never implies a checked or proved law. */
   def logicalLaws(file: PsiFile): List[BendLogicalLaw[BendSourceSymbol]] =

@@ -26,6 +26,12 @@ final class ArchitectureTest:
     assertTrue("Proof scope must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.scope.BendProofScope$"))
     assertTrue("Law relationships must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.declarations.BendLawDeclarations$"))
     assertTrue("Proof surface forms must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.psi.BendProofSurface$"))
+    assertTrue("Toolchain path policy must be inspected", classes.contain("com.dearlordylord.bend.idea.toolchain.api.BendToolchainPaths$"))
+    assertTrue("Base source contract must be inspected", classes.contain("com.dearlordylord.bend.idea.workspace.api.BendBaseSource"))
+    assertTrue("Base import eligibility must be inspected", classes.contain("com.dearlordylord.bend.idea.workspace.api.BendImportLines$"))
+    assertTrue("Base source adapter must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.intellij.BendLibrarySourceService"))
+    assertTrue("Settings storage must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.intellij.BendSettingsStorage"))
+    assertTrue("Settings UI must be inspected", classes.contain("com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"))
     ArchitectureRules.check(classes, "com.dearlordylord.bend.idea")
 
   @Test def rejectsForbiddenCompiledScalaDependencies(): Unit =

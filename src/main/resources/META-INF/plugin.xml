@@ -21,5 +21,12 @@
                   implementationClass="com.dearlordylord.bend.idea.features.editing.BendCommenter"/>
         <completion.contributor language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"/>
+        <applicationService serviceInterface="com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings"
+                            serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendSettingsStorage"/>
+        <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendLibrarySource"
+                        serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendLibrarySourceService"/>
+        <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendBaseSymbolCatalog"/>
+        <applicationConfigurable instance="com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"
+                                 id="com.dearlordylord.bend.idea.settings" displayName="Bend"/>
     </extensions>
 </idea-plugin>

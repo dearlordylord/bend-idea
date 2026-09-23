@@ -1,13 +1,17 @@
 package com.dearlordylord.bend.idea.features.completion
 
 import com.dearlordylord.bend.idea.features.templates.api.BendSnippets
-import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
+import com.dearlordylord.bend.idea.symbols.api.{BendBaseSymbolCatalog, BendSourceSymbols}
+import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
+import com.dearlordylord.bend.idea.workspace.api.{BendBaseState, BendImportLines, BendLibrarySource}
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
 import com.intellij.codeInsight.completion.{CompletionContributor, CompletionParameters, CompletionProvider, CompletionResultSet, CompletionType, InsertionContext}
 import com.intellij.codeInsight.lookup.{LookupElement, LookupElementBuilder}
 import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.patterns.PlatformPatterns.psiElement
 import com.intellij.util.ProcessingContext
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.options.ShowSettingsUtil
 
 /** Bend 2 keywords, snippets and current-file source symbols. */
 final class BendCompletionContributor extends CompletionContributor:
@@ -31,8 +35,10 @@ final class BendCompletionContributor extends CompletionContributor:
         }
         val bindings = BendSourceSymbols.visibleBindings(parameters.getOriginalFile, offset)
         val boundNames = bindings.map(_.name).toSet
-        BendSourceSymbols.visibleCandidates(parameters.getOriginalFile, offset)
-          .filterNot(symbol => boundNames.contains(symbol.name)).foreach { symbol =>
+        val currentCandidates = BendSourceSymbols.visibleCandidates(parameters.getOriginalFile, offset)
+          .filterNot(symbol => boundNames.contains(symbol.name))
+        val currentKeys = currentCandidates.map(symbol => (symbol.name, symbol.category)).toSet
+        currentCandidates.foreach { symbol =>
           val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
           val comments = symbol.comments.replaceAll("\\s+", " ").trim
           val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
@@ -40,6 +46,64 @@ final class BendCompletionContributor extends CompletionContributor:
             .withTailText(tail, true)
             .withTypeText(symbol.category.toString.toLowerCase))
         }
+        val selected = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).selection
+        val base = parameters.getOriginalFile.getProject.getService(classOf[BendLibrarySource])
+          .base(selected.baseSource, selected.configurationRevision)
+        base match
+          case BendBaseState.Available(snapshot) if BendImportLines.importsBase(source) =>
+            val qualified = BendCompletionContributor.qualifiedMember(source, offset)
+            parameters.getOriginalFile.getProject.getService(classOf[BendBaseSymbolCatalog])
+              .declarations(snapshot).foreach { symbol =>
+              val full = symbol.name
+              val member = qualified.flatMap { case (prefix, _) =>
+                Option.when(full.startsWith(prefix + "."))(full.drop(prefix.length + 1))
+              }
+              if (qualified.isEmpty || member.nonEmpty) &&
+                  !currentKeys.contains((symbol.name, symbol.category)) &&
+                  !boundNames.contains(symbol.name) then
+                val lookup = member.getOrElse(full)
+                val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
+                val comments = symbol.comments.replaceAll("\\s+", " ").trim
+                val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
+                val builder = LookupElementBuilder.create(lookup)
+                  .withPresentableText(full)
+                  .withTailText(tail, true)
+                  .withTypeText("Base " + symbol.category.toString.toLowerCase)
+                  .withInsertHandler((insertion: InsertionContext, _: LookupElement) =>
+                    val document = insertion.getDocument
+                    val start = insertion.getStartOffset
+                    val end = insertion.getTailOffset
+                    val lineStart = document.getText.lastIndexOf('\n', start - 1) + 1
+                    val before = document.getText.substring(lineStart, start)
+                    val replacement = qualified match
+                      case Some((prefix, _)) if before.endsWith(prefix + ".") => lookup
+                      case _ => full
+                    document.replaceString(start, end, replacement)
+                    var suffixEnd = start + replacement.length
+                    while suffixEnd < document.getTextLength &&
+                        (document.getCharsSequence.charAt(suffixEnd).isLetterOrDigit ||
+                          document.getCharsSequence.charAt(suffixEnd) == '_') do suffixEnd += 1
+                    if suffixEnd > start + replacement.length then
+                      document.deleteString(start + replacement.length, suffixEnd)
+                    insertion.getEditor.getCaretModel.moveToOffset(start + replacement.length)
+                  )
+                val target = qualified match
+                  case Some((_, memberPrefix)) => result.withPrefixMatcher(memberPrefix)
+                  case None => result
+                target.addElement(builder)
+            }
+          case BendBaseState.Missing(path) if Set(BendCompletionContributor.Site.Body,
+              BendCompletionContributor.Site.Do, BendCompletionContributor.Site.Match,
+              BendCompletionContributor.Site.Qualified).contains(site) =>
+            result.withPrefixMatcher("").addElement(
+              LookupElementBuilder.create("Configure Bend Base…")
+                .withTailText("  Base source unavailable: " + path, true)
+                .withTypeText("Bend setup")
+                .withInsertHandler((insertion: InsertionContext, _: LookupElement) =>
+                  insertion.getDocument.deleteString(insertion.getStartOffset, insertion.getTailOffset)
+                  ShowSettingsUtil.getInstance().showSettingsDialog(insertion.getProject, "Bend")
+                ))
+          case _ => ()
         bindings.foreach { binding =>
           val detail = binding.sourceSpecification match
             case Some(specification) => s"${binding.source}: $specification (law)"
@@ -84,19 +148,25 @@ object BendCompletionContributor:
   private val typeHeaderWords = List("is")
   private val typeWords = List("Type", "Data", "Kind", "Quant")
 
+  private def qualifiedMember(source: String, offset: Int): Option[(String, String)] =
+    val before = source.substring(source.lastIndexOf('\n', offset - 1) + 1, offset)
+    "([A-Za-z_][A-Za-z0-9_.]*)\\.([A-Za-z0-9_]*)$".r.findFirstMatchIn(before)
+      .map(m => (m.group(1), m.group(2)))
+
   private def context(source: String, offset: Int): Option[Site] =
     if offset < 0 || offset > source.length || inNonCode(source, offset) then None
     else
       val lineStart = source.lastIndexOf('\n', offset - 1) + 1
       val before = source.substring(lineStart, offset)
       // A declaration name, import path/alias, or qualified name is not a keyword site.
-      if before.endsWith(".") then Some(Site.Qualified)
-      else if before.matches("\\s*(?:for|exs)\\s+[A-Za-z_][A-Za-z0-9_.]*\\s*:\\s*[A-Za-z_]*") then Some(Site.Type)
+      if before.matches("\\s*(?:for|exs)\\s+[A-Za-z_][A-Za-z0-9_.]*\\s*:\\s*[A-Za-z_]*") then Some(Site.Type)
       else if before.matches(".*[({][^)}]*:\\s*[A-Za-z_]*") then Some(Site.Type)
       else if before.matches("\\s*@unsafe\\s+[A-Za-z_]*") then Some(Site.TopLevel)
       else if before.matches("\\s*type\\s+[A-Za-z_][A-Za-z0-9_.]*\\s+is\\s+.*") then Some(Site.Type)
       else if before.matches("\\s*type\\s+[A-Za-z_][A-Za-z0-9_.]*\\s+") then Some(Site.TypeHeader)
       else if before.matches("\\s*(?:@unsafe\\s+)?def\\s+.*->\\s*[A-Za-z_]*") then Some(Site.Type)
+      else if before.matches("\\s*(?:@unsafe\\s+)?(?:def|type|law|import)\\s+.*") then None
+      else if qualifiedMember(source, offset).nonEmpty then Some(Site.Qualified)
       else if before.matches(".*\\b(?:def|type|law|import)\\s+[^:]*") then None
       else if before.matches("\\s*law\\s+.*") then Some(Site.Law)
       else if before.matches("\\s*type\\s+.*") then Some(Site.Type)
