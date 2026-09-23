@@ -13,6 +13,8 @@ final class ArchitectureTest:
     val classes = new ClassFileImporter().importPaths(paths*)
     assertTrue("The actual Scala production output must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.BendFileType"))
     assertTrue("Scala companion bytecode must also be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.BendLanguage$"))
+    assertTrue("The shared lexer boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.lexer.BendLexer"))
+    assertTrue("The editing feature boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.editing.BendCommenter"))
     ArchitectureRules.check(classes, "com.dearlordylord.bend.idea")
 
   @Test def rejectsForbiddenCompiledScalaDependencies(): Unit =

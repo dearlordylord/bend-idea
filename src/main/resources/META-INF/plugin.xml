@@ -3,13 +3,20 @@
     <name>Bend</name>
     <vendor url="https://github.com/dearlordylord/bend-idea">dearlordylord</vendor>
     <description><![CDATA[
-        Native Bend 2 language support. This initial scaffold recognizes .bend files
-        and supplies file icons. Editing support loads without a Bend installation.
+        Native Bend 2 language support with highlighting and line comments.
+        Editing support loads without a Bend installation.
     ]]></description>
     <depends>com.intellij.modules.platform</depends>
     <extensions defaultExtensionNs="com.intellij">
         <fileType name="Bend" language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.syntax.BendFileType"
                   extensions="bend"/>
+        <lang.parserDefinition language="Bend"
+                  implementationClass="com.dearlordylord.bend.idea.syntax.BendParserDefinition"/>
+        <lang.syntaxHighlighterFactory language="Bend"
+                  implementationClass="com.dearlordylord.bend.idea.syntax.lexer.BendSyntaxHighlighterFactory"/>
+        <colorSettingsPage implementation="com.dearlordylord.bend.idea.syntax.lexer.BendColorSettingsPage"/>
+        <lang.commenter language="Bend"
+                  implementationClass="com.dearlordylord.bend.idea.features.editing.BendCommenter"/>
     </extensions>
 </idea-plugin>

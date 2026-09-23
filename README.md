@@ -1,6 +1,6 @@
 # Bend IDEA
 
-A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. The initial scaffold recognizes `.bend` files and supplies light/dark file icons. Parsing, highlighting, completion and compiler integration follow in later issues.
+A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, and supports standard hash line commenting. Declaration parsing, completion and compiler integration follow in later issues.
 
 - [Implementation specification and roadmap](https://github.com/dearlordylord/bend-idea/issues/1)
 - [Language and platform design investigation](BEND_IDEA_DESIGN.md)
@@ -56,3 +56,5 @@ Keep the rule graph synchronized with ARCHITECTURE.md when adding packages or ch
 ## Sandbox smoke check
 
 Launch `runIde`, open an `example.bend` file, and confirm the Bend file type and icon in both light and dark themes. Confirm the plugin loads without installing the Scala plugin or a Bend/JavaScript toolchain. Close the sandbox when finished. The automated editor fixture separately checks registered file recognition, preserved editor contents and both icon resources; Plugin Verifier checks binary compatibility.
+
+Issue #3 adds a restartable UTF-16 lexer, configurable Bend token colors and the standard hash line-comment action. The editor fixtures exercise highlighting after an edit inside a string, comment toggling including the last line without a newline, and undo through the IntelliJ action. The parser definition currently supplies a token tree; tolerant declaration PSI is owned by issue #5.
