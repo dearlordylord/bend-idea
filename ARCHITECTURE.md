@@ -381,6 +381,8 @@ The following rule IDs are stable review references. Their detailed meaning is d
 
 ### Build enforcement
 
+Build against the oldest supported IntelliJ Platform (currently 2025.1) and leave `until-build` unset, matching the Quint IDEA plugin's open-ended range. Verify the pinned oldest IDE and current target IDEs, including IDEA Ultimate 2026.1. A future IDE may install an open-ended build, but support for that release requires fresh verifier and editor-fixture evidence; do not infer it from the absence of a ceiling.
+
 The scaffold now provides `check`, `architectureTest`, `buildPlugin`, `verifyPlugin` and a CI workflow. The compiled rules live in [ArchitectureRules.scala](src/test/scala/com/dearlordylord/bend/idea/architecture/ArchitectureRules.scala); [README.md](README.md) documents the pinned toolchain and commands. Maintain the following gates as implementation grows:
 
 - The #2 scaffold establishes Scala compilation, an actual file-recognition fixture, distribution verification and a CI entry point. Its `architectureTest` task runs as part of `check`.

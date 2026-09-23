@@ -58,10 +58,12 @@ intellijPlatform {
         version = project.version.toString()
         ideaVersion {
             sinceBuild = "251"
-            untilBuild = "251.*"
         }
     }
     pluginVerification {
-        ides { create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1") }
+        ides {
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1")
+            create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2026.1")
+        }
     }
 }
