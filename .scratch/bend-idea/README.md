@@ -19,51 +19,51 @@ The user approved this 46-ticket breakdown and its blocking edges. The tickets a
 
 ## Tickets
 
-| Ticket | Technical blockers | Priority group |
-|---|---|---|
-| [01: Recognize Bend files](issues/01-recognize-bend-files.md) | None | VS Code |
-| [02: Highlight and comment Bend code](issues/02-highlight-and-comment-bend-code.md) | [01](issues/01-recognize-bend-files.md) | VS Code |
-| [03: Complete keywords and expand snippets](issues/03-complete-keywords-and-expand-snippets.md) | [02](issues/02-highlight-and-comment-bend-code.md) | VS Code |
-| [04: Complete current-file declarations](issues/04-complete-current-file-declarations.md) | [03](issues/03-complete-keywords-and-expand-snippets.md) | VS Code |
-| [05: Complete parameters, lambdas and local bindings](issues/05-complete-parameters-lambdas-and-local-bindings.md) | [04](issues/04-complete-current-file-declarations.md) | VS Code |
-| [06: Complete match and do-block bindings](issues/06-complete-match-and-do-block-bindings.md) | [05](issues/05-complete-parameters-lambdas-and-local-bindings.md) | VS Code |
-| [07: Complete laws and proof bindings](issues/07-complete-laws-and-proof-bindings.md) | [06](issues/06-complete-match-and-do-block-bindings.md) | VS Code |
-| [08: Configure libraries and complete Base names](issues/08-configure-libraries-and-complete-base-names.md) | [07](issues/07-complete-laws-and-proof-bindings.md) | VS Code |
-| [09: Complete imported and qualified names](issues/09-complete-imported-and-qualified-names.md) | [08](issues/08-configure-libraries-and-complete-base-names.md) | VS Code |
-| [10: Complete module import paths](issues/10-complete-module-import-paths.md) | [09](issues/09-complete-imported-and-qualified-names.md) | VS Code |
-| [11: Check a single unsaved file explicitly](issues/11-check-a-single-unsaved-file-explicitly.md) | [08](issues/08-configure-libraries-and-complete-base-names.md) | VS Code |
-| [12: Check unsaved dependency graphs](issues/12-check-unsaved-dependency-graphs.md) | [09](issues/09-complete-imported-and-qualified-names.md), [11](issues/11-check-a-single-unsaved-file-explicitly.md) | VS Code |
-| [13: Check automatically after edits](issues/13-check-automatically-after-edits.md) | [12](issues/12-check-unsaved-dependency-graphs.md) | VS Code |
-| [14: Assist brace and quote editing](issues/14-assist-brace-and-quote-editing.md) | [07](issues/07-complete-laws-and-proof-bindings.md) | Quint IDEA |
-| [15: Fold code and browse file structure](issues/15-fold-code-and-browse-file-structure.md) | [07](issues/07-complete-laws-and-proof-bindings.md) | Quint IDEA |
-| [16: Navigate to declarations](issues/16-navigate-to-declarations.md) | [09](issues/09-complete-imported-and-qualified-names.md) | Quint IDEA |
-| [17: Show Quick Documentation](issues/17-show-quick-documentation.md) | [16](issues/16-navigate-to-declarations.md) | Quint IDEA |
-| [18: Find and highlight usages](issues/18-find-and-highlight-usages.md) | [16](issues/16-navigate-to-declarations.md) | Quint IDEA |
-| [19: Indent on Enter and Backspace](issues/19-indent-on-enter-and-backspace.md) | [07](issues/07-complete-laws-and-proof-bindings.md), [14](issues/14-assist-brace-and-quote-editing.md) | Quint IDEA |
-| [20: Reformat conservatively](issues/20-reformat-conservatively.md) | [19](issues/19-indent-on-enter-and-backspace.md) | Quint IDEA |
-| [21: Rename locals and aliases](issues/21-rename-locals-and-aliases.md) | [18](issues/18-find-and-highlight-usages.md) | Quint IDEA |
-| [22: Rename declarations and paired laws](issues/22-rename-declarations-and-paired-laws.md) | [21](issues/21-rename-locals-and-aliases.md) | Quint IDEA |
-| [23: Search workspace symbols](issues/23-search-workspace-symbols.md) | [16](issues/16-navigate-to-declarations.md) | Native additions |
-| [24: Show parameter information](issues/24-show-parameter-information.md) | [17](issues/17-show-quick-documentation.md) | Native additions |
-| [25: Improve semantic reading and selection](issues/25-improve-semantic-reading-and-selection.md) | [15](issues/15-fold-code-and-browse-file-structure.md), [16](issues/16-navigate-to-declarations.md) | Native additions |
-| [26: Show optional parameter-name hints](issues/26-show-optional-parameter-name-hints.md) | [24](issues/24-show-parameter-information.md) | Native additions |
-| [27: Select and check proof roots](issues/27-select-and-check-proof-roots.md) | [13](issues/13-check-automatically-after-edits.md) | Bend workflows |
-| [28: Navigate between laws, proofs and holes](issues/28-navigate-between-laws-proofs-and-holes.md) | [18](issues/18-find-and-highlight-usages.md), [27](issues/27-select-and-check-proof-roots.md) | Bend workflows |
-| [29: Generate a law implementation skeleton](issues/29-generate-a-law-implementation-skeleton.md) | [28](issues/28-navigate-between-laws-proofs-and-holes.md) | Bend workflows |
-| [30: Generate simple match cases](issues/30-generate-simple-match-cases.md) | [24](issues/24-show-parameter-information.md) | Bend workflows |
-| [31: Browse proof progress](issues/31-browse-proof-progress.md) | [28](issues/28-navigate-between-laws-proofs-and-holes.md) | Bend workflows |
-| [32: Run Bend explicitly](issues/32-run-bend-explicitly.md) | [12](issues/12-check-unsaved-dependency-graphs.md) | Bend workflows |
-| [33: Build and inspect generated output](issues/33-build-and-inspect-generated-output.md) | [32](issues/32-run-bend-explicitly.md) | Bend workflows |
-| [34: Complete and navigate foreign imports](issues/34-complete-and-navigate-foreign-imports.md) | [16](issues/16-navigate-to-declarations.md) | Bend workflows |
-| [35: Move and rename source files](issues/35-move-and-rename-source-files.md) | [22](issues/22-rename-declarations-and-paired-laws.md), [34](issues/34-complete-and-navigate-foreign-imports.md) | Bend workflows |
-| [36: Import a selected symbol explicitly](issues/36-import-a-selected-symbol-explicitly.md) | [23](issues/23-search-workspace-symbols.md) | Bend workflows |
-| [37: Inspect static dependencies](issues/37-inspect-static-dependencies.md) | [18](issues/18-find-and-highlight-usages.md), [23](issues/23-search-workspace-symbols.md) | Bend workflows |
-| [38: Create conventional files from templates](issues/38-create-conventional-files-from-templates.md) | [03](issues/03-complete-keywords-and-expand-snippets.md), [29](issues/29-generate-a-law-implementation-skeleton.md) | Bend workflows |
-| [39: Spellcheck comments and strings](issues/39-spellcheck-comments-and-strings.md) | [02](issues/02-highlight-and-comment-bend-code.md) | Bend workflows |
-| [40: Show structured compiler diagnostics](issues/40-show-structured-compiler-diagnostics.md) | [12](issues/12-check-unsaved-dependency-graphs.md) | Semantic assistance |
-| [41: Inspect compiler-provided goals and context](issues/41-inspect-compiler-provided-goals-and-context.md) | [28](issues/28-navigate-between-laws-proofs-and-holes.md), [40](issues/40-show-structured-compiler-diagnostics.md) | Semantic assistance |
-| [42: Inspect actual expression types](issues/42-inspect-actual-expression-types.md) | [17](issues/17-show-quick-documentation.md), [40](issues/40-show-structured-compiler-diagnostics.md) | Semantic assistance |
-| [43: Complete against an expected type](issues/43-complete-against-an-expected-type.md) | [09](issues/09-complete-imported-and-qualified-names.md), [41](issues/41-inspect-compiler-provided-goals-and-context.md), [42](issues/42-inspect-actual-expression-types.md) | Semantic assistance |
-| [44: Explain resource availability](issues/44-explain-resource-availability.md) | [41](issues/41-inspect-compiler-provided-goals-and-context.md), [42](issues/42-inspect-actual-expression-types.md) | Semantic assistance |
-| [45: Try simple proof edits](issues/45-try-simple-proof-edits.md) | [29](issues/29-generate-a-law-implementation-skeleton.md), [41](issues/41-inspect-compiler-provided-goals-and-context.md) | Semantic assistance |
-| [46: Normalize an expression explicitly](issues/46-normalize-an-expression-explicitly.md) | [40](issues/40-show-structured-compiler-diagnostics.md), [42](issues/42-inspect-actual-expression-types.md) | Semantic assistance |
+| Ticket | GitHub issue | Technical blockers | Priority group |
+|---|---|---|---|
+| [01: Recognize Bend files](issues/01-recognize-bend-files.md) | [#2](https://github.com/dearlordylord/bend-idea/issues/2) | None | VS Code |
+| [02: Highlight and comment Bend code](issues/02-highlight-and-comment-bend-code.md) | [#3](https://github.com/dearlordylord/bend-idea/issues/3) | [#2](https://github.com/dearlordylord/bend-idea/issues/2) | VS Code |
+| [03: Complete keywords and expand snippets](issues/03-complete-keywords-and-expand-snippets.md) | [#4](https://github.com/dearlordylord/bend-idea/issues/4) | [#3](https://github.com/dearlordylord/bend-idea/issues/3) | VS Code |
+| [04: Complete current-file declarations](issues/04-complete-current-file-declarations.md) | [#5](https://github.com/dearlordylord/bend-idea/issues/5) | [#4](https://github.com/dearlordylord/bend-idea/issues/4) | VS Code |
+| [05: Complete parameters, lambdas and local bindings](issues/05-complete-parameters-lambdas-and-local-bindings.md) | [#6](https://github.com/dearlordylord/bend-idea/issues/6) | [#5](https://github.com/dearlordylord/bend-idea/issues/5) | VS Code |
+| [06: Complete match and do-block bindings](issues/06-complete-match-and-do-block-bindings.md) | [#7](https://github.com/dearlordylord/bend-idea/issues/7) | [#6](https://github.com/dearlordylord/bend-idea/issues/6) | VS Code |
+| [07: Complete laws and proof bindings](issues/07-complete-laws-and-proof-bindings.md) | [#8](https://github.com/dearlordylord/bend-idea/issues/8) | [#7](https://github.com/dearlordylord/bend-idea/issues/7) | VS Code |
+| [08: Configure libraries and complete Base names](issues/08-configure-libraries-and-complete-base-names.md) | [#9](https://github.com/dearlordylord/bend-idea/issues/9) | [#8](https://github.com/dearlordylord/bend-idea/issues/8) | VS Code |
+| [09: Complete imported and qualified names](issues/09-complete-imported-and-qualified-names.md) | [#10](https://github.com/dearlordylord/bend-idea/issues/10) | [#9](https://github.com/dearlordylord/bend-idea/issues/9) | VS Code |
+| [10: Complete module import paths](issues/10-complete-module-import-paths.md) | [#11](https://github.com/dearlordylord/bend-idea/issues/11) | [#10](https://github.com/dearlordylord/bend-idea/issues/10) | VS Code |
+| [11: Check a single unsaved file explicitly](issues/11-check-a-single-unsaved-file-explicitly.md) | [#12](https://github.com/dearlordylord/bend-idea/issues/12) | [#9](https://github.com/dearlordylord/bend-idea/issues/9) | VS Code |
+| [12: Check unsaved dependency graphs](issues/12-check-unsaved-dependency-graphs.md) | [#13](https://github.com/dearlordylord/bend-idea/issues/13) | [#10](https://github.com/dearlordylord/bend-idea/issues/10), [#12](https://github.com/dearlordylord/bend-idea/issues/12) | VS Code |
+| [13: Check automatically after edits](issues/13-check-automatically-after-edits.md) | [#14](https://github.com/dearlordylord/bend-idea/issues/14) | [#13](https://github.com/dearlordylord/bend-idea/issues/13) | VS Code |
+| [14: Assist brace and quote editing](issues/14-assist-brace-and-quote-editing.md) | [#15](https://github.com/dearlordylord/bend-idea/issues/15) | [#8](https://github.com/dearlordylord/bend-idea/issues/8) | Quint IDEA |
+| [15: Fold code and browse file structure](issues/15-fold-code-and-browse-file-structure.md) | [#16](https://github.com/dearlordylord/bend-idea/issues/16) | [#8](https://github.com/dearlordylord/bend-idea/issues/8) | Quint IDEA |
+| [16: Navigate to declarations](issues/16-navigate-to-declarations.md) | [#17](https://github.com/dearlordylord/bend-idea/issues/17) | [#10](https://github.com/dearlordylord/bend-idea/issues/10) | Quint IDEA |
+| [17: Show Quick Documentation](issues/17-show-quick-documentation.md) | [#18](https://github.com/dearlordylord/bend-idea/issues/18) | [#17](https://github.com/dearlordylord/bend-idea/issues/17) | Quint IDEA |
+| [18: Find and highlight usages](issues/18-find-and-highlight-usages.md) | [#19](https://github.com/dearlordylord/bend-idea/issues/19) | [#17](https://github.com/dearlordylord/bend-idea/issues/17) | Quint IDEA |
+| [19: Indent on Enter and Backspace](issues/19-indent-on-enter-and-backspace.md) | [#20](https://github.com/dearlordylord/bend-idea/issues/20) | [#8](https://github.com/dearlordylord/bend-idea/issues/8), [#15](https://github.com/dearlordylord/bend-idea/issues/15) | Quint IDEA |
+| [20: Reformat conservatively](issues/20-reformat-conservatively.md) | [#21](https://github.com/dearlordylord/bend-idea/issues/21) | [#20](https://github.com/dearlordylord/bend-idea/issues/20) | Quint IDEA |
+| [21: Rename locals and aliases](issues/21-rename-locals-and-aliases.md) | [#22](https://github.com/dearlordylord/bend-idea/issues/22) | [#19](https://github.com/dearlordylord/bend-idea/issues/19) | Quint IDEA |
+| [22: Rename declarations and paired laws](issues/22-rename-declarations-and-paired-laws.md) | [#23](https://github.com/dearlordylord/bend-idea/issues/23) | [#22](https://github.com/dearlordylord/bend-idea/issues/22) | Quint IDEA |
+| [23: Search workspace symbols](issues/23-search-workspace-symbols.md) | [#24](https://github.com/dearlordylord/bend-idea/issues/24) | [#17](https://github.com/dearlordylord/bend-idea/issues/17) | Native additions |
+| [24: Show parameter information](issues/24-show-parameter-information.md) | [#25](https://github.com/dearlordylord/bend-idea/issues/25) | [#18](https://github.com/dearlordylord/bend-idea/issues/18) | Native additions |
+| [25: Improve semantic reading and selection](issues/25-improve-semantic-reading-and-selection.md) | [#26](https://github.com/dearlordylord/bend-idea/issues/26) | [#16](https://github.com/dearlordylord/bend-idea/issues/16), [#17](https://github.com/dearlordylord/bend-idea/issues/17) | Native additions |
+| [26: Show optional parameter-name hints](issues/26-show-optional-parameter-name-hints.md) | [#27](https://github.com/dearlordylord/bend-idea/issues/27) | [#25](https://github.com/dearlordylord/bend-idea/issues/25) | Native additions |
+| [27: Select and check proof roots](issues/27-select-and-check-proof-roots.md) | [#28](https://github.com/dearlordylord/bend-idea/issues/28) | [#14](https://github.com/dearlordylord/bend-idea/issues/14) | Bend workflows |
+| [28: Navigate between laws, proofs and holes](issues/28-navigate-between-laws-proofs-and-holes.md) | [#29](https://github.com/dearlordylord/bend-idea/issues/29) | [#19](https://github.com/dearlordylord/bend-idea/issues/19), [#28](https://github.com/dearlordylord/bend-idea/issues/28) | Bend workflows |
+| [29: Generate a law implementation skeleton](issues/29-generate-a-law-implementation-skeleton.md) | [#30](https://github.com/dearlordylord/bend-idea/issues/30) | [#29](https://github.com/dearlordylord/bend-idea/issues/29) | Bend workflows |
+| [30: Generate simple match cases](issues/30-generate-simple-match-cases.md) | [#31](https://github.com/dearlordylord/bend-idea/issues/31) | [#25](https://github.com/dearlordylord/bend-idea/issues/25) | Bend workflows |
+| [31: Browse proof progress](issues/31-browse-proof-progress.md) | [#32](https://github.com/dearlordylord/bend-idea/issues/32) | [#29](https://github.com/dearlordylord/bend-idea/issues/29) | Bend workflows |
+| [32: Run Bend explicitly](issues/32-run-bend-explicitly.md) | [#33](https://github.com/dearlordylord/bend-idea/issues/33) | [#13](https://github.com/dearlordylord/bend-idea/issues/13) | Bend workflows |
+| [33: Build and inspect generated output](issues/33-build-and-inspect-generated-output.md) | [#34](https://github.com/dearlordylord/bend-idea/issues/34) | [#33](https://github.com/dearlordylord/bend-idea/issues/33) | Bend workflows |
+| [34: Complete and navigate foreign imports](issues/34-complete-and-navigate-foreign-imports.md) | [#35](https://github.com/dearlordylord/bend-idea/issues/35) | [#17](https://github.com/dearlordylord/bend-idea/issues/17) | Bend workflows |
+| [35: Move and rename source files](issues/35-move-and-rename-source-files.md) | [#36](https://github.com/dearlordylord/bend-idea/issues/36) | [#23](https://github.com/dearlordylord/bend-idea/issues/23), [#35](https://github.com/dearlordylord/bend-idea/issues/35) | Bend workflows |
+| [36: Import a selected symbol explicitly](issues/36-import-a-selected-symbol-explicitly.md) | [#37](https://github.com/dearlordylord/bend-idea/issues/37) | [#24](https://github.com/dearlordylord/bend-idea/issues/24) | Bend workflows |
+| [37: Inspect static dependencies](issues/37-inspect-static-dependencies.md) | [#38](https://github.com/dearlordylord/bend-idea/issues/38) | [#19](https://github.com/dearlordylord/bend-idea/issues/19), [#24](https://github.com/dearlordylord/bend-idea/issues/24) | Bend workflows |
+| [38: Create conventional files from templates](issues/38-create-conventional-files-from-templates.md) | [#39](https://github.com/dearlordylord/bend-idea/issues/39) | [#4](https://github.com/dearlordylord/bend-idea/issues/4), [#30](https://github.com/dearlordylord/bend-idea/issues/30) | Bend workflows |
+| [39: Spellcheck comments and strings](issues/39-spellcheck-comments-and-strings.md) | [#40](https://github.com/dearlordylord/bend-idea/issues/40) | [#3](https://github.com/dearlordylord/bend-idea/issues/3) | Bend workflows |
+| [40: Show structured compiler diagnostics](issues/40-show-structured-compiler-diagnostics.md) | [#41](https://github.com/dearlordylord/bend-idea/issues/41) | [#13](https://github.com/dearlordylord/bend-idea/issues/13) | Semantic assistance |
+| [41: Inspect compiler-provided goals and context](issues/41-inspect-compiler-provided-goals-and-context.md) | [#42](https://github.com/dearlordylord/bend-idea/issues/42) | [#29](https://github.com/dearlordylord/bend-idea/issues/29), [#41](https://github.com/dearlordylord/bend-idea/issues/41) | Semantic assistance |
+| [42: Inspect actual expression types](issues/42-inspect-actual-expression-types.md) | [#43](https://github.com/dearlordylord/bend-idea/issues/43) | [#18](https://github.com/dearlordylord/bend-idea/issues/18), [#41](https://github.com/dearlordylord/bend-idea/issues/41) | Semantic assistance |
+| [43: Complete against an expected type](issues/43-complete-against-an-expected-type.md) | [#44](https://github.com/dearlordylord/bend-idea/issues/44) | [#10](https://github.com/dearlordylord/bend-idea/issues/10), [#42](https://github.com/dearlordylord/bend-idea/issues/42), [#43](https://github.com/dearlordylord/bend-idea/issues/43) | Semantic assistance |
+| [44: Explain resource availability](issues/44-explain-resource-availability.md) | [#45](https://github.com/dearlordylord/bend-idea/issues/45) | [#42](https://github.com/dearlordylord/bend-idea/issues/42), [#43](https://github.com/dearlordylord/bend-idea/issues/43) | Semantic assistance |
+| [45: Try simple proof edits](issues/45-try-simple-proof-edits.md) | [#46](https://github.com/dearlordylord/bend-idea/issues/46) | [#30](https://github.com/dearlordylord/bend-idea/issues/30), [#42](https://github.com/dearlordylord/bend-idea/issues/42) | Semantic assistance |
+| [46: Normalize an expression explicitly](issues/46-normalize-an-expression-explicitly.md) | [#47](https://github.com/dearlordylord/bend-idea/issues/47) | [#41](https://github.com/dearlordylord/bend-idea/issues/41), [#43](https://github.com/dearlordylord/bend-idea/issues/43) | Semantic assistance |
