@@ -1,5 +1,6 @@
 package com.dearlordylord.bend.idea.features.checking
 
+import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
 import com.dearlordylord.bend.idea.analysis.model.{BendCheckOutcome, BendCheckSnapshot, BendCompleteness}
 import com.dearlordylord.bend.idea.model.FileId
@@ -21,12 +22,11 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
     original = settings.choices
     directory = Files.createTempDirectory("bend-check-editor-")
-    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
+    val compiler = RealBendCompilerFixture.inputs
     val executable = directory.resolve("bend")
-    Files.writeString(executable, "#!/bin/sh\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-    executable.toFile.setExecutable(true)
+    compiler.writeLauncher(executable)
     val selectedBase = directory.resolve("base.bend")
-    Files.copy(pinned.resolveSibling("base.bend"), selectedBase)
+    Files.copy(compiler.base, selectedBase)
     settings.update(BendToolchainChoices(executable = executable.toString,
       baseSource = selectedBase.toString))
 

@@ -1,4 +1,5 @@
 .references/
+/_ci/bend/
 .gradle/
 .intellijPlatform/
 build/

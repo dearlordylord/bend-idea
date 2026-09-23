@@ -13,16 +13,14 @@ import org.junit.Test
 
 /** Exercises the pinned Bend checker against closed, unsaved source graphs. */
 final class BendCliGraphCheckTest:
-  private val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
-  private val base = pinned.resolveSibling("base.bend")
+  private lazy val compiler = RealBendCompilerFixture.inputs
+  private def base: Path = compiler.base
 
   private def fixture(run: (Path, Path) => Unit): Unit =
     val directory = Files.createTempDirectory("bend-graph-check-")
     try
       val executable = directory.resolve("bend")
-      Files.writeString(executable,
-        "#!/bin/sh\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-      executable.toFile.setExecutable(true)
+      compiler.writeLauncher(executable)
       run(directory, executable)
     finally
       val files = Files.walk(directory)

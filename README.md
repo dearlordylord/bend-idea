@@ -35,6 +35,14 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 
 Checking requires a Bend executable with documented `--check-only` support. If the executable, Base, or another required capability is unavailable, the plugin reports that state instead of treating the file as successfully checked.
 
+The real compiler tests in `./gradlew check` require `BEND_TEST_COMPILER_DIR` to name a clean Bend checkout and `BEND_TEST_BUN` to name an absolute Bun executable. The approved Bend commit and the exact Bun version/revision are recorded in [`ci/bend-test-toolchain.properties`](ci/bend-test-toolchain.properties); the test gate fails before running tests if either supplied input is missing or mismatched. CI checks Bend out separately under `_ci/bend`, provisions Bun at the recorded release, and logs both inputs before the gate. Local test runs can use any clean checkout of the recorded Bend commit and Bun executable matching the recorded version and revision; supplied `.references` checkouts are not changed.
+
+```sh
+BEND_TEST_COMPILER_DIR=/absolute/path/to/bend \
+BEND_TEST_BUN=/absolute/path/to/bun \
+  ./gradlew check
+```
+
 ## Planned
 
 - **Editor structure:** brace and quote assistance, folding, structure view, indentation, and conservative formatting.

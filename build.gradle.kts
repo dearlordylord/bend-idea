@@ -1,4 +1,5 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import java.util.Properties
 
 plugins {
     scala
@@ -24,6 +25,25 @@ dependencies {
     testImplementation("com.tngtech.archunit:archunit:1.4.1")
 }
 
+val bendTestToolchainPins = Properties().apply {
+    file("ci/bend-test-toolchain.properties").inputStream().use(::load)
+}
+fun bendTestPin(name: String): String = requireNotNull(bendTestToolchainPins.getProperty(name)) {
+    "Missing '$name' in ci/bend-test-toolchain.properties."
+}.trim().also { require(it.isNotEmpty()) { "Empty '$name' in ci/bend-test-toolchain.properties." } }
+
+val expectedBendCommit = bendTestPin("bend.commit")
+val expectedBunVersion = bendTestPin("bun.version")
+val expectedBunRevision = bendTestPin("bun.revision")
+
+val verifyBendTestInputs by tasks.registering(Exec::class) {
+    description = "Verifies the pinned real Bend compiler and Bun test inputs."
+    group = "verification"
+    workingDir = rootDir
+    commandLine("bash", file("ci/verify-bend-test-inputs.sh").absolutePath)
+    outputs.upToDateWhen { false }
+}
+
 java {
     toolchain { languageVersion.set(JavaLanguageVersion.of(21)) }
 }
@@ -36,6 +56,10 @@ tasks.test {
     useJUnit()
     exclude("**/architecture/**")
     systemProperty("java.awt.headless", "true")
+    systemProperty("bend.test.expectedBendCommit", expectedBendCommit)
+    systemProperty("bend.test.expectedBunVersion", expectedBunVersion)
+    systemProperty("bend.test.expectedBunRevision", expectedBunRevision)
+    dependsOn(verifyBendTestInputs)
 }
 
 val architectureTest by tasks.registering(Test::class) {

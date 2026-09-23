@@ -10,16 +10,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** Uses the pinned compiler source via Bun; the installed older binary is a negative probe. */
 final class BendCliCheckBackendTest:
-  private val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
-  private val base = pinned.resolveSibling("base.bend")
+  private lazy val compiler = RealBendCompilerFixture.inputs
 
   private def withCompiler(run: Path => Unit): Unit =
     val directory = Files.createTempDirectory("bend-check-test-")
     try
       val executable = directory.resolve("bend")
-      Files.writeString(executable,
-        "#!/bin/sh\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-      executable.toFile.setExecutable(true)
+      compiler.writeLauncher(executable)
       run(executable)
     finally
       val paths = Files.walk(directory)
@@ -28,7 +25,7 @@ final class BendCliCheckBackendTest:
 
   private def snapshot(executable: Path, text: String, original: Path): BendCheckSnapshot =
     BendCheckSnapshot(new FileId(original.toString, false), original.toString,
-      text, 4L, BendToolchainSelection(executable.toString, base.toString, "", true, 1L))
+      text, 4L, BendToolchainSelection(executable.toString, compiler.base.toString, "", true, 1L))
 
   private def backend(executable: Path): BendCliCheckBackend =
     new BendCliCheckBackend(executable.getParent)

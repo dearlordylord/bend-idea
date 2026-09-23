@@ -1,5 +1,6 @@
 package com.dearlordylord.bend.idea.features.formatting
 
+import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.adapters.cli.BendCliCheckBackend
 import com.dearlordylord.bend.idea.analysis.model.{BendCheckOutcome, BendCheckSnapshot}
 import com.dearlordylord.bend.idea.model.FileId
@@ -60,17 +61,16 @@ final class BendFormattingTest extends BasePlatformTestCase:
     assertEquals("def unfinished(a,b)\n", reformat("def unfinished(a,b)\n"))
 
   def testPinnedCompilerAcceptsBeforeAndAfterReformat(): Unit =
-    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
+    val compiler = RealBendCompilerFixture.inputs
     val directory = Files.createTempDirectory("bend-format-check-")
     try
       val executable = directory.resolve("bend")
-      Files.writeString(executable, "#!/bin/sh\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-      executable.toFile.setExecutable(true)
+      compiler.writeLauncher(executable)
       val original = directory.resolve("main.bend")
       val source = "import Base\ndef main(x: U32,y: U32) -> U32:\n    U32.add(x,y)\n"
       Files.writeString(original, source)
       val toolchain = BendToolchainSelection(executable.toString,
-        pinned.resolveSibling("base.bend").toString, "", true, 1L)
+        compiler.base.toString, "", true, 1L)
       val backend = new BendCliCheckBackend(directory)
       def outcome(text: String): BendCheckOutcome =
         backend.check(BendCheckSnapshot(new FileId(original.toString, false),
