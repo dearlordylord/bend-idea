@@ -1,0 +1,15 @@
+<idea-plugin>
+    <id>com.dearlordylord.bend.idea</id>
+    <name>Bend</name>
+    <vendor url="https://github.com/dearlordylord/bend-idea">dearlordylord</vendor>
+    <description><![CDATA[
+        Native Bend 2 language support. This initial scaffold recognizes .bend files
+        and supplies file icons. Editing support loads without a Bend installation.
+    ]]></description>
+    <depends>com.intellij.modules.platform</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="Bend" language="Bend"
+                  implementationClass="com.dearlordylord.bend.idea.syntax.BendFileType"
+                  extensions="bend"/>
+    </extensions>
+</idea-plugin>

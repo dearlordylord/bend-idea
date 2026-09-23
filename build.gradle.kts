@@ -1,0 +1,67 @@
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+
+plugins {
+    scala
+    id("org.jetbrains.intellij.platform") version "2.12.0"
+}
+
+group = "com.dearlordylord.bend.idea"
+version = providers.gradleProperty("pluginVersion").get()
+
+repositories {
+    mavenCentral()
+    intellijPlatform { defaultRepositories() }
+}
+
+dependencies {
+    implementation("org.scala-lang:scala3-library_3:${providers.gradleProperty("scalaVersion").get()}")
+    intellijPlatform {
+        intellijIdeaCommunity(providers.gradleProperty("platformVersion").get())
+        testFramework(TestFrameworkType.Platform)
+        pluginVerifier("1.410")
+    }
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.tngtech.archunit:archunit:1.4.1")
+}
+
+java {
+    toolchain { languageVersion.set(JavaLanguageVersion.of(21)) }
+}
+
+tasks.withType<ScalaCompile>().configureEach {
+    scalaCompileOptions.additionalParameters = listOf("-feature", "-Werror")
+}
+
+tasks.test {
+    useJUnit()
+    exclude("**/architecture/**")
+    systemProperty("java.awt.headless", "true")
+}
+
+val architectureTest by tasks.registering(Test::class) {
+    description = "Checks compiled Scala package boundaries and tests the checker with forbidden dependencies."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    include("**/architecture/*Test.class")
+    useJUnit()
+    systemProperty("architecture.classes", sourceSets.main.get().output.classesDirs.asPath)
+}
+
+tasks.check { dependsOn(architectureTest) }
+
+intellijPlatform {
+    buildSearchableOptions = false
+    pluginConfiguration {
+        id = "com.dearlordylord.bend.idea"
+        name = "Bend"
+        version = project.version.toString()
+        ideaVersion {
+            sinceBuild = "251"
+            untilBuild = "251.*"
+        }
+    }
+    pluginVerification {
+        ides { create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1") }
+    }
+}

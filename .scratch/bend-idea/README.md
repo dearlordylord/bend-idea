@@ -2,10 +2,12 @@
 
 The user approved this 46-ticket breakdown and its blocking edges. The tickets are published as native GitHub issues under the [Bend IDEA specification issue](https://github.com/dearlordylord/bend-idea/issues/1); each feature issue is a child of that parent, and its blocker edges are native GitHub issue dependencies. This index links to the GitHub issue bodies, which hold the feature scope and acceptance criteria. The [specification issue](https://github.com/dearlordylord/bend-idea/issues/1) supplies the semantic contract, complete context, source revisions and upstream links.
 
+Implementation uses Scala 3 and follows [AGENTS.md](../../AGENTS.md), [ARCHITECTURE.md](../../ARCHITECTURE.md) and [REVIEWER.md](../../REVIEWER.md).
+
 ## Working agreement
 
 - Implement the earliest unfinished priority group first: **01–13 VS Code coverage**, **14–22 Quint IDEA coverage**, **23–26 additional native editing**, **27–39 Bend workflows/execution**, then **40–46 compiler-backed assistance**. Within each group, the numbered order is the preferred simple-to-complex sequence.
-- Blocking links express technical prerequisites, not priority. Work on a ticket only after its blockers are complete; an early dependency edge never authorizes skipping the priority groups. All tickets are currently unimplemented. The initial frontier is ticket 01.
+- Blocking links express technical prerequisites, not priority. Work on a ticket only after its blockers are complete; an early dependency edge never authorizes skipping the priority groups. Ticket 01 (#2) is implemented by the Scala 3 scaffold. The next frontier is ticket 02 (#3): highlighting and commenting.
 - `ready-for-agent` means the ticket has a reviewed scope. It does not mean its blockers are complete. Later semantic tickets additionally name external compiler capability prerequisites; unsupported capabilities must be reported rather than replaced by a placeholder and marked complete.
 - Each ticket includes the implementation and tests for its observable behavior. The user confirmed IntelliJ editor fixtures as the primary boundary and real Bend subprocess tests for checking unsaved graphs and proving checks never run main. Use focused lexer/parser tests for restart/recovery contracts; avoid mocks of internal resolution and tests that merely mirror the implementation.
 - Keep PSI/source editing independent of compiler availability. Share scopes/references across features. Preserve unsaved documents, source versions, declaration/import order, file-local aliases, literal dotted names, separate constructor/type symbols, affine semantics and law/fill relationships.
@@ -13,7 +15,7 @@ The user approved this 46-ticket breakdown and its blocking edges. The tickets a
 - Syntax and completion can work without Bend. Checking requires demonstrated check-only support, snapshots, no main execution, no automatic package downloads, complete CLI validity conditions and honest source attribution. Report current, stale, incomplete, unavailable and unsafe/foreign states accurately.
 - Do not rewrite the trusted checker, weaken laws, insert unsafe annotations as a fix, sort declarations/imports or silently remove imports. The [Bend reference instructions](https://github.com/bendlang/bend/blob/ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b/AGENTS.md) prohibit editing the trusted Bend core.
 - Supplied references are read-only study material. Their local links require the reference checkouts; the specification also contains upstream links pinned where provenance is known. Verify SDK APIs against the chosen platform: copied guides and some historical notes are stale.
-- No prefactoring ticket is needed because this project has no implementation yet. Grow the parser, resolver and integrations through the smallest complete user-facing slices. Do not create a competing temporary semantic engine.
+- The initial scaffold is covered by #2; no separate task 0 is needed. Grow the parser, resolver and integrations through the smallest complete user-facing slices. Do not create a competing temporary semantic engine.
 - At each baseline release, run the relevant fixture/compiler checks, Plugin Verifier for supported IDE versions and a sandbox editor smoke check. No release requires completion of the later semantic roadmap.
 - Update each GitHub issue status/checklist as work is completed. Never mark a blocked compiler-dependent ticket complete merely because it displays an unavailable message.
 

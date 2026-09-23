@@ -2,6 +2,8 @@
 
 Research and proposed scope, 2026-09-22. This is a design study; no plugin has been implemented or tested.
 
+Implementation update: the user subsequently selected Scala 3 and excluded Bend as a plugin implementation language. Follow [ARCHITECTURE.md](ARCHITECTURE.md) and [AGENTS.md](AGENTS.md) for current implementation guidance; the Kotlin recommendation below is historical.
+
 ## Recommendation
 
 Build a native Kotlin IntelliJ language plugin with a tolerant source parser and PSI, source-based name resolution, and an external Bend checker. Add compiler-backed proof assistance through a separate, versioned tooling interface later.
