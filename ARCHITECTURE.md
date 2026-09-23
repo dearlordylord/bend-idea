@@ -311,7 +311,7 @@ Three early technical investigations have disproportionate value, each bounded b
 2. At #10/#13, demonstrate that a symlink/diamond graph preserves compiler namespace rejection and that two proof roots can share a law file without being merged.
 3. At #12/#13, prove the real compiler cannot run main or fetch packages during a check, and that snapshot mapping survives unsaved imports and PROOF guards.
 
-Before implementing those tickets, carry these architectural requirements into their acceptance discussion. Several issue bodies still link to removed `SPEC.md` and a nonexistent README working-agreement anchor; the live authority is #1. Repairing those links is a separate tracker maintenance action. The later capability prerequisites should also remain visible alongside internal blockers; `ready-for-agent` does not imply the external compiler API exists.
+Before implementing those tickets, carry these architectural requirements into their acceptance discussion. The live specification authority is #1. Historical `SPEC.md` links have been redirected there, and README now provides the working-agreement anchor. The later capability prerequisites should also remain visible alongside internal blockers; `ready-for-agent` does not imply the external compiler API exists.
 
 ## Alternatives and decision triggers
 
@@ -385,7 +385,7 @@ Exceptions must identify the rule, concrete reason, narrow scope, affected consu
 
 ### Propagating to GitHub
 
-When publishing this guidance, link the repository architecture and working agreement from #1 and the feature tickets, replace obsolete SPEC.md links, and update #1/#2's Kotlin references to Scala 3. Avoid copying the full rules into 46 issues: use a short contract note only where a ticket establishes a shared boundary, especially #5, #8, #10 and #12–#14. The ownership table above supplies those notes. Repository guidance and the user-selected language apply while older issue text is being synchronized.
+The published specification and feature tickets link the repository architecture, agent agreement and review procedure. Obsolete SPEC.md links point to #1, and implementation-language references now specify Scala 3. Avoid copying the full rules into 46 issues: use a short contract note only where a ticket establishes a shared boundary, especially #5, #8, #10 and #12–#14. The ownership table above supplies those notes. Keep issue scope and delivery status synchronized with merged implementation; retain the repository documents as the authority for detailed architecture rules.
 
 The PR template asks for the issue, affected owner/API, applicable rule IDs and validation evidence. Reviewers evaluate the diff and relevant consumers against those claims. Passing a self-check is useful evidence; it is not a claim that independent review or CI ran.
 
