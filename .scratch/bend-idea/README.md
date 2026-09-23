@@ -1,6 +1,6 @@
 # Bend IDEA implementation issue index
 
-The user approved this 46-ticket breakdown and its blocking edges. The tickets are published as native GitHub issues under the [Bend IDEA specification issue](https://github.com/dearlordylord/bend-idea/issues/1); each feature issue is a child of that parent, and its blocker edges are native GitHub issue dependencies. This index links to the GitHub issue bodies, which hold the feature scope and acceptance criteria. The [specification](../../SPEC.md) supplies the semantic contract, complete context, source revisions and upstream links.
+The user approved this 46-ticket breakdown and its blocking edges. The tickets are published as native GitHub issues under the [Bend IDEA specification issue](https://github.com/dearlordylord/bend-idea/issues/1); each feature issue is a child of that parent, and its blocker edges are native GitHub issue dependencies. This index links to the GitHub issue bodies, which hold the feature scope and acceptance criteria. The [specification issue](https://github.com/dearlordylord/bend-idea/issues/1) supplies the semantic contract, complete context, source revisions and upstream links.
 
 ## Working agreement
 
