@@ -66,12 +66,18 @@ final class BendNavigationTest extends BasePlatformTestCase:
     myFixture.configureByText("main.bend", s"import ${absolute.toString.dropRight(5)}<caret>.bend as M\n")
     assertEquals(absolute.toString, editorTarget().getContainingFile.getVirtualFile.getCanonicalPath)
     Files.writeString(temporary.resolve("base.bend"), "def baseValue():\n  0\n")
+    com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+      .refreshAndFindFileByPath(temporary.resolve("base.bend").toString)
     myFixture.configureByText("main.bend", "import Ba<caret>se\n")
     assertEquals("base.bend", editorTarget().getContainingFile.getName)
     val otherBase = Files.writeString(temporary.resolve("other-base.bend"), "def other():\n  0\n")
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
     val cache = Files.createDirectories(temporary.resolve("cache/0xabc"))
     Files.writeString(cache.resolve("cached.bend"), "def cached():\n  0\n")
+    com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+      .refreshAndFindFileByPath(otherBase.toString)
+    com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+      .refreshAndFindFileByPath(cache.resolve("cached.bend").toString)
     settings.update(BendToolchainChoices(baseSource = otherBase.toString,
       packageCache = cache.getParent.toString))
     assertEquals("other-base.bend", editorTarget().getContainingFile.getName)
@@ -235,6 +241,8 @@ final class BendNavigationTest extends BasePlatformTestCase:
 
   def testBaseAndUnresolvedIncompleteInput(): Unit =
     Files.writeString(temporary.resolve("base.bend"), "def baseValue():\n  0\ndef L.literal():\n  1\n")
+    com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+      .refreshAndFindFileByPath(temporary.resolve("base.bend").toString)
     val base = reference("import Base\ndef main():\n  <caret>baseValue()\n")
     assertEquals("baseValue", target(base).getText)
     assertEquals("base.bend", target(base).getContainingFile.getName)

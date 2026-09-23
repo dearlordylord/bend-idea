@@ -1,20 +1,44 @@
 package com.dearlordylord.bend.idea.syntax.psi
 
 import com.dearlordylord.bend.idea.syntax.lexer.BendWords
+import com.intellij.extapi.psi.StubBasedPsiElementBase
 import com.intellij.extapi.psi.ASTWrapperPsiElement
 import com.intellij.lang.ASTNode
 import com.intellij.psi.{PsiElement, PsiNameIdentifierOwner}
+import com.intellij.psi.StubBasedPsiElement
+import com.intellij.psi.stubs.StubElement
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.tree.IElementType
 import com.intellij.util.IncorrectOperationException
 import com.intellij.psi.impl.source.resolve.reference.ReferenceProvidersRegistry
 
 /** One source declaration; the name element remains an IntelliJ rename target. */
-sealed abstract class BendDeclaration(node: ASTNode) extends ASTWrapperPsiElement(node) with PsiNameIdentifierOwner:
+sealed abstract class BendDeclaration(stub: BendDeclarationStub, elementType: IElementType, node: ASTNode)
+    extends StubBasedPsiElementBase[BendDeclarationStub](stub,
+      if node == null then elementType else null, node)
+    with StubBasedPsiElement[BendDeclarationStub] with PsiNameIdentifierOwner:
   override def getNameIdentifier: PsiElement =
     val header = PsiTreeUtil.getChildOfType(this, classOf[BendHeader])
     if header != null then PsiTreeUtil.getChildOfType(header, classOf[BendName])
     else PsiTreeUtil.getChildOfType(this, classOf[BendName])
-  override def getName: String = Option(getNameIdentifier).map(_.getText).orNull
+  override def getName: String =
+    val stored = getStub
+    if stored != null then stored.name else Option(getNameIdentifier).map(_.getText).orNull
+  override def getPresentation: com.intellij.navigation.ItemPresentation =
+    val declaration = this
+    new com.intellij.navigation.ItemPresentation:
+      override def getPresentableText: String =
+        val prefix = declaration match
+          case _: BendDefinition => "def "
+          case _: BendLaw => "law "
+          case _: BendDatatype => "type "
+          case _: BendConstructor => ""
+        prefix + Option(declaration.getName).getOrElse("")
+      override def getLocationString: String =
+        Option(declaration.getContainingFile).flatMap(file => Option(file.getVirtualFile))
+          .map(_.getPresentableUrl).getOrElse("")
+      override def getIcon(open: Boolean): javax.swing.Icon =
+        Option(declaration.getContainingFile).map(_.getFileType.getIcon).orNull
   override def setName(newName: String): PsiElement =
     if !newName.matches("[A-Za-z_][A-Za-z0-9_.]*") || newName.endsWith(".") || BendWords.reserved(newName) then
       throw new IncorrectOperationException("Invalid Bend declaration name")
@@ -84,12 +108,27 @@ final class BendAlias(node: ASTNode) extends ASTWrapperPsiElement(node) with Psi
     if replacement == null then throw new IncorrectOperationException("Cannot create Bend alias")
     replace(replacement)
 final class BendHeader(node: ASTNode) extends ASTWrapperPsiElement(node)
-final class BendDefinition(node: ASTNode) extends BendDeclaration(node)
-final class BendDatatype(node: ASTNode) extends BendDeclaration(node)
-final class BendLaw(node: ASTNode) extends BendDeclaration(node):
+final class BendDefinition private (stub: BendDeclarationStub, node: ASTNode)
+    extends BendDeclaration(stub, BendElements.Definition, node):
+  def this(node: ASTNode) = this(null, node)
+  def this(stub: BendDeclarationStub) = this(stub, null)
+
+final class BendDatatype private (stub: BendDeclarationStub, node: ASTNode)
+    extends BendDeclaration(stub, BendElements.Datatype, node):
+  def this(node: ASTNode) = this(null, node)
+  def this(stub: BendDeclarationStub) = this(stub, null)
+
+final class BendLaw private (stub: BendDeclarationStub, node: ASTNode)
+    extends BendDeclaration(stub, BendElements.Law, node):
+  def this(node: ASTNode) = this(null, node)
+  def this(stub: BendDeclarationStub) = this(stub, null)
   override def headerText: String = getText.trim
   override def parameters: List[BendSourceParameter] = Nil
-final class BendConstructor(node: ASTNode) extends BendDeclaration(node):
+
+final class BendConstructor private (stub: BendDeclarationStub, node: ASTNode)
+    extends BendDeclaration(stub, BendElements.Constructor, node):
+  def this(node: ASTNode) = this(null, node)
+  def this(stub: BendDeclarationStub) = this(stub, null)
   override def headerText: String = getText.trim
   override def parameters: List[BendSourceParameter] = BendSourceParameter.fromConstructor(getText)
 

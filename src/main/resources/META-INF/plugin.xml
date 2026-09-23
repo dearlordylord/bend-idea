@@ -8,7 +8,7 @@ Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in In
 <ul>
   <li>Syntax highlighting, hash line comments, and editable snippets</li>
   <li>Completion for declarations, local bindings, Base, imports, and import paths</li>
-  <li>Go to Declaration, Find Usages, and source Quick Documentation</li>
+  <li>Go to Declaration, Go to Symbol, Find Usages, and source Quick Documentation</li>
   <li>Manual and optional background compiler checking of unsaved source and imports</li>
 </ul>
 
@@ -31,6 +31,12 @@ Editing works without a Bend installation. Checking requires a configured Bend c
                   extensions="bend"/>
         <lang.parserDefinition language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.syntax.BendParserDefinition"/>
+        <stubElementTypeHolder class="com.dearlordylord.bend.idea.syntax.psi.BendStubElementTypes"
+                               externalIdPrefix="bend."/>
+        <stubIndex implementation="com.dearlordylord.bend.idea.symbols.index.BendSymbolNameIndex"/>
+        <stubIndex implementation="com.dearlordylord.bend.idea.symbols.index.BendDottedComponentIndex"/>
+        <gotoSymbolContributor implementation="com.dearlordylord.bend.idea.symbols.index.BendChooseByNameContributor"/>
+        <additionalLibraryRootsProvider implementation="com.dearlordylord.bend.idea.symbols.index.BendSymbolLibraryRootsProvider"/>
         <lang.formatter language="Bend"
                         implementationClass="com.dearlordylord.bend.idea.features.formatting.BendFormattingModelBuilder"/>
         <lang.syntaxHighlighterFactory language="Bend"

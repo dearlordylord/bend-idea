@@ -32,7 +32,7 @@ final class BendParserDefinition extends ParserDefinition:
   override def createFile(viewProvider: FileViewProvider): PsiFile = new BendFile(viewProvider)
 
 object BendParserDefinition:
-  val File: IFileElementType = new IFileElementType(BendLanguage.instance)
+  val File: IFileElementType = com.dearlordylord.bend.idea.syntax.psi.BendFileElementType
 
 final class BendFile(viewProvider: FileViewProvider) extends PsiFileBase(viewProvider, BendLanguage.instance):
   override def getReferences: Array[com.intellij.psi.PsiReference] =

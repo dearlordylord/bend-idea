@@ -62,6 +62,8 @@ final class BendDocumentationTest extends BasePlatformTestCase:
 
   def testBaseAndCategoryDistinction(): Unit =
     Files.writeString(temporary.resolve("base.bend"), "# Base help\ndef fromBase():\n  0\n")
+    com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+      .refreshAndFindFileByPath(temporary.resolve("base.bend").toString)
     assertTrue(docs("import Base\ndef main():\n  <caret>fromBase()\n").contains("Base help"))
     val datatype = docs("type Unit is Data:\n  Unit{}\ndef main(x: <caret>Unit) -> Unit:\n  x\n")
     val constructor = docs("type Unit is Data:\n  Unit{}\ndef main():\n  <caret>Unit{}\n")
@@ -162,6 +164,8 @@ final class BendDocumentationTest extends BasePlatformTestCase:
   def testBaseSourceLawAndFillStayPaired(): Unit =
     Files.writeString(temporary.resolve("base.bend"),
       "# Base law\nlaw word:\n  for x: Nat\n  {x == x : Nat}\n# Base fill\ndef word(value):\n  value\n")
+    com.intellij.openapi.vfs.LocalFileSystem.getInstance()
+      .refreshAndFindFileByPath(temporary.resolve("base.bend").toString)
     val html = docs("import Base\ndef main():\n  <caret>word(1)\n")
     assertTrue(html.contains("Base law"))
     assertTrue(html.contains("Base fill"))
