@@ -6,7 +6,7 @@ import com.intellij.codeInsight.highlighting.BraceMatcher
 import com.intellij.openapi.editor.highlighter.HighlighterIterator
 import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.util.Key
-import com.intellij.psi.PsiFile
+import com.intellij.psi.{PsiFile, TokenType}
 import com.intellij.psi.tree.IElementType
 
 /** Contextual matching complements the language's ordinary auto-pair definitions. */
@@ -59,6 +59,6 @@ final class BendContextBraceMatcher extends BraceMatcher:
   override def isPairedBracesAllowedBeforeType(left: IElementType, next: IElementType): Boolean =
     next == null || next == BendTokens.Comment ||
       Set(BendTokens.RightParen, BendTokens.RightBracket, BendTokens.RightBrace,
-        BendTokens.Separator, BendTokens.Operator).contains(next)
+        BendTokens.Separator, BendTokens.Operator, TokenType.WHITE_SPACE).contains(next)
 
   override def getCodeConstructStart(file: PsiFile, openingBraceOffset: Int): Int = openingBraceOffset

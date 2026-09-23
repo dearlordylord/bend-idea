@@ -22,6 +22,22 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     myFixture.performEditorAction(IdeActions.ACTION_EDITOR_BACKSPACE)
     assertEquals("def f(): ", myFixture.getEditor.getDocument.getText)
 
+  def testOrdinaryPairAfterExistingDeclarations(): Unit =
+    editing("import Base\n\ntype EditorPair is Data:\n  MakePair{left: U32, right: U32}\n\n" +
+      "def main() -> U32:\n  3\n\ndef f(): <caret>")
+    myFixture.`type`("(")
+    assertTrue(myFixture.getEditor.getDocument.getText.endsWith("def f(): ()"))
+
+  def testOrdinaryPairBeforeNextDeclaration(): Unit =
+    editing("def f(): <caret>\ndef next(): 1\n")
+    myFixture.`type`("(")
+    assertEquals("def f(): ()\ndef next(): 1\n", myFixture.getEditor.getDocument.getText)
+    myFixture.`type`(")")
+    assertEquals("def f(): ()\ndef next(): 1\n", myFixture.getEditor.getDocument.getText)
+    myFixture.getEditor.getCaretModel.moveToOffset("def f(): (".length)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_BACKSPACE)
+    assertEquals("def f(): \ndef next(): 1\n", myFixture.getEditor.getDocument.getText)
+
   def testBracesAndBracketsPair(): Unit =
     editing("def f(): <caret>")
     myFixture.`type`("{")
