@@ -24,6 +24,9 @@
                   implementationClass="com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"/>
         <lang.documentationProvider language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.documentation.BendDocumentationProvider"/>
+        <lang.findUsagesProvider language="Bend"
+                  implementationClass="com.dearlordylord.bend.idea.features.navigation.BendFindUsagesProvider"/>
+        <referencesSearch implementation="com.dearlordylord.bend.idea.symbols.references.BendUsageSearch"/>
         <psi.referenceContributor language="Bend"
                   implementation="com.dearlordylord.bend.idea.symbols.references.BendReferenceContributor"/>
         <externalAnnotator language="Bend"

@@ -117,6 +117,12 @@ object BendSourceSymbols:
   def logicalLaws(file: PsiFile): List[BendLogicalLaw[BendSourceSymbol]] =
     BendLawDeclarations.relationships(declarations(file))(site)
 
+  /** Presentation identity shared by usage search and later rename planning. */
+  def usageAnchor(file: PsiFile, symbol: BendSourceSymbol): BendSourceHandle =
+    logicalLaws(file).find(link =>
+      link.law.handle == symbol.handle || link.fills.exists(_.handle == symbol.handle))
+      .map(_.law.handle).getOrElse(symbol.handle)
+
   private[api] def site(symbol: BendSourceSymbol): BendDeclarationSite =
     val signature = symbol.signature.source
     val open = signature.indexOf('(')
@@ -187,6 +193,32 @@ object BendSourceSymbols:
                 sourceSpecification = Some(sourceSpecification), specification = Some(lawHandle))
               case None => binding)
     }
+
+  /** Find a binder at its source declaration, even before its eligibility region. */
+  def bindingDeclaredAt(file: PsiFile, nameOffset: Int): Option[BendSourceBinding] =
+    val source = file.getText
+    if nameOffset < 0 || nameOffset >= source.length then None
+    else
+      val owner = PsiTreeUtil.findChildrenOfType(file, classOf[BendDeclaration]).asScala
+        .filter(d => d.getTextRange.getStartOffset <= nameOffset &&
+          nameOffset < d.getTextRange.getEndOffset).toList.sortBy(_.getTextLength).headOption
+      owner.flatMap { declaration =>
+        val range = declaration.getTextRange
+        val header = PsiTreeUtil.getChildOfType(declaration, classOf[BendHeader])
+        val headerEnd = Option(header).map(_.getTextRange.getEndOffset).getOrElse(range.getStartOffset)
+        BendScope.bindings(source, scopeTokens(source, range.getStartOffset, range.getEndOffset),
+          headerEnd, range.getEndOffset + 1, declaration.isInstanceOf[BendLaw])
+          .find(_.nameOffset == nameOffset).map { binding =>
+            BendSourceBinding(BendSourceHandle(fileId(file), BendSymbolCategory.Binder, nameOffset),
+              binding.name, binding.source, binding.origin match
+                case BindingOrigin.Parameter => BendBindingKind.Parameter
+                case BindingOrigin.Lambda => BendBindingKind.Lambda
+                case BindingOrigin.Let => BendBindingKind.Let
+                case BindingOrigin.Pattern => BendBindingKind.Pattern
+                case BindingOrigin.Do => BendBindingKind.Do,
+              binding.from, binding.until)
+          }
+      }
 
   private def scopeTokens(source: String, startOffset: Int, endOffset: Int): Vector[ScopeToken] =
     val lexer = new BendLexer()

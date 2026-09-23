@@ -16,6 +16,8 @@ final class ArchitectureTest:
     assertTrue("The shared lexer boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.lexer.BendLexer"))
     assertTrue("The editing feature boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.editing.BendCommenter"))
     assertTrue("The completion feature boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"))
+    assertTrue("Usage search must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.references.BendUsageSearch"))
+    assertTrue("Find Usages provider must be inspected", classes.contain("com.dearlordylord.bend.idea.features.navigation.BendFindUsagesProvider"))
     assertTrue("Documentation provider must be inspected", classes.contain("com.dearlordylord.bend.idea.features.documentation.BendDocumentationProvider"))
     assertTrue("Source documentation projection must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.api.BendSourceDocumentation$"))
     assertTrue("The shared template API boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.templates.api.BendSnippets$"))
