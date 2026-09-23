@@ -3,6 +3,8 @@ package com.dearlordylord.bend.idea.adapters.intellij
 import com.dearlordylord.bend.idea.adapters.cli.BendCliCheckBackend
 import com.dearlordylord.bend.idea.adapters.cli.BendExternalInputs
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
+import com.dearlordylord.bend.idea.analysis.checking.{BendPublicationFacts, BendPublicationPolicy}
+import com.dearlordylord.bend.idea.analysis.model.BendCheckingStatus
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
@@ -32,7 +34,7 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
   private val subscriptions = mutable.Map.empty[FileId, () => Unit]
   private val rootOrder = mutable.Queue.empty[FileId]
   private val maxRoots = 128
-  private var active: Option[(FileId, Long, () => Boolean)] = None
+  private var active: Option[(FileId, Long, () => Boolean, Boolean)] = None
   private var started = false
   private var disposed = false
 
@@ -87,7 +89,18 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
   }
 
   override def begin(snapshot: BendCheckSnapshot,
-      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Boolean = synchronized {
+      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean,
+      background: Boolean = false): Boolean = synchronized {
+    if !background && active.exists(_._4) then
+      val previous = active.get._1
+      generations(previous) = generations.getOrElse(previous, 0L) + 1
+      results.get(previous).foreach(result => results(previous) = result.copy(fresh = false))
+      if !started then active = None
+      else
+        // Manual checks are launched from a background task. The old process
+        // observes the changed generation and releases the one project slot.
+        val deadline = System.nanoTime() + 5_000_000_000L
+        while active.nonEmpty && !disposed && System.nanoTime() < deadline do wait(50)
     if disposed || active.nonEmpty then false
     else
       val root = snapshot.root
@@ -104,7 +117,7 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
       val next = generations.getOrElse(root, 0L) + 1
       generations(root) = next
       results.get(root).foreach(result => results(root) = result.copy(fresh = false))
-      active = Some((root, next, isCurrent))
+      active = Some((root, next, isCurrent, background))
       started = false
       true
   }
@@ -123,7 +136,7 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
         generations(root) = generations.getOrElse(root, 0L) + 1
         results(root) = results(root).copy(fresh = false)
       }
-      active.foreach { case (root, _, _) =>
+      active.foreach { case (root, _, _, _) =>
         generations(root) = generations.getOrElse(root, 0L) + 1
       }
       if active.nonEmpty && !started then active = None
@@ -138,7 +151,7 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
     }
     reservation match
       case None => None
-      case Some((_, generation, isCurrent)) =>
+      case Some((_, generation, isCurrent, _)) =>
         synchronized { pendingCaptures(root) = snapshot }
         try
           if canceled() || !isCurrent() || synchronized { disposed ||
@@ -147,14 +160,19 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
             val checked = backend.check(snapshot, () => canceled() || synchronized { disposed ||
               generations.get(root) != Some(generation) })
             val inputsCurrent = graphCurrent(snapshot)
+            val sourceCurrent = isCurrent()
+            val workerCanceled = canceled()
+            val selection = ApplicationManager.getApplication
+              .getService(classOf[BendToolchainSettings]).selection
+            val externalCurrent = checked.key.externalStamp == BendExternalInputs.stamp(
+              checked.key.executable, checked.key.basePath)
             val published = synchronized {
-              val selection = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).selection
-              if disposed || canceled() || !isCurrent() || !inputsCurrent ||
-                  generations.get(root) != Some(generation) ||
-                  selection.configurationRevision != snapshot.toolchain.configurationRevision ||
-                  selection.executable != snapshot.toolchain.executable ||
-                  checked.key.externalStamp != BendExternalInputs.stamp(checked.key.executable,
-                    checked.key.basePath) then None
+              val facts = BendPublicationFacts(generation, generations.get(root),
+                sourceCurrent, inputsCurrent,
+                selection.configurationRevision == snapshot.toolchain.configurationRevision &&
+                  selection.executable == snapshot.toolchain.executable,
+                externalCurrent, workerCanceled, disposed)
+              if !BendPublicationPolicy.mayPublish(facts) then None
               else
                 results(root) = checked
                 captures(root) = snapshot
@@ -166,23 +184,27 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
           if active.exists(a => a._1 == root && a._2 == generation) then
             active = None
             started = false
+            notifyAll()
         }
 
   override def result(root: FileId): Option[BendCheckResult] =
     val captured = synchronized { captures.get(root) }
     val graphChanged = if captured.exists(s => !graphCurrent(s)) then synchronized {
       results.get(root) match
-        case Some(r) if r.fresh =>
+        case Some(r) if r.fresh && captured.exists(snapshot =>
+            captures.get(root).exists(_ eq snapshot)) =>
           results(root) = r.copy(fresh = false)
           generations(root) = generations.getOrElse(root, 0L) + 1
           true
         case _ => false
     }
     else false
+    val inspected = synchronized { results.get(root) }
+    val externalCurrent = inspected.forall(result => result.key.externalStamp ==
+      BendExternalInputs.stamp(result.key.executable, result.key.basePath))
     val (value, changed) = synchronized {
       results.get(root) match
-        case Some(result) if result.fresh && result.key.externalStamp != BendExternalInputs.stamp(
-            result.key.executable, result.key.basePath) =>
+        case Some(result) if result.fresh && inspected.contains(result) && !externalCurrent =>
           val stale = result.copy(fresh = false)
           results(root) = stale
           (Some(stale), true)
@@ -224,8 +246,21 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
 
   override def busy: Boolean = synchronized { active.nonEmpty }
 
+  override def status(root: FileId): BendCheckingStatus =
+    val enabled = ApplicationManager.getApplication
+      .getService(classOf[BendToolchainSettings]).selection.diagnosticsEnabled
+    val (running, checked) = synchronized {
+      (active.exists(_._1 == root), results.get(root))
+    }
+    BendCheckingStatus.of(enabled, running, checked)
+
   override def dispose(): Unit = synchronized {
     disposed = true
+    active.foreach { case (root, _, _, _) =>
+      generations(root) = generations.getOrElse(root, 0L) + 1
+    }
+    active = None
+    notifyAll()
     subscriptions.values.foreach(_())
     subscriptions.clear()
     pendingCaptures.clear()

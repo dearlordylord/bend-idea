@@ -41,6 +41,7 @@ private[architecture] object ArchitectureRules:
         publicArea(target, "toolchain", Set("api", "model"))
       case "adapters" => to == "syntax" ||
         Set("workspace", "analysis", "toolchain").exists(owner => publicArea(target, owner, Set("api", "model", "ports"))) ||
+        publicArea(target, "analysis", Set("checking")) ||
         target.take(3) == List("features", "execution", "ports")
       case _ => false
 

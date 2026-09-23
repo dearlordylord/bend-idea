@@ -129,6 +129,7 @@ The dependency restrictions are more precise than the drawing:
 - `syntax` never asks the resolver, indexes, filesystem or compiler for permission to parse.
 - `symbols` may use PSI and the workspace query contract. Workspace graph construction does not call symbol resolution. The IntelliJ source-catalog adapter extracts imports from syntax and supplies them to workspace loading.
 - `analysis` does not call a completion contributor or proof panel. Features consume results; they never parse CLI output.
+- IntelliJ analysis adapters may apply the pure `analysis.checking` publication policy after capturing current revision, generation, toolchain and external-input facts. Feature handlers consume the `analysis.api` service and `analysis.model` status; they do not own publication decisions.
 - Feature slices do not import one another's handlers. Shared signature rendering belongs in `symbols`; reusable source skeleton rendering belongs in a narrow templates API. Share these APIs explicitly when a second consumer exists.
 - The process adapter is reused by checking and explicit execution, but `CheckBackend` accepts only a check request. Run/build have separate operations; no caller-provided arbitrary mode flag can turn a background check into Run.
 - Settings UI writes a validated configuration. Other packages consume toolchain facts rather than reaching into UI classes.

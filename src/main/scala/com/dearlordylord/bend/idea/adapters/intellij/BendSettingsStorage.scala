@@ -57,5 +57,6 @@ final class BendSettingsStorage extends PersistentStateComponent[BendSettingsSta
     ProjectManager.getInstance().getOpenProjects.foreach { project =>
       if !project.isDisposed then
         Option(project.getService(classOf[BendCheckService])).foreach(_.configurationChanged())
+        project.getService(classOf[BendBackgroundChecking]).configurationChanged()
         DaemonCodeAnalyzer.getInstance(project).restart()
     }

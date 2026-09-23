@@ -27,33 +27,40 @@ final class BendCheckCurrentFileAction extends AnAction("Check Current Bend File
     val project = event.getData(CommonDataKeys.PROJECT)
     if editor == null || file == null || project == null then return
     val document = editor.getDocument
+    val path = file.getPath
+    val proof = file.getName == "PROOF.bend"
     val id = new FileId(Option(file.getCanonicalPath).getOrElse(file.getPath),
       file.getCanonicalPath != null)
     val selection = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).selection
-    val initial = BendCheckSnapshot(id, file.getPath, document.getText,
+    val initial = BendCheckSnapshot(id, path, document.getText,
       document.getModificationStamp,
       selection)
     val service = project.getService(classOf[BendCheckService])
-    val started = service.begin(initial, callback => {
-      val listener = new DocumentListener:
-        override def documentChanged(event: DocumentEvent): Unit = callback()
-      document.addDocumentListener(listener)
-      () => document.removeDocumentListener(listener)
-    }, () => document.getModificationStamp == initial.sourceRevision)
-    if !started then
-      HintManager.getInstance().showInformationHint(editor, "A Bend check is already running")
-      return
-    DaemonCodeAnalyzer.getInstance(project).restart()
     ProgressManager.getInstance().run(new Task.Backgroundable(project, "Checking Bend", true):
       override def onCancel(): Unit = service.cancel(id)
       override def run(indicator: ProgressIndicator): Unit =
-        val rootSource = BendSourceRecord(id, file.getPath, initial.text, initial.sourceRevision,
+        val started = service.begin(initial, callback => {
+          val listener = new DocumentListener:
+            override def documentChanged(event: DocumentEvent): Unit = callback()
+          document.addDocumentListener(listener)
+          () => document.removeDocumentListener(listener)
+        }, () => document.getModificationStamp == initial.sourceRevision)
+        if !started then
+          ApplicationManager.getApplication.invokeLater(() => {
+            if !project.isDisposed then
+              HintManager.getInstance().showInformationHint(editor, "A Bend check is already running")
+          })
+          return
+        ApplicationManager.getApplication.invokeLater(() => {
+          if !project.isDisposed then DaemonCodeAnalyzer.getInstance(project).restart()
+        })
+        val rootSource = BendSourceRecord(id, path, initial.text, initial.sourceRevision,
           BendImportLines.parse(initial.text))
         val graph = project.getService(classOf[BendWorkspaceGraph]).load(rootSource,
           selection.baseSource, selection.packageCache,
           () => indicator.isCanceled || project.isDisposed)
-        val siblingLaws = if file.getName == "PROOF.bend" then
-          project.getService(classOf[BendWorkspaceGraph]).siblingLaws(file.getPath)
+        val siblingLaws = if proof then
+          project.getService(classOf[BendWorkspaceGraph]).siblingLaws(path)
         else None
         val snapshot = BendGraphSnapshot.attach(initial, graph, siblingLaws)
         val checked = service.check(snapshot, () => indicator.isCanceled || project.isDisposed)

@@ -9,6 +9,7 @@
     ]]></description>
     <depends>com.intellij.modules.platform</depends>
     <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckingStartup"/>
         <fileType name="Bend" language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.syntax.BendFileType"
                   extensions="bend"/>
@@ -25,6 +26,7 @@
                            implementationClass="com.dearlordylord.bend.idea.features.checking.BendCheckAnnotator"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.analysis.api.BendCheckService"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckSession"/>
+        <projectService serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendBackgroundChecking"/>
         <applicationService serviceInterface="com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings"
                             serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendSettingsStorage"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendLibrarySource"
@@ -44,6 +46,11 @@
         <action id="Bend.CheckCurrentFile"
                 class="com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction"
                 text="Check Current Bend File" description="Check the current Bend document without running main">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="Bend.CheckStatus"
+                class="com.dearlordylord.bend.idea.features.checking.BendCheckStatusAction"
+                text="Bend Check Status" description="Show the current Bend check state">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
     </actions>
