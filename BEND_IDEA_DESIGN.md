@@ -20,7 +20,7 @@ The local checkouts studied are:
 | Bend VS Code | `d63becb903125d2ac47590a6767d57685c20e044` | Extension 0.3.1: highlighting, approximate completion, snapshot checking |
 | Quint IDEA | `8cc27d68fd500d041a41aa34658d30c330898826` | Native PSI, resolver, editor features, external diagnostics, platform tests |
 
-Primary local source map:
+Primary local source map. The reference checkouts are intentionally excluded from the public repository; use the linked source index in [SPEC.md](SPEC.md) for upstream links.
 
 - [Bend core](.references/bend/bend2/bend.ts): `book_load`, `parse_*`, `body_flatten`, `term_infer`, `term_check`, `book_valid`, `err_show`.
 - [Bend CLI](.references/bend/bend2/main.ts): `cli_file`, `book_read`, `cli_report`, `book_run`, `cli_emit`.

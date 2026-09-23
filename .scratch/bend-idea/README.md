@@ -1,6 +1,6 @@
 # Bend IDEA ticket queue
 
-The user approved this 46-ticket breakdown and its blocking edges. This is a local Markdown tracker; nothing has been published to an external service. The [specification](../../SPEC.md) supplies the semantic contract, complete context, source revisions and pinned upstream links. Each ticket is a separate file with its own acceptance criteria.
+The user approved this 46-ticket breakdown and its blocking edges. The tickets are published as native GitHub issues under the [Bend IDEA specification issue](https://github.com/dearlordylord/bend-idea/issues/1); each feature issue is a child of that parent, and its blocker edges are native GitHub issue dependencies. This local Markdown queue remains a complete reviewable copy. The [specification](../../SPEC.md) supplies the semantic contract, complete context, source revisions and upstream links. Each ticket is a separate file with its own acceptance criteria.
 
 ## Working agreement
 
