@@ -4,8 +4,9 @@ import com.intellij.lexer.LexerBase
 import com.intellij.psi.TokenType
 import com.intellij.psi.tree.IElementType
 
-/** UTF-16 lexer. State encodes literal mode and the name expected after a declaration/import.
-  * Each token begins at the previous token's end, including malformed and unfinished source.
+/** UTF-16 lexer. State encodes literal mode and the name expected after a
+  * declaration/import. Each token begins at the previous token's end, including
+  * malformed and unfinished source.
   */
 final class BendLexer extends LexerBase:
   private val Normal = 0
@@ -26,7 +27,12 @@ final class BendLexer extends LexerBase:
   private var nextState = 0
   private var kind: IElementType = null
 
-  override def start(buffer: CharSequence, start: Int, endOffset: Int, initialState: Int): Unit =
+  override def start(
+      buffer: CharSequence,
+      start: Int,
+      endOffset: Int,
+      initialState: Int
+  ): Unit =
     input = buffer
     end = endOffset
     startOffset = start
@@ -45,16 +51,21 @@ final class BendLexer extends LexerBase:
     state = nextState
     scan()
 
-  private def char(at: Int): Char = if at < end then input.charAt(at) else 0.toChar
-  private def head(c: Char): Boolean = c == '_' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
+  private def char(at: Int): Char =
+    if at < end then input.charAt(at) else 0.toChar
+  private def head(c: Char): Boolean =
+    c == '_' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
   private def digit(c: Char): Boolean = c >= '0' && c <= '9'
-  private def hex(c: Char): Boolean = digit(c) || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
+  private def hex(c: Char): Boolean =
+    digit(c) || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
   private def name(c: Char): Boolean = head(c) || digit(c) || c == '.'
-  private def space(c: Char): Boolean = c == ' ' || c == '\t' || c == '\r' || c == '\n'
+  private def space(c: Char): Boolean =
+    c == ' ' || c == '\t' || c == '\r' || c == '\n'
   private def mode: Int = state & 3
   private def expected: Int = (state >> 2) & 7
   private def inImport: Boolean = (state & ImportContext) != 0
-  private def withExpected(value: Int): Unit = nextState = (nextState & ~28) | (value << 2)
+  private def withExpected(value: Int): Unit = nextState =
+    (nextState & ~28) | (value << 2)
   private def withMode(value: Int): Unit = nextState = (nextState & ~3) | value
 
   private def scan(): Unit =
@@ -93,8 +104,8 @@ final class BendLexer extends LexerBase:
         if tokenEnd < end then tokenEnd += 1
         kind = BendTokens.InvalidEscape
     else
-      while tokenEnd < end && char(tokenEnd) != quote && char(tokenEnd) != '\\' do
-        tokenEnd += 1
+      while tokenEnd < end && char(tokenEnd) != quote && char(tokenEnd) != '\\'
+      do tokenEnd += 1
       kind = BendTokens.StringContent
 
   private def scanNormal(): Unit =
@@ -109,7 +120,8 @@ final class BendLexer extends LexerBase:
           if expected == Path || expected == Namespace then withExpected(NoName)
         p += 1
     else if c == '#' then
-      while tokenEnd < end && char(tokenEnd) != '\r' && char(tokenEnd) != '\n' do tokenEnd += 1
+      while tokenEnd < end && char(tokenEnd) != '\r' && char(tokenEnd) != '\n'
+      do tokenEnd += 1
       kind = BendTokens.Comment
     else if c == '"' || c == '\'' then
       tokenEnd += 1
@@ -117,10 +129,14 @@ final class BendLexer extends LexerBase:
       withMode(if c == '"' then Double else Single)
       withExpected(NoName)
     else if expected == Path && c != '#' then
-      while tokenEnd < end && !space(char(tokenEnd)) && char(tokenEnd) != '#' do tokenEnd += 1
+      while tokenEnd < end && !space(char(tokenEnd)) && char(tokenEnd) != '#' do
+        tokenEnd += 1
       kind = BendTokens.ImportPath
       withExpected(NoName)
-    else if c == '&' && "012".contains(char(startOffset + 1)) && !name(char(startOffset + 2)) then
+    else if c == '&' && "012".contains(char(startOffset + 1)) && !name(
+        char(startOffset + 2)
+      )
+    then
       tokenEnd += 2
       kind = BendTokens.Quantity
     else if c == '?' && head(char(startOffset + 1)) then
@@ -129,7 +145,8 @@ final class BendLexer extends LexerBase:
       kind = BendTokens.Hole
     else if digit(c) then scanNumber()
     else if head(c) then scanName()
-    else if c == '@' && startsWith("@unsafe") && !name(char(startOffset + 7)) then
+    else if c == '@' && startsWith("@unsafe") && !name(char(startOffset + 7))
+    then
       tokenEnd += 7
       kind = BendTokens.Unsafe
     else if startsWith("{==}") then
@@ -143,11 +160,14 @@ final class BendLexer extends LexerBase:
         case '{' => BendTokens.LeftBrace
         case '}' => BendTokens.RightBrace
         case '[' => BendTokens.LeftBracket
-        case _ => BendTokens.RightBracket
+        case _   => BendTokens.RightBracket
     else if ",;:".contains(c) then
       tokenEnd += 1
       kind = BendTokens.Separator
-    else if c == '<' && char(startOffset + 1) != '-' && char(startOffset + 1) != '=' then
+    else if c == '<' && char(startOffset + 1) != '-' && char(
+        startOffset + 1
+      ) != '='
+    then
       tokenEnd += 1
       kind = BendTokens.LeftAngle
     else if c == '>' && char(startOffset + 1) != '=' then
@@ -155,14 +175,21 @@ final class BendLexer extends LexerBase:
       kind = BendTokens.RightAngle
     else if "+-*/%=!~@&|<>^\\.".contains(c) then
       tokenEnd += 1
-      while tokenEnd < end && "+-*/%=!~@&|<>^\\.".contains(char(tokenEnd)) do tokenEnd += 1
+      while tokenEnd < end && "+-*/%=!~@&|<>^\\.".contains(char(tokenEnd)) do
+        tokenEnd += 1
       kind = BendTokens.Operator
     else
-      tokenEnd += (if Character.isHighSurrogate(c) && Character.isLowSurrogate(char(startOffset + 1)) then 2 else 1)
+      tokenEnd += (if Character.isHighSurrogate(c) && Character.isLowSurrogate(
+                       char(startOffset + 1)
+                     )
+                   then 2
+                   else 1)
       kind = TokenType.BAD_CHARACTER
 
   private def startsWith(value: String): Boolean =
-    startOffset + value.length <= end && input.subSequence(startOffset, startOffset + value.length).toString == value
+    startOffset + value.length <= end && input
+      .subSequence(startOffset, startOffset + value.length)
+      .toString == value
 
   private def scanName(): Unit =
     while tokenEnd < end && name(char(tokenEnd)) do tokenEnd += 1
@@ -191,10 +218,33 @@ final class BendLexer extends LexerBase:
       kind = BendTokens.Keyword
       withExpected(Namespace)
     else if BendWords.control(word) then kind = BendTokens.Keyword
-    else if Set("Type", "Data", "Kind", "Quant", "Nat", "U32", "F32", "Char", "String", "Bool", "Unit", "Empty", "IO", "List", "Array", "Maybe", "Result", "Either", "Sigma", "Word").contains(word) then kind = BendTokens.BuiltinType
+    else if Set(
+        "Type",
+        "Data",
+        "Kind",
+        "Quant",
+        "Nat",
+        "U32",
+        "F32",
+        "Char",
+        "String",
+        "Bool",
+        "Unit",
+        "Empty",
+        "IO",
+        "List",
+        "Array",
+        "Maybe",
+        "Result",
+        "Either",
+        "Sigma",
+        "Word"
+      ).contains(word)
+    then kind = BendTokens.BuiltinType
     else if word == "_" then kind = BendTokens.Wildcard
     else kind = BendTokens.Identifier
-    if expected != NoName && !Set("def", "law", "type", "import").contains(word) then withExpected(NoName)
+    if expected != NoName && !Set("def", "law", "type", "import").contains(word)
+    then withExpected(NoName)
 
   private def scanNumber(): Unit =
     while digit(char(tokenEnd)) && tokenEnd < end do tokenEnd += 1
@@ -203,7 +253,9 @@ final class BendLexer extends LexerBase:
       tokenEnd += 1
       while digit(char(tokenEnd)) && tokenEnd < end do tokenEnd += 1
       if char(tokenEnd) == 'e' || char(tokenEnd) == 'E' then
-        val sign = if char(tokenEnd + 1) == '+' || char(tokenEnd + 1) == '-' then 1 else 0
+        val sign =
+          if char(tokenEnd + 1) == '+' || char(tokenEnd + 1) == '-' then 1
+          else 0
         if digit(char(tokenEnd + 1 + sign)) then
           tokenEnd += 1 + sign
           while digit(char(tokenEnd)) && tokenEnd < end do tokenEnd += 1

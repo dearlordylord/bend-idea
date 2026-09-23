@@ -9,11 +9,19 @@ final class BendBoundedProcessTest:
   @Test def timeoutAndOutputLimitsTerminateWorkers(): Unit =
     val directory = Files.createTempDirectory("bend-worker-test-")
     try
-      val timed = BendBoundedProcess.run(List("sh", "-c", "sleep 10"), directory,
-        Map.empty, timeoutMillis = 100L)
+      val timed = BendBoundedProcess.run(
+        List("sh", "-c", "sleep 10"),
+        directory,
+        Map.empty,
+        timeoutMillis = 100L
+      )
       assertTrue(timed.isInstanceOf[BendProcessOutcome.TimedOut])
-      val output = BendBoundedProcess.run(List("sh", "-c", "yes output"), directory,
-        Map.empty, maxOutputBytes = 128)
+      val output = BendBoundedProcess.run(
+        List("sh", "-c", "yes output"),
+        directory,
+        Map.empty,
+        maxOutputBytes = 128
+      )
       assertTrue(output.isInstanceOf[BendProcessOutcome.OutputLimit])
     finally Files.deleteIfExists(directory)
 
@@ -26,8 +34,12 @@ final class BendBoundedProcessTest:
         canceled.set(true)
       })
       thread.start()
-      val result = BendBoundedProcess.run(List("sh", "-c", "sleep 10"), directory,
-        Map.empty, canceled = () => canceled.get())
+      val result = BendBoundedProcess.run(
+        List("sh", "-c", "sleep 10"),
+        directory,
+        Map.empty,
+        canceled = () => canceled.get()
+      )
       assertTrue(result.isInstanceOf[BendProcessOutcome.Canceled])
       thread.join()
     finally Files.deleteIfExists(directory)

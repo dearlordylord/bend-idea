@@ -2,6 +2,7 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
     scala
+    id("com.diffplug.spotless") version "8.10.2"
     id("org.jetbrains.intellij.platform") version "2.12.0"
 }
 
@@ -22,6 +23,13 @@ dependencies {
     }
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.tngtech.archunit:archunit:1.4.1")
+}
+
+spotless {
+    scala {
+        target("src/main/scala/**/*.scala", "src/test/scala/**/*.scala")
+        scalafmt("3.11.5").configFile(".scalafmt.conf")
+    }
 }
 
 java {

@@ -2,7 +2,11 @@ package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.toolchain.api.*
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
-import com.intellij.openapi.components.{PersistentStateComponent, State, Storage}
+import com.intellij.openapi.components.{
+  PersistentStateComponent,
+  State,
+  Storage
+}
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 
@@ -13,7 +17,9 @@ final class BendSettingsState:
   var diagnosticsEnabled: Boolean = true
 
 @State(name = "BendSettings", storages = Array(new Storage("BendSettings.xml")))
-final class BendSettingsStorage extends PersistentStateComponent[BendSettingsState] with BendToolchainSettings:
+final class BendSettingsStorage
+    extends PersistentStateComponent[BendSettingsState]
+    with BendToolchainSettings:
   private var data = new BendSettingsState
   private var revision = 0L
 
@@ -26,19 +32,32 @@ final class BendSettingsStorage extends PersistentStateComponent[BendSettingsSta
     notifyChanged()
 
   override def choices: BendToolchainChoices = synchronized {
-    BendToolchainChoices(data.executable, data.baseSource, data.packageCache, data.diagnosticsEnabled)
+    BendToolchainChoices(
+      data.executable,
+      data.baseSource,
+      data.packageCache,
+      data.diagnosticsEnabled
+    )
   }
 
   override def selection: BendToolchainSelection = synchronized {
-    BendToolchainPaths.resolve(choices, System.getProperty("user.home"),
-      Option(System.getenv("BEND_LIB")), revision)
+    BendToolchainPaths.resolve(
+      choices,
+      System.getProperty("user.home"),
+      Option(System.getenv("BEND_LIB")),
+      revision
+    )
   }
 
   override def update(value: BendToolchainChoices): Unit =
-    def valid(path: String): Boolean = path.trim.isEmpty || path.startsWith("~/") ||
-      java.nio.file.Path.of(path).isAbsolute
-    require(List(value.executable, value.baseSource, value.packageCache).forall(valid),
-      "Bend paths must be absolute or start with ~/.")
+    def valid(path: String): Boolean =
+      path.trim.isEmpty || path.startsWith("~/") ||
+        java.nio.file.Path.of(path).isAbsolute
+    require(
+      List(value.executable, value.baseSource, value.packageCache)
+        .forall(valid),
+      "Bend paths must be absolute or start with ~/."
+    )
     val changed = synchronized {
       if value == choices then false
       else
@@ -56,7 +75,10 @@ final class BendSettingsStorage extends PersistentStateComponent[BendSettingsSta
   private def notifyChanged(): Unit =
     ProjectManager.getInstance().getOpenProjects.foreach { project =>
       if !project.isDisposed then
-        Option(project.getService(classOf[BendCheckService])).foreach(_.configurationChanged())
-        project.getService(classOf[BendBackgroundChecking]).configurationChanged()
+        Option(project.getService(classOf[BendCheckService]))
+          .foreach(_.configurationChanged())
+        project
+          .getService(classOf[BendBackgroundChecking])
+          .configurationChanged()
         DaemonCodeAnalyzer.getInstance(project).restart()
     }

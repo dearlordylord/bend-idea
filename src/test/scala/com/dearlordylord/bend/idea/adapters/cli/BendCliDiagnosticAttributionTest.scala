@@ -15,26 +15,49 @@ final class BendCliDiagnosticAttributionTest:
   private val pathEnd = pathStart + "./module.bend".length
   private val copiedPathStart = copied.indexOf("../copies/module.bend")
   private val copiedPathEnd = copiedPathStart + "../copies/module.bend".length
-  private val mapping = BendSourceMapping(source, 23L,
-    "/tmp/imported.bend", "/tmp/copied/imported.bend", "M",
-    original, copied, Set(0),
-    List(BendRewrittenRange(pathStart, pathEnd, copiedPathStart, copiedPathEnd)),
+  private val mapping = BendSourceMapping(
+    source,
+    23L,
+    "/tmp/imported.bend",
+    "/tmp/copied/imported.bend",
+    "M",
+    original,
+    copied,
+    Set(0),
+    List(
+      BendRewrittenRange(pathStart, pathEnd, copiedPathStart, copiedPathEnd)
+    ),
     "\ndef broken() -> Type:\n  unknown\n",
-    List(BendBlankedRange(0, 0, copied.indexOf('\n') + 1, 0, 1)))
+    List(BendBlankedRange(0, 0, copied.indexOf('\n') + 1, 0, 1))
+  )
 
   @Test def uniqueUnchangedCompilerExcerptIdentifiesItsSourceLine(): Unit =
-    assertEquals(BendLocation.SourceLine(source, 2),
-      BendCliDiagnosticAttribution.graphLocation("3>| unknown", List(mapping)))
+    assertEquals(
+      BendLocation.SourceLine(source, 2),
+      BendCliDiagnosticAttribution.graphLocation("3>| unknown", List(mapping))
+    )
 
   @Test def duplicateExcerptStaysOnRoot(): Unit =
     val duplicate = mapping.copy(source = new FileId("/tmp/other.bend", false))
-    assertEquals(BendLocation.RootOnly,
-      BendCliDiagnosticAttribution.graphLocation("3>| unknown", List(mapping, duplicate)))
+    assertEquals(
+      BendLocation.RootOnly,
+      BendCliDiagnosticAttribution.graphLocation(
+        "3>| unknown",
+        List(mapping, duplicate)
+      )
+    )
 
   @Test def blankedAndRewrittenLinesStayOnRoot(): Unit =
-    assertEquals(BendLocation.RootOnly,
-      BendCliDiagnosticAttribution.graphLocation("1>|", List(mapping)))
-    val unblanked = mapping.copy(compilerText = copied, blankedImportRanges = Nil)
-    assertEquals(BendLocation.RootOnly,
-      BendCliDiagnosticAttribution.graphLocation("1>| import ../copies/module.bend as M",
-        List(unblanked)))
+    assertEquals(
+      BendLocation.RootOnly,
+      BendCliDiagnosticAttribution.graphLocation("1>|", List(mapping))
+    )
+    val unblanked =
+      mapping.copy(compilerText = copied, blankedImportRanges = Nil)
+    assertEquals(
+      BendLocation.RootOnly,
+      BendCliDiagnosticAttribution.graphLocation(
+        "1>| import ../copies/module.bend as M",
+        List(unblanked)
+      )
+    )
