@@ -1,6 +1,6 @@
 # Bend IDEA
 
-A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, supports standard hash line commenting, and provides keyword, snippet, declaration and local binding completion. Imported names and compiler integration follow in later issues.
+A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, supports standard hash line commenting, and provides keyword, snippet, declaration, local binding, import and path completion. Check Current File can run a supported Bend compiler explicitly against an unsaved single-file snapshot.
 
 - [Implementation specification and roadmap](https://github.com/dearlordylord/bend-idea/issues/1)
 - [Language and platform design investigation](BEND_IDEA_DESIGN.md)
@@ -74,3 +74,5 @@ Issue #9 adds Bend installation settings for the executable, Base source, packag
 Issue #10 adds a shared ordered import graph for relative, absolute, and cached hash paths. It preserves source identity, import spelling, root-specific namespace, and missing/cycle/conflict problems. Completion uses direct aliases and transitive Base from that graph, with current document contents taking precedence over saved imports; it does not re-export another file's aliases.
 
 Issue #11 adds import-path completion for Base, relative and absolute Bend modules, directories, and locally cached hash packages. It browses one bounded directory at a time, includes newly created/open project files, replaces the full path fragment around the caret, and continues suggestions after a directory is chosen. It never downloads a package.
+
+Issue #12 adds explicit Check Current File for unsaved sources with no imports or a matching Base. It probes for documented `--check-only` support before passing source to Bend, uses a bounded temporary snapshot, and reports compiler errors, incompleteness, reliance, timeout, or setup problems in the editor. Other import graphs require the complete snapshot support in issue #13.

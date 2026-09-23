@@ -41,6 +41,15 @@ final class ArchitectureTest:
     assertTrue("Base source adapter must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.intellij.BendLibrarySourceService"))
     assertTrue("Settings storage must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.intellij.BendSettingsStorage"))
     assertTrue("Settings UI must be inspected", classes.contain("com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"))
+    assertTrue("Root result model must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.model.BendCheckResult"))
+    assertTrue("Check policy must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.api.BendCheckPolicy$"))
+    assertTrue("Check service contract must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.api.BendCheckService"))
+    assertTrue("CLI backend must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.cli.BendCliCheckBackend"))
+    assertTrue("External input observation must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.cli.BendExternalInputs$"))
+    assertTrue("Bounded process adapter must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.process.BendBoundedProcess$"))
+    assertTrue("Check session must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.intellij.BendCheckSession"))
+    assertTrue("Explicit action must be inspected", classes.contain("com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction"))
+    assertTrue("Problem projection must be inspected", classes.contain("com.dearlordylord.bend.idea.features.checking.BendCheckAnnotator"))
     ArchitectureRules.check(classes, "com.dearlordylord.bend.idea")
 
   @Test def rejectsForbiddenCompiledScalaDependencies(): Unit =

@@ -1,7 +1,10 @@
 package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.toolchain.api.*
+import com.dearlordylord.bend.idea.analysis.api.BendCheckService
 import com.intellij.openapi.components.{PersistentStateComponent, State, Storage}
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 
 final class BendSettingsState:
   var executable: String = ""
@@ -15,10 +18,12 @@ final class BendSettingsStorage extends PersistentStateComponent[BendSettingsSta
   private var revision = 0L
 
   override def getState: BendSettingsState = data
-  override def loadState(state: BendSettingsState): Unit = synchronized {
-    data = state
-    revision += 1
-  }
+  override def loadState(state: BendSettingsState): Unit =
+    synchronized {
+      data = state
+      revision += 1
+    }
+    notifyChanged()
 
   override def choices: BendToolchainChoices = synchronized {
     BendToolchainChoices(data.executable, data.baseSource, data.packageCache, data.diagnosticsEnabled)
@@ -29,17 +34,28 @@ final class BendSettingsStorage extends PersistentStateComponent[BendSettingsSta
       Option(System.getenv("BEND_LIB")), revision)
   }
 
-  override def update(value: BendToolchainChoices): Unit = synchronized {
+  override def update(value: BendToolchainChoices): Unit =
     def valid(path: String): Boolean = path.trim.isEmpty || path.startsWith("~/") ||
       java.nio.file.Path.of(path).isAbsolute
     require(List(value.executable, value.baseSource, value.packageCache).forall(valid),
       "Bend paths must be absolute or start with ~/.")
-    if value != choices then
-      val next = new BendSettingsState
-      next.executable = value.executable.trim
-      next.baseSource = value.baseSource.trim
-      next.packageCache = value.packageCache.trim
-      next.diagnosticsEnabled = value.diagnosticsEnabled
-      data = next
-      revision += 1
-  }
+    val changed = synchronized {
+      if value == choices then false
+      else
+        val next = new BendSettingsState
+        next.executable = value.executable.trim
+        next.baseSource = value.baseSource.trim
+        next.packageCache = value.packageCache.trim
+        next.diagnosticsEnabled = value.diagnosticsEnabled
+        data = next
+        revision += 1
+        true
+    }
+    if changed then notifyChanged()
+
+  private def notifyChanged(): Unit =
+    ProjectManager.getInstance().getOpenProjects.foreach { project =>
+      if !project.isDisposed then
+        Option(project.getService(classOf[BendCheckService])).foreach(_.configurationChanged())
+        DaemonCodeAnalyzer.getInstance(project).restart()
+    }

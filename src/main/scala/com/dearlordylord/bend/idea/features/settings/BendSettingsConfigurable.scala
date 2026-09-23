@@ -24,7 +24,7 @@ final class BendSettingsConfigurable extends Configurable:
     executable = new JTextField()
     base = new JTextField()
     cache = new JTextField()
-    diagnostics = new JCheckBox("Enable diagnostics")
+    diagnostics = new JCheckBox("Enable background diagnostics")
     status = new JLabel()
     panel = FormBuilder.createFormBuilder()
       .addLabeledComponent("Executable (default ~/.bend/bin/bend):", executable)
