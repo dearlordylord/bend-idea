@@ -1,6 +1,6 @@
 # Bend IDEA
 
-A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, and supports standard hash line commenting. Declaration parsing, completion and compiler integration follow in later issues.
+A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, supports standard hash line commenting, and provides lexical keyword completion with six editable snippets. Declaration parsing, name completion and compiler integration follow in later issues.
 
 - [Implementation specification and roadmap](https://github.com/dearlordylord/bend-idea/issues/1)
 - [Language and platform design investigation](BEND_IDEA_DESIGN.md)
@@ -58,3 +58,5 @@ Keep the rule graph synchronized with ARCHITECTURE.md when adding packages or ch
 Launch `runIde`, open an `example.bend` file, and confirm the Bend file type and icon in both light and dark themes. Confirm the plugin loads without installing the Scala plugin or a Bend/JavaScript toolchain. Close the sandbox when finished. The automated editor fixture separately checks registered file recognition, preserved editor contents and both icon resources; Plugin Verifier checks binary compatibility.
 
 Issue #3 adds a restartable UTF-16 lexer, configurable Bend token colors and the standard hash line-comment action. The editor fixtures exercise highlighting after an edit inside a string, comment toggling including the last line without a newline, and undo through the IntelliJ action. The parser definition currently supplies a token tree; tolerant declaration PSI is owned by issue #5.
+
+Issue #4 adds explicit Bend 2 keyword completion and editable `def`, `type`, `law`, `match`, `do` and `import` snippets. Suggestions are withheld inside comments and string literals, including unfinished strings. The completion fixtures invoke IntelliJ lookup and live-template editing, including a linked law placeholder and the final caret position.

@@ -15,6 +15,8 @@ final class ArchitectureTest:
     assertTrue("Scala companion bytecode must also be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.BendLanguage$"))
     assertTrue("The shared lexer boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.lexer.BendLexer"))
     assertTrue("The editing feature boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.editing.BendCommenter"))
+    assertTrue("The completion feature boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"))
+    assertTrue("The shared template API boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.templates.api.BendSnippets$"))
     ArchitectureRules.check(classes, "com.dearlordylord.bend.idea")
 
   @Test def rejectsForbiddenCompiledScalaDependencies(): Unit =

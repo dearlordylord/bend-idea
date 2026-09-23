@@ -3,7 +3,8 @@
     <name>Bend</name>
     <vendor url="https://github.com/dearlordylord/bend-idea">dearlordylord</vendor>
     <description><![CDATA[
-        Native Bend 2 language support with highlighting and line comments.
+        Native Bend 2 language support with highlighting, line comments,
+        keyword completion and editable snippets.
         Editing support loads without a Bend installation.
     ]]></description>
     <depends>com.intellij.modules.platform</depends>
@@ -18,5 +19,7 @@
         <colorSettingsPage implementation="com.dearlordylord.bend.idea.syntax.lexer.BendColorSettingsPage"/>
         <lang.commenter language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.editing.BendCommenter"/>
+        <completion.contributor language="Bend"
+                  implementationClass="com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"/>
     </extensions>
 </idea-plugin>
