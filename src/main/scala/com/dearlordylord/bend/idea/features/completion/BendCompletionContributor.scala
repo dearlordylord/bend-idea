@@ -29,13 +29,21 @@ final class BendCompletionContributor extends CompletionContributor:
         words.foreach { word =>
           result.addElement(LookupElementBuilder.create(word).withTypeText("Bend 2 keyword"))
         }
-        BendSourceSymbols.visibleCandidates(parameters.getOriginalFile, offset).foreach { symbol =>
+        val bindings = BendSourceSymbols.visibleBindings(parameters.getOriginalFile, offset)
+        val boundNames = bindings.map(_.name).toSet
+        BendSourceSymbols.visibleCandidates(parameters.getOriginalFile, offset)
+          .filterNot(symbol => boundNames.contains(symbol.name)).foreach { symbol =>
           val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
           val comments = symbol.comments.replaceAll("\\s+", " ").trim
           val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
           result.addElement(LookupElementBuilder.create(symbol.declaration, symbol.name)
             .withTailText(tail, true)
             .withTypeText(symbol.category.toString.toLowerCase))
+        }
+        bindings.foreach { binding =>
+          result.addElement(LookupElementBuilder.create(binding.name)
+            .withTailText("  " + binding.source.replaceAll("\\s+", " "), true)
+            .withTypeText(binding.kindLabel))
         }
         val triggers = site match
           case BendCompletionContributor.Site.TopLevel => Set("def", "type", "law", "import")
