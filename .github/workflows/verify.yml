@@ -12,6 +12,8 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      SIGNING_CONFIGURED: ${{ secrets.BEND_IDEA_SIGNING_PRIVATE_KEY != '' && secrets.BEND_IDEA_SIGNING_CERTIFICATE_CHAIN != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -21,13 +23,28 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Test, check architecture, package and verify compatibility
         run: ./gradlew --no-daemon check buildPlugin verifyPlugin
+      - name: Sign and verify distribution
+        if: github.event_name == 'push' && env.SIGNING_CONFIGURED == 'true'
+        env:
+          SIGNING_PRIVATE_KEY: ${{ secrets.BEND_IDEA_SIGNING_PRIVATE_KEY }}
+          SIGNING_CERTIFICATE_CHAIN: ${{ secrets.BEND_IDEA_SIGNING_CERTIFICATE_CHAIN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          signing_dir=$(mktemp -d)
+          trap 'rm -rf "$signing_dir"' EXIT
+          printf '%s' "$SIGNING_PRIVATE_KEY" > "$signing_dir/private.pem"
+          printf '%s' "$SIGNING_CERTIFICATE_CHAIN" > "$signing_dir/chain.crt"
+          BEND_IDEA_SIGNING_DIR="$signing_dir" ./gradlew --no-daemon signPlugin verifyPluginSignature
+          find build/distributions -maxdepth 1 -type f -name 'bend-idea-*.zip' ! -name '*-signed.zip' -delete
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: reports
           path: build/reports/
       - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && env.SIGNING_CONFIGURED == 'true'
         with:
-          name: bend-plugin
-          path: build/distributions/*.zip
+          name: bend-plugin-signed
+          path: build/distributions/*-signed.zip
           if-no-files-found: error

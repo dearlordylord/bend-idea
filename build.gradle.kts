@@ -50,8 +50,27 @@ val architectureTest by tasks.registering(Test::class) {
 
 tasks.check { dependsOn(architectureTest) }
 
+val requireSigning by tasks.registering {
+    doLast {
+        val directory = providers.environmentVariable("BEND_IDEA_SIGNING_DIR").orNull
+        require(!directory.isNullOrBlank() &&
+            file("$directory/private.pem").isFile &&
+            file("$directory/chain.crt").isFile) {
+            "Set BEND_IDEA_SIGNING_DIR to a directory containing private.pem and chain.crt."
+        }
+    }
+}
+tasks.named("signPlugin") { dependsOn(requireSigning) }
+tasks.named("verifyPluginSignature") { dependsOn("signPlugin") }
+
 intellijPlatform {
     buildSearchableOptions = false
+    providers.environmentVariable("BEND_IDEA_SIGNING_DIR").orNull?.let { signingDirectory ->
+        signing {
+            privateKeyFile = file("$signingDirectory/private.pem")
+            certificateChainFile = file("$signingDirectory/chain.crt")
+        }
+    }
     pluginConfiguration {
         id = "com.dearlordylord.bend.idea"
         name = "Bend"

@@ -21,7 +21,7 @@ Implementation work follows [AGENTS.md](AGENTS.md) and the contracts in [ARCHITE
 
 | Component | Pinned baseline |
 |---|---|
-| IntelliJ IDEA Community | 2025.1 (`251.23774.435`); declared support `251.*` |
+| IntelliJ IDEA | built against 2025.1; no upper build limit; verified with Community 2025.1 and Ultimate 2026.1 |
 | Build/target JDK | 21 (full JDK, not a JRE) |
 | Scala | 3.3.7; bundled Scala 2.13.16 standard library dependency |
 | Gradle wrapper | 9.4.0, distribution checksum pinned |
@@ -29,23 +29,24 @@ Implementation work follows [AGENTS.md](AGENTS.md) and the contracts in [ARCHITE
 | Plugin Verifier | 1.410 |
 | Test libraries | JUnit 4.13.2, ArchUnit 1.4.1 |
 
-The initial IDE baseline follows the supplied integration reference and is checked by Plugin Verifier. New IDE release lines require deliberate compatibility testing before widening the declared range. The Scala runtime ships in the plugin; users do not need the Scala plugin, Bend, Node or Bun for file recognition.
+The initial IDE baseline follows the supplied integration reference and is checked by Plugin Verifier. The open-ended build range permits installation on newer IDEs; verify each new release before claiming it works. The Scala runtime ships in the plugin; users do not need the Scala plugin, Bend, Node or Bun for file recognition.
 
 ## Build and verify
 
-Set `JAVA_HOME` to a full JDK 21. The first build downloads Gradle, the IDE SDK and Maven dependencies; later builds reuse their caches. Windows users can use `gradlew.bat`.
+Set `JAVA_HOME` to a full JDK 21. The first build downloads Gradle, the IDE SDK and Maven dependencies; later builds reuse their caches. Windows users can use `gradlew.bat`. Distributions must always be signed. Keep `private.pem` and `chain.crt` outside the repository in the directory named by `BEND_IDEA_SIGNING_DIR`.
 
 ```sh
 ./gradlew check                 # editor fixtures and compiled architecture checks
 ./gradlew architectureTest      # dependency rules and their negative Scala fixture
-./gradlew buildPlugin           # build/distributions/bend-idea-0.1.0-SNAPSHOT.zip
-./gradlew verifyPlugin          # binary compatibility with the pinned IDEA version
+BEND_IDEA_SIGNING_DIR="$HOME/.config/bend-idea/signing" \
+  ./gradlew signPlugin verifyPluginSignature  # build and verify the signed ZIP
+./gradlew verifyPlugin          # binary compatibility with pinned IDEA versions
 ./gradlew runIde                # launch an isolated development IDE; requires a display
 ```
 
-Install the ZIP using **Settings → Plugins → Install Plugin from Disk** in a supported IDE, or use `runIde` with its prepared sandbox. Kotlin files here configure Gradle; all plugin and test implementation is Scala 3.
+Install only `build/distributions/*-signed.zip` using **Settings → Plugins → Install Plugin from Disk** in a supported IDE, or use `runIde` with its prepared sandbox. If using the local self-signed certificate, add `chain.crt` under **Settings → Plugins → Manage Plugin Certificates**. `buildPlugin` creates an unsigned intermediate; never distribute it. After signature verification, remove unsigned ZIPs from `build/distributions/`. CI uploads a plugin archive only when repository secrets `BEND_IDEA_SIGNING_PRIVATE_KEY` and `BEND_IDEA_SIGNING_CERTIFICATE_CHAIN` are configured and signing succeeds. Kotlin files here configure Gradle; all plugin and test implementation is Scala 3.
 
-[CI](.github/workflows/verify.yml) runs `check buildPlugin verifyPlugin` on pull requests and pushes to master, and uploads reports and the plugin ZIP. Configure its `verify` job as a required branch check when publishing the workflow; repository rulesets are not set by this source file.
+[CI](.github/workflows/verify.yml) runs `check buildPlugin verifyPlugin` on pull requests and pushes to master, uploads reports, and uploads a signed plugin ZIP only when signing secrets are configured on a master push. Configure its `verify` job as a required branch check when publishing the workflow; repository rulesets are not set by this source file.
 
 ## Architecture checks
 
