@@ -12,15 +12,19 @@ final case class ScopeBinding(name: String, nameOffset: Int, source: String,
 
 /** Pure, tolerant lexical scope policy over the shared lexer's token projection. */
 object BendScope:
+  def lawClauses(source: String, tokens: Vector[ScopeToken]): List[BendProofScope.LawClause] =
+    BendProofScope.lawClauses(source, tokens)
+
   def bindings(source: String, tokens: Vector[ScopeToken], headerEnd: Int,
-      declarationEnd: Int): List[ScopeBinding] =
+      declarationEnd: Int, law: Boolean = false): List[ScopeBinding] =
     val header = tokens.filter(_.start < headerEnd)
     val body = tokens.filter(_.start >= headerEnd)
     val limit = bodyLimit(source, body, headerEnd, declarationEnd)
     val active = body.filter(_.start < limit)
     val structured = BendStructuredScope.inspect(source, active, limit)
     parameterBindings(source, header, limit) ++
-      bodyBindings(source, active, limit, structured) ++ structured.bindings
+      bodyBindings(source, active, limit, structured) ++ structured.bindings ++
+      BendProofScope.bindings(source, tokens.filter(_.start < limit), headerEnd, limit, law)
 
   /** The surface parser deliberately retains malformed neighbors; a fresh column-zero line
     * outside delimiters is no longer in this declaration's body.

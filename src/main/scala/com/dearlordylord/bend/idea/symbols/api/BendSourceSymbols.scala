@@ -4,6 +4,7 @@ import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.syntax.psi.*
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens, BendWords}
 import com.dearlordylord.bend.idea.symbols.scope.{BendScope, BindingOrigin, ScopeToken}
+import com.dearlordylord.bend.idea.symbols.declarations.{BendDeclarationSite, BendLawDeclarations, BendLogicalLaw}
 import com.intellij.psi.PsiFile
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
@@ -28,9 +29,13 @@ final case class BendSourceSymbol(
   declaration: BendDeclaration
 )
 
-/** Source-local identity and region. The original binder syntax is presentation data, not a resource-use judgment. */
+/** Source-local identity and region. The clause specification is source text, not an inferred
+  * type or compiler verdict; `where` may pack the fill parameter into a witness pair.
+  */
 final case class BendSourceBinding(handle: BendSourceHandle, name: String, source: String,
-    origin: BendBindingKind, from: Int, until: Int):
+    origin: BendBindingKind, from: Int, until: Int,
+    sourceSpecification: Option[String] = None,
+    specification: Option[BendSourceHandle] = None):
   def kindLabel: String = origin.toString.toLowerCase
 
 enum BendSourceResolution:
@@ -88,9 +93,33 @@ object BendSourceSymbols:
         }
       }
 
+  /** Same-file source links only; a fill never implies a checked or proved law. */
+  def logicalLaws(file: PsiFile): List[BendLogicalLaw[BendSourceSymbol]] =
+    BendLawDeclarations.relationships(declarations(file))(site)
+
+  private def site(symbol: BendSourceSymbol): BendDeclarationSite =
+    val signature = symbol.signature.source
+    val open = signature.indexOf('(')
+    var close = -1
+    var depth = 0
+    var at = open
+    while at >= 0 && at < signature.length && close < 0 do
+      signature.charAt(at) match
+        case '(' => depth += 1
+        case ')' =>
+          depth -= 1
+          if depth == 0 then close = at
+        case _ => ()
+      at += 1
+    BendDeclarationSite(symbol.name, symbol.handle.nameOffset,
+      symbol.category == BendSymbolCategory.Law,
+      symbol.category == BendSymbolCategory.Definition,
+      close >= 0 && signature.substring(close + 1).contains("->"),
+      symbol.signature.parameters.forall(p => p.source == p.name))
+
   /** Earlier source declarations only. Type and constructor retain separate identities. */
   def visibleCandidates(file: PsiFile, offset: Int): List[BendSourceSymbol] =
-    declarations(file).filter(_.handle.nameOffset < offset)
+    BendLawDeclarations.completionCandidates(declarations(file).filter(_.handle.nameOffset < offset))(site)
 
   /** Lexical binders from the current declaration, in nearest-first order. */
   def visibleBindings(file: PsiFile, offset: Int): List[BendSourceBinding] =
@@ -102,22 +131,10 @@ object BendSourceSymbols:
       val source = file.getText
       val header = PsiTreeUtil.getChildOfType(declaration, classOf[BendHeader])
       val headerEnd = Option(header).map(_.getTextRange.getEndOffset).getOrElse(range.getStartOffset)
-      val lexer = new BendLexer()
-      lexer.start(source, range.getStartOffset, range.getEndOffset, 0)
-      val tokens = Vector.newBuilder[ScopeToken]
-      while lexer.getTokenType != null do
-        val start = lexer.getTokenStart
-        val end = lexer.getTokenEnd
-        val kind = lexer.getTokenType
-        if kind != TokenType.WHITE_SPACE && kind != BendTokens.Comment then
-          val spelling = source.substring(start, end)
-          val name = (kind == BendTokens.Identifier || kind == BendTokens.FunctionName ||
-            kind == BendTokens.TypeName || kind == BendTokens.NamespaceName) &&
-            spelling.matches("[A-Za-z_][A-Za-z0-9_.]*") && !BendWords.reserved(spelling)
-          tokens += ScopeToken(spelling, start, end, name)
-        lexer.advance()
+      val tokens = scopeTokens(source, range.getStartOffset, range.getEndOffset)
       val id = fileId(file)
-      BendScope.visible(BendScope.bindings(source, tokens.result(), headerEnd, range.getEndOffset + 1), offset)
+      val scoped = BendScope.visible(BendScope.bindings(source, tokens, headerEnd,
+        range.getEndOffset + 1, declaration.isInstanceOf[BendLaw]), offset)
         .map(b => BendSourceBinding(BendSourceHandle(id, BendSymbolCategory.Binder, b.nameOffset),
           b.name, b.source, b.origin match
             case BindingOrigin.Parameter => BendBindingKind.Parameter
@@ -126,7 +143,47 @@ object BendSourceSymbols:
             case BindingOrigin.Pattern => BendBindingKind.Pattern
             case BindingOrigin.Do => BendBindingKind.Do,
           b.from, b.until))
+      if declaration.isInstanceOf[BendLaw] then
+        val types = BendScope.lawClauses(source, tokens).map(c => c.nameOffset -> c.sourceSpecification).toMap
+        scoped.map(binding => types.get(binding.handle.nameOffset) match
+          case Some(specification) => binding.copy(sourceSpecification = Some(specification))
+          case None => binding)
+      else if !declaration.isInstanceOf[BendDefinition] then scoped
+      else
+        val link = logicalLaws(file).find(_.fills.exists(_.declaration eq declaration))
+        link match
+          case None => scoped
+          case Some(relationship) =>
+            val lawRange = relationship.law.declaration.getTextRange
+            val clauses = BendScope.lawClauses(source,
+              scopeTokens(source, lawRange.getStartOffset, lawRange.getEndOffset))
+            val fillParameters = scoped.filter(_.origin == BendBindingKind.Parameter)
+              .sortBy(_.handle.nameOffset)
+            val types = fillParameters.zip(clauses).map { case (parameter, clause) =>
+              parameter.handle -> (clause.sourceSpecification, relationship.law.handle)
+            }.toMap
+            scoped.map(binding => types.get(binding.handle) match
+              case Some((sourceSpecification, lawHandle)) => binding.copy(
+                sourceSpecification = Some(sourceSpecification), specification = Some(lawHandle))
+              case None => binding)
     }
+
+  private def scopeTokens(source: String, startOffset: Int, endOffset: Int): Vector[ScopeToken] =
+    val lexer = new BendLexer()
+    lexer.start(source, startOffset, endOffset, 0)
+    val tokens = Vector.newBuilder[ScopeToken]
+    while lexer.getTokenType != null do
+      val start = lexer.getTokenStart
+      val end = lexer.getTokenEnd
+      val kind = lexer.getTokenType
+      if kind != TokenType.WHITE_SPACE && kind != BendTokens.Comment then
+        val spelling = source.substring(start, end)
+        val name = (kind == BendTokens.Identifier || kind == BendTokens.FunctionName ||
+          kind == BendTokens.TypeName || kind == BendTokens.NamespaceName) &&
+          spelling.matches("[A-Za-z_][A-Za-z0-9_.]*") && !BendWords.reserved(spelling)
+        tokens += ScopeToken(spelling, start, end, name)
+      lexer.advance()
+    tokens.result()
 
   /** Source-order lookup for current-file declarations. Later scope rules extend eligibility here. */
   def resolveCurrentFile(file: PsiFile, offset: Int, spelling: String,
@@ -135,7 +192,10 @@ object BendSourceSymbols:
       visibleBindings(file, offset).find(_.name == spelling) match
         case Some(binding) => return BendSourceResolution.ResolvedBinder(binding)
         case None => ()
-    val matches = visibleCandidates(file, offset).filter(s =>
+    val candidates = if category.isDefined then
+      declarations(file).filter(_.handle.nameOffset < offset)
+    else visibleCandidates(file, offset)
+    val matches = candidates.filter(s =>
       s.name == spelling && category.forall(_ == s.category))
     matches match
       case Nil => BendSourceResolution.Unresolved

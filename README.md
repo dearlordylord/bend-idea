@@ -66,3 +66,5 @@ Issue #5 adds a tolerant declaration PSI and source symbol API. Current-file com
 Issue #6 adds source scope for parameters, lambdas and ordinary/parallel lets. Completion follows binding order and nearest shadowing, including incomplete RHS edits and parenthesized continuations. Quantity and template annotations remain source text; this local scope model does not claim compiler resource analysis.
 
 Issue #7 extends local completion to match case patterns and do-block continuations. Case binders stay inside their branch; typed do bindings become available after their right-hand side, and a continued `Array.set` exposes its array binding. Editor fixtures cover nested patterns, sibling branches, indentation, inline forms, and incomplete bodies.
+
+Issue #8 connects a law and its same-file fill for one completion entry while retaining their separate source locations and signatures. The shared scope policy adds law clauses, dependent arrows, and rewrite-motive binders; source proof forms and open laws remain distinct from compiler proof judgments.

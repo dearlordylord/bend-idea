@@ -41,8 +41,11 @@ final class BendCompletionContributor extends CompletionContributor:
             .withTypeText(symbol.category.toString.toLowerCase))
         }
         bindings.foreach { binding =>
+          val detail = binding.sourceSpecification match
+            case Some(specification) => s"${binding.source}: $specification (law)"
+            case None => binding.source
           result.addElement(LookupElementBuilder.create(binding.name)
-            .withTailText("  " + binding.source.replaceAll("\\s+", " "), true)
+            .withTailText("  " + detail.replaceAll("\\s+", " "), true)
             .withTypeText(binding.kindLabel))
         }
         val triggers = site match

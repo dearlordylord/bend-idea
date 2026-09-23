@@ -43,6 +43,8 @@ sealed abstract class BendDeclaration(node: ASTNode) extends ASTWrapperPsiElemen
 
   def parameters: List[BendSourceParameter] = BendSourceParameter.fromHeader(headerText, this.isInstanceOf[BendDatatype])
 
+  def proofForms: List[BendProofForm] = BendProofSurface.scan(getText, getTextRange.getStartOffset)
+
 final class BendName(node: ASTNode) extends ASTWrapperPsiElement(node)
 final class BendHeader(node: ASTNode) extends ASTWrapperPsiElement(node)
 final class BendDefinition(node: ASTNode) extends BendDeclaration(node)
