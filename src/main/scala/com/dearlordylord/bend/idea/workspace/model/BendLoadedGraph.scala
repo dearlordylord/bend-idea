@@ -24,3 +24,16 @@ enum BendGraphProblem:
 final case class BendLoadedGraph(root: FileId, files: List[BendLoadedFile],
     edges: List[BendLoadedEdge], problems: List[BendGraphProblem]):
   def source(id: FileId): Option[BendSourceRecord] = files.find(_.source.id == id).map(_.source)
+
+  /** A written import can navigate only when its own edge passed loader validation. */
+  def importTarget(from: FileId, offset: Int): Option[FileId] =
+    val invalid = problems.exists {
+      case BendGraphProblem.InvalidImport(file, imp, _) => file == from && imp.offset == offset
+      case BendGraphProblem.Missing(file, imp, _) => file == from && imp.offset == offset
+      case BendGraphProblem.Cycle(file, imp, _) => file == from && imp.offset == offset
+      case BendGraphProblem.NamespaceConflict(file, imp, _, _, _) => file == from && imp.offset == offset
+    }
+    if invalid then None
+    else edges.find(edge => edge.from == from && edge.importLine.offset == offset)
+      .flatMap(edge => edge.target.filter(id => files.exists(file =>
+        file.source.id == id && file.namespace == edge.namespace)))

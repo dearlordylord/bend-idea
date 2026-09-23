@@ -165,6 +165,8 @@ The #17 implementation wraps name tokens in reference PSI so IntelliJ can reques
 
 The #19 usage search registers a native `ReferencesSearch` executor and Find Usages provider. It compares resolved source handles, with a logical law handle used only to group a law and its fill for presentation; constructor/type and alias/member identities remain separate. Candidate discovery scans current PSI from open Bend documents, project content roots, configured Base and package cache. It does not read file indexes or download libraries. The scan bounds visited and pending VFS entries together to 4,096, stops after 512 Bend files and skips current document text above 1 MiB; these are explicit search limits, so a very large workspace can return partial usages. This boundary is shared with the later rename feature, which must revalidate targets before editing.
 
+The #49 module-path references are supplied on the file PSI so one reference covers the complete written path across lexer tokens. `workspace.api.BendImportLines` supplies leading-import path ranges; `BendLoadedGraph.importTarget` accepts only an edge that passed its own loader validation and whose canonical target loaded in the requested namespace. Each path retains its written edge even when a later import overwrites its alias. Native references reacquire current physical file PSI using current Base/cache settings. The shared graph loader caps distinct source lookups as well as loaded files at 256 by default, caching both present and missing paths only within one load. Excess lookups become explicit invalid-import problems; no package enumeration or download occurs. Later file-move support (#36) can consume these ranges and identities, but must separately validate namespace-preserving edits.
+
 ### A source signature is not a compiler type — #5, #8 and #18
 
 Represent declared signatures as source-derived data, including quantities, template clauses and parameter origin. A law-backed definition displays the law specification while preserving fill parameter names separately. Later compiler expression types have their own result type and provenance.
@@ -293,6 +295,7 @@ This table describes contribution to the proposed architecture; it does not repl
 | #45 | Resources | `features.semantics`, `analysis` | Actual compiler demand capability |
 | #46 | Proof edits | `features.semantics`, `analysis` | Candidate snapshot validation and edit preconditions |
 | #47 | Normalization | `features.semantics`, `analysis` | Contextual evaluation, killable worker, display-only output |
+| #49 | Module-path navigation | `symbols.references`, `workspace` | Leading-import ranges, validated graph edges, current physical file PSI |
 
 ## Implementation order without a large framework phase
 

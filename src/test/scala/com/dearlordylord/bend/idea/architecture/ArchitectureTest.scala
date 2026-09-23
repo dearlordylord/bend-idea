@@ -38,6 +38,7 @@ final class ArchitectureTest:
     assertTrue("Source catalog port must be inspected", classes.contain("com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog"))
     assertTrue("Imported symbol catalog must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.api.BendImportedSymbolCatalog"))
     assertTrue("Native references must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.references.BendNameReference"))
+    assertTrue("Module file references must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.references.BendModulePathReference"))
     assertTrue("Physical reference targets must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.references.BendPhysicalTargets$"))
     assertTrue("Reference PSI must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.psi.BendReferenceElement"))
     assertTrue("Loading configuration boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration"))

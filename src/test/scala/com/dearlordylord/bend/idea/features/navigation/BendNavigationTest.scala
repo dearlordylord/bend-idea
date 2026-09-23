@@ -52,6 +52,116 @@ final class BendNavigationTest extends BasePlatformTestCase:
     assertNotNull("Go to Declaration target", result)
     result
 
+  def testModulePathNavigatesToPhysicalFile(): Unit =
+    val lib = myFixture.addFileToProject("lib.bend", "def value():\n  0\n")
+    myFixture.configureByText("main.bend", "import ./li<caret>b.bend as M\ndef main():\n  M.value()\n")
+    assertEquals(lib, editorTarget())
+    val ref = myFixture.getFile.findReferenceAt(myFixture.getCaretOffset)
+    assertEquals("./lib.bend", ref.getCanonicalText)
+    assertEquals(new com.intellij.openapi.util.TextRange(7, 17),
+      ref.getRangeInElement.shiftRight(ref.getElement.getTextOffset))
+
+  def testAbsoluteBaseAndCachedModulePathsUseCurrentSettings(): Unit =
+    val absolute = Files.writeString(temporary.resolve("absolute.bend"), "def value():\n  0\n")
+    myFixture.configureByText("main.bend", s"import ${absolute.toString.dropRight(5)}<caret>.bend as M\n")
+    assertEquals(absolute.toString, editorTarget().getContainingFile.getVirtualFile.getCanonicalPath)
+    Files.writeString(temporary.resolve("base.bend"), "def baseValue():\n  0\n")
+    myFixture.configureByText("main.bend", "import Ba<caret>se\n")
+    assertEquals("base.bend", editorTarget().getContainingFile.getName)
+    val otherBase = Files.writeString(temporary.resolve("other-base.bend"), "def other():\n  0\n")
+    val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
+    val cache = Files.createDirectories(temporary.resolve("cache/0xabc"))
+    Files.writeString(cache.resolve("cached.bend"), "def cached():\n  0\n")
+    settings.update(BendToolchainChoices(baseSource = otherBase.toString,
+      packageCache = cache.getParent.toString))
+    assertEquals("other-base.bend", editorTarget().getContainingFile.getName)
+    myFixture.configureByText("main.bend", "import 0xabc/ca<caret>ched.bend as C\n")
+    assertEquals(cache.resolve("cached.bend").toString,
+      editorTarget().getContainingFile.getVirtualFile.getCanonicalPath)
+
+  def testUnsavedModulePathAndTargetUseCurrentDocuments(): Unit =
+    val first = myFixture.addFileToProject("first.bend", "def old():\n  0\n")
+    val second = myFixture.addFileToProject("second.bend", "def old():\n  0\n")
+    val main = myFixture.addFileToProject("main.bend", "import ./first.bend as M\n")
+    myFixture.openFileInEditor(main.getVirtualFile)
+    myFixture.getEditor.getCaretModel.moveToOffset(12)
+    assertEquals(first, editorTarget())
+    val targetDocument = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance()
+      .getDocument(second.getVirtualFile)
+    WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
+      override def run(): Unit =
+        myFixture.getEditor.getDocument.setText("import ./second.bend as M\n")
+        targetDocument.setText("def current():\n  42\n"))
+    com.intellij.psi.PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    myFixture.getEditor.getCaretModel.moveToOffset(12)
+    assertEquals(second, editorTarget())
+    assertEquals("def current():\n  42\n", editorTarget().getText)
+
+  def testInvalidAndMissingModulePathsHaveNoTarget(): Unit =
+    myFixture.addFileToProject("lib.bend", "def value():\n  0\n")
+    List("import ./mis<caret>sing.bend as M\n", "import ./li<caret>b.bend\n",
+      "import ./li<caret>b.bend as\n", "import ./li<caret>b.bend as 123\n",
+      "import ./li<caret>b as M\n", "import 0xabc/mis<caret>sing.bend as M\n",
+      "import <caret>\n").foreach { source =>
+      myFixture.configureByText("main.bend", source)
+      assertNull(source, GotoDeclarationAction.findTargetElement(getProject, myFixture.getEditor,
+        myFixture.getCaretOffset))
+    }
+    val directory = Files.createDirectory(temporary.resolve("directory.bend"))
+    myFixture.configureByText("main.bend", s"import $directory<caret> as M\n")
+    assertNull(GotoDeclarationAction.findTargetElement(getProject, myFixture.getEditor,
+      myFixture.getCaretOffset - 1))
+
+  def testModulePathRangeExcludesAliasCommentsAndForeignBodyPaths(): Unit =
+    val lib = myFixture.addFileToProject("lib.bend", "def value():\n  0\n")
+    myFixture.configureByText("main.bend", "# 😀 heading\r\n\timport\t./lib.bend as M # comment\r\ndef main():\n  M.value()\n")
+    val source = myFixture.getFile.getText
+    val start = source.indexOf("./lib.bend")
+    for offset <- start until start + "./lib.bend".length do
+      myFixture.getEditor.getCaretModel.moveToOffset(offset)
+      assertEquals(lib, editorTarget())
+    for offset <- List(source.indexOf("import"), source.indexOf("as M") + 3, source.indexOf("comment")) do
+      assertNull(myFixture.getFile.findReferenceAt(offset))
+    List("def main():\n  import ./li<caret>b.bend as M\n",
+      "def foreign():\n  import \"./li<caret>b.js\"\n",
+      "def foreign():\n  import \"./li<caret>b.c\"\n").foreach { text =>
+      myFixture.configureByText("main.bend", text)
+      val ref = myFixture.getFile.findReferenceAt(myFixture.getCaretOffset)
+      assertFalse(Option(ref).exists(_.resolve().isInstanceOf[com.intellij.psi.PsiFile]))
+    }
+
+  def testRepeatedImportsKeepTheirWrittenPathTargets(): Unit =
+    val first = myFixture.addFileToProject("first.bend", "def first():\n  0\n")
+    val second = myFixture.addFileToProject("second.bend", "def second():\n  0\n")
+    myFixture.configureByText("main.bend",
+      "import ./first.bend as M\nimport ./second.bend as M\nimport ./first.bend as F\n")
+    for (offset, expected) <- List((12, first), (36, second), (62, first)) do
+      myFixture.getEditor.getCaretModel.moveToOffset(offset)
+      assertEquals(expected, editorTarget())
+
+  def testSymlinkModulePathsRetainCanonicalIdentityAndRejectNamespaceConflicts(): Unit =
+    val real = Files.writeString(temporary.resolve("real.bend"), "def value():\n  0\n")
+    val link = Files.createSymbolicLink(temporary.resolve("link.bend"), real)
+    myFixture.configureByText("main.bend", s"import $link as M\n")
+    myFixture.getEditor.getCaretModel.moveToOffset(8)
+    assertEquals(real.toString, editorTarget().getContainingFile.getVirtualFile.getPath)
+    myFixture.configureByText("main.bend", s"import $real as R\nimport $link as M\n")
+    myFixture.getEditor.getCaretModel.moveToOffset(myFixture.getFile.getText.indexOf(link.toString) + 1)
+    assertNull(GotoDeclarationAction.findTargetElement(getProject, myFixture.getEditor,
+      myFixture.getCaretOffset))
+
+  def testUnreadableModuleHasNoTarget(): Unit =
+    val unreadable = Files.writeString(temporary.resolve("unreadable.bend"), "def value():\n  0\n")
+    val permissions = Files.getPosixFilePermissions(unreadable)
+    try
+      Files.setPosixFilePermissions(unreadable, java.util.Collections.emptySet())
+      assertFalse("The test file must actually be unreadable", Files.isReadable(unreadable))
+      myFixture.configureByText("main.bend", s"import $unreadable as M\n")
+      myFixture.getEditor.getCaretModel.moveToOffset(8)
+      assertNull(GotoDeclarationAction.findTargetElement(getProject, myFixture.getEditor,
+        myFixture.getCaretOffset))
+    finally Files.setPosixFilePermissions(unreadable, permissions)
+
   def testLocalShadowingAndForwardEligibility(): Unit =
     val local = reference("def outer(x: U32) -> U32:\n  let x = 1\n  <caret>x\n")
     assertEquals(32, target(local).getTextOffset)

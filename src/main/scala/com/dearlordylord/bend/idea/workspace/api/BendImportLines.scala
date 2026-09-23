@@ -6,6 +6,13 @@ package com.dearlordylord.bend.idea.workspace.api
 object BendImportLines:
   private val AnyImport = "^import(\\s.*|)$".r
 
+  /** Half-open path range in the original source; excludes the alias and comment. */
+  def pathRange(source: String, imp: com.dearlordylord.bend.idea.workspace.model.BendImport): Option[(Int, Int)] =
+    if imp.syntaxProblem.nonEmpty || imp.spelling.isEmpty then None
+    else
+      val start = source.indexWhere(c => !c.isWhitespace, imp.offset + "import".length)
+      Option.when(start >= 0 && source.startsWith(imp.spelling, start))((start, start + imp.spelling.length))
+
   /** Leading import block only, with original spellings and UTF-16 offsets. */
   def parse(source: String): List[com.dearlordylord.bend.idea.workspace.model.BendImport] =
     val result = List.newBuilder[com.dearlordylord.bend.idea.workspace.model.BendImport]

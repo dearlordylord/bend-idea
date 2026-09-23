@@ -72,6 +72,28 @@ final class BendGraphLoaderTest:
     assertEquals("/p/shared.bend", graph.edges.head.requestedPath)
     assertEquals("../shared", graph.edges.head.namespace)
 
+  @Test def repeatedAndMissingImportsHaveBoundedSourceLookups(): Unit =
+    val repeated = List.fill(1024)("import ./shared.bend as S\n").mkString
+    val missing = (1 to 1024).map(i => s"import ./missing$i.bend as M$i\n").mkString
+    val repeatedMissing = List.fill(1024)("import ./absent.bend as A\n").mkString
+    val root = record("/p/main.bend", repeated + repeatedMissing + missing)
+    val shared = record("/p/shared.bend", "def leaf():\n  0\n")
+    var lookups = List.empty[String]
+    val catalog = new BendSourceCatalog:
+      override def source(path: String): Option[BendSourceRecord] =
+        lookups = path :: lookups
+        Option.when(path == shared.path)(shared)
+    val graph = BendGraphLoader.load(root, BendGraphLoader.Config("/base.bend", "/cache"), catalog)
+    assertEquals("Repeated paths are captured once per load", 1, lookups.count(_ == shared.path))
+    assertEquals("Missing paths are also cached per load", 1, lookups.count(_ == "/p/absent.bend"))
+    assertTrue("Missing paths also consume the lookup budget", lookups.size <= 256)
+    assertEquals(Some(shared.id), graph.importTarget(root.id, root.imports(1023).offset))
+    assertTrue(graph.problems.exists {
+      case BendGraphProblem.InvalidImport(_, _, reason) => reason == "source lookup limit exceeded"
+      case _ => false
+    })
+    assertEquals(None, graph.importTarget(root.id, root.imports.last.offset))
+
   @Test def realSymlinkDeduplicatesAndRejectsTwoNamespaces(): Unit =
     val dir = Files.createTempDirectory("bend-graph-link")
     try

@@ -34,4 +34,6 @@ object BendParserDefinition:
   val File: IFileElementType = new IFileElementType(BendLanguage.instance)
 
 final class BendFile(viewProvider: FileViewProvider) extends PsiFileBase(viewProvider, BendLanguage.instance):
+  override def getReferences: Array[com.intellij.psi.PsiReference] =
+    com.intellij.psi.impl.source.resolve.reference.ReferenceProvidersRegistry.getReferencesFromProviders(this)
   override def getFileType: BendFileType = FileTypeManager.getInstance.getFileTypeByExtension("bend").asInstanceOf[BendFileType]

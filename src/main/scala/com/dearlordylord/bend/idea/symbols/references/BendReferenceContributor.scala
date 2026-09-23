@@ -12,6 +12,17 @@ import com.intellij.util.ProcessingContext
 /** Native references retain independent alias and member ranges on one dotted token. */
 final class BendReferenceContributor extends PsiReferenceContributor:
   override def registerReferenceProviders(registrar: PsiReferenceRegistrar): Unit =
+    registrar.registerReferenceProvider(psiElement(classOf[com.dearlordylord.bend.idea.syntax.BendFile]),
+      new PsiReferenceProvider:
+        override def getReferencesByElement(element: PsiElement, context: ProcessingContext): Array[PsiReference] =
+          val file = element.asInstanceOf[PsiFile]
+          val source = file.getText
+          com.dearlordylord.bend.idea.workspace.api.BendImportLines.parse(source).flatMap { imp =>
+            com.dearlordylord.bend.idea.workspace.api.BendImportLines.pathRange(source, imp)
+              .map { case (start, end) =>
+                new BendModulePathReference(file, new TextRange(start, end), imp.offset): PsiReference
+              }
+          }.toArray)
     val provider = new PsiReferenceProvider:
       override def getReferencesByElement(element: PsiElement, context: ProcessingContext): Array[PsiReference] =
         if !element.isInstanceOf[BendReferenceElement] && !element.isInstanceOf[BendName] then
