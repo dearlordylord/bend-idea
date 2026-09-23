@@ -1,5 +1,7 @@
 # Bend2
 
+![Bender-inspired striped arms flowing like pipes](design/splash/readme-splash.png)
+
 Language support for [Bend 2](https://github.com/bendlang/bend) in IntelliJ IDEA. The plugin recognizes `.bend` files and provides source editing features without a Bend installation. Compiler diagnostics use a separately configured Bend executable.
 
 Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been verified with Community 2025.1 and Ultimate 2026.1; verify later releases before relying on them.
