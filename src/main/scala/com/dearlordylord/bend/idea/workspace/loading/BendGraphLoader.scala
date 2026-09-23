@@ -13,16 +13,17 @@ object BendGraphLoader:
   final case class Config(base: String, packageCache: String)
 
   def load(root: BendSourceRecord, paths: Config, catalog: BendSourceCatalog,
-      maxFiles: Int = 256): BendLoadedGraph =
+      maxFiles: Int = 256, canceled: () => Boolean = () => false): BendLoadedGraph =
     val files = mutable.ListBuffer.empty[BendLoadedFile]
     val edges = mutable.ListBuffer.empty[BendLoadedEdge]
     val problems = mutable.ListBuffer.empty[BendGraphProblem]
     val seen = mutable.Map.empty[FileId, Option[String]]
     def visit(source: BendSourceRecord, namespace: String): Unit =
+      if canceled() then return
       seen(source.id) = None
       // Compiler imports are processed before the current file's declarations.
       source.imports.foreach { imp =>
-        target(source, namespace, imp, paths) match
+        if !canceled() then target(source, namespace, imp, paths) match
           case Left(reason) => problems += BendGraphProblem.InvalidImport(source.id, imp, reason)
           case Right((path, childNamespace)) =>
             val loaded = catalog.source(path)

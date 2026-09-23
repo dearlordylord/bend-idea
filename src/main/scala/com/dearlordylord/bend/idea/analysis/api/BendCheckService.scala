@@ -12,4 +12,6 @@ trait BendCheckService:
   def configurationChanged(): Unit
   def check(snapshot: BendCheckSnapshot, canceled: () => Boolean): Option[BendCheckResult]
   def result(root: FileId): Option[BendCheckResult]
+  /** Current root-owned results whose diagnostics may project onto this file. */
+  def resultsFor(source: FileId): List[BendCheckResult]
   def busy: Boolean

@@ -1,6 +1,6 @@
 # Bend IDEA
 
-A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, supports standard hash line commenting, and provides keyword, snippet, declaration, local binding, import and path completion. Check Current File can run a supported Bend compiler explicitly against an unsaved single-file snapshot.
+A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, supports standard hash line commenting, and provides keyword, snippet, declaration, local binding, import and path completion. Check Current File can run a supported Bend compiler explicitly against an unsaved import graph.
 
 - [Implementation specification and roadmap](https://github.com/dearlordylord/bend-idea/issues/1)
 - [Language and platform design investigation](BEND_IDEA_DESIGN.md)
@@ -75,4 +75,6 @@ Issue #10 adds a shared ordered import graph for relative, absolute, and cached 
 
 Issue #11 adds import-path completion for Base, relative and absolute Bend modules, directories, and locally cached hash packages. It browses one bounded directory at a time, includes newly created/open project files, replaces the full path fragment around the caret, and continues suggestions after a directory is chosen. It never downloads a package.
 
-Issue #12 adds explicit Check Current File for unsaved sources with no imports or a matching Base. It probes for documented `--check-only` support before passing source to Bend, uses a bounded temporary snapshot, and reports compiler errors, incompleteness, reliance, timeout, or setup problems in the editor. Other import graphs require the complete snapshot support in issue #13.
+Issue #12 adds explicit Check Current File for unsaved sources with no imports or a matching Base. It probes for documented `--check-only` support before passing source to Bend, uses a bounded temporary snapshot, and reports compiler errors, incompleteness, reliance, timeout, or setup problems in the editor.
+
+Issue #13 extends Check Current File to capture the ordered import graph from open documents, then materialize a closed temporary copy with import rewrites. It preserves original file identities and conservative source maps, projects unambiguous compiler errors onto imported editors, and checks missing imports locally without package downloads. A compiler Base that itself imports dependencies is reported as unavailable before source invocation because its fixed built-in Base path cannot be redirected into the closed snapshot. A graph that also imports the selected Base source by path is unavailable because the selected source's identity relative to that fixed compiler Base path cannot be verified.

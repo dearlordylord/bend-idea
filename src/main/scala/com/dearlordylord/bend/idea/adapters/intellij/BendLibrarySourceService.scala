@@ -3,6 +3,7 @@ package com.dearlordylord.bend.idea.adapters.intellij
 import com.dearlordylord.bend.idea.workspace.api.*
 import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.roots.ProjectRootManager
 import java.nio.file.{Files, Path}
@@ -61,28 +62,55 @@ final class BendLibrarySourceService(project: Project) extends BendLibrarySource
 
   override def source(path: String): Option[BendSourceRecord] =
     try
-      val local = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(Path.of(path))
-      val projectFile = ProjectRootManager.getInstance(project).getContentRoots.iterator.flatMap { root =>
-        Option.when(path.startsWith(root.getPath.stripSuffix("/") + "/"))(
-          path.drop(root.getPath.stripSuffix("/").length + 1))
-          .flatMap(relative => Option(root.findFileByRelativePath(relative)))
-      }.take(1).toList.headOption
-      val file = projectFile.orElse(Option(local)).orNull
-      if file == null || file.isDirectory then None
+      // VFS/document access stays in a short read action; disk reads follow it.
+      val virtual = ReadAction.compute(() => {
+        val local = LocalFileSystem.getInstance().findFileByNioFile(Path.of(path))
+        val projectFile = ProjectRootManager.getInstance(project).getContentRoots.iterator.flatMap { root =>
+          Option.when(path.startsWith(root.getPath.stripSuffix("/") + "/"))(
+            path.drop(root.getPath.stripSuffix("/").length + 1))
+            .flatMap(relative => Option(root.findFileByRelativePath(relative)))
+        }.take(1).toList.headOption
+        val file = projectFile.orElse(Option(local)).orNull
+        if file == null || !file.isValid then None
+        else Some((file, file.isDirectory, file.isInLocalFileSystem,
+          file.getCharset, file.getPath))
+      })
+      if virtual.isEmpty then
+        val disk = Path.of(path)
+        if !Files.isRegularFile(disk) then None
+        else
+          val text = Files.readString(disk)
+          val canonical = disk.toRealPath().toString
+          val revision = Files.getLastModifiedTime(disk).toMillis ^ text.hashCode.toLong
+          Some(BendSourceRecord(new FileId(canonical, true), path, text, revision,
+            BendImportLines.parse(text)))
+      else if virtual.get._2 then None
       else
+        val (file, _, local, charset, filePath) = virtual.get
         val manager = FileDocumentManager.getInstance()
-        val document = manager.getDocument(file)
-        val onDisk = file.isInLocalFileSystem && Files.exists(Path.of(path))
-        val useDocument = document != null && (manager.isFileModified(file) || !onDisk)
-        val text = if useDocument then document.getText
-          else if onDisk then Files.readString(Path.of(path), file.getCharset)
-          else new String(file.contentsToByteArray(), file.getCharset)
-        val revision = if useDocument then document.getModificationStamp
-          else if onDisk then Files.getLastModifiedTime(Path.of(path)).toMillis ^ text.hashCode.toLong
-          else file.getModificationStamp
-        val canonical = Option(file.getCanonicalPath)
-        Some(BendSourceRecord(new FileId(canonical.getOrElse(file.getPath), canonical.isDefined),
-          file.getPath, text, revision, BendImportLines.parse(text)))
+        val onDisk = local && Files.exists(Path.of(path))
+        val captured = ReadAction.compute(() => {
+          if !file.isValid then None
+          else
+            val document = manager.getDocument(file)
+            val useDocument = document != null && (manager.isFileModified(file) || !onDisk)
+            val text = if useDocument then Some(document.getText) else None
+            val revision = if useDocument then Some(document.getModificationStamp) else None
+            val canonical = Option(file.getCanonicalPath)
+            val contents = if !useDocument && !onDisk then
+              Some(new String(file.contentsToByteArray(), charset)) else None
+            Some((text, revision, canonical, file.getModificationStamp, contents))
+        })
+        captured.map { state =>
+          val text = if state._1.nonEmpty then state._1.get
+            else if onDisk then Files.readString(Path.of(path), charset)
+            else state._5.getOrElse("")
+          val revision = if state._2.nonEmpty then state._2.get
+            else if onDisk then Files.getLastModifiedTime(Path.of(path)).toMillis ^ text.hashCode.toLong
+            else state._4
+          BendSourceRecord(new FileId(state._3.getOrElse(filePath), state._3.isDefined),
+            filePath, text, revision, BendImportLines.parse(text))
+        }
     catch
       case _: java.nio.file.InvalidPathException => None
       case _: java.io.IOException => None

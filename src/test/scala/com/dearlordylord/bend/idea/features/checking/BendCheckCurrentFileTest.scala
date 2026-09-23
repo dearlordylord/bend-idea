@@ -6,6 +6,7 @@ import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.{BendToolchainChoices, BendToolchainSettings}
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
@@ -129,3 +130,124 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     assertTrue(service.begin(next, subscribe, () => true))
     service.cancel(id)
     assertFalse("Cancel before the worker starts must release its reservation", service.busy)
+
+  def testUnsavedDependencyErrorProjectsToImportedEditorAndEditStalesRoot(): Unit =
+    val imported = myFixture.addFileToProject("math.bend",
+      "import Base\ndef square() -> U32:\n  1\n")
+    myFixture.openFileInEditor(imported.getVirtualFile)
+    val dependencyDocument = myFixture.getEditor.getDocument
+    WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
+      override def run(): Unit = dependencyDocument.setText(
+        "import Base\ndef square() -> U32:\n  unknown_value\n"))
+    myFixture.configureByText("main.bend",
+      "import ./math.bend as M\ndef main() -> U32:\n  M.square()\n")
+    val root = myFixture.getFile.getVirtualFile
+    val rootId = new FileId(Option(root.getCanonicalPath).getOrElse(root.getPath),
+      root.getCanonicalPath != null)
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val service = getProject.getService(classOf[BendCheckService])
+    val deadline = System.nanoTime() + 15_000_000_000L
+    while service.result(rootId).isEmpty && System.nanoTime() < deadline do Thread.sleep(50)
+    val result = service.result(rootId).getOrElse(
+      throw new AssertionError("Graph check did not publish"))
+    assertEquals(result.details, BendCheckOutcome.Failed, result.outcome)
+    assertTrue(result.details.contains("unknown_value"))
+    val dep = imported.getVirtualFile
+    val depId = new FileId(Option(dep.getCanonicalPath).getOrElse(dep.getPath),
+      dep.getCanonicalPath != null)
+    assertEquals(com.dearlordylord.bend.idea.analysis.model.BendLocation.SourceLine(depId, 2),
+      result.diagnostics.head.location)
+    myFixture.openFileInEditor(dep)
+    assertTrue(myFixture.doHighlighting().toArray.exists(_.toString.contains("unknown_value")))
+    WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
+      override def run(): Unit = dependencyDocument.setText(
+        "import Base\ndef square() -> U32:\n  1\n"))
+    assertFalse("Dependency listener must stale the root without a query",
+      service.resultsFor(depId).head.fresh)
+    assertFalse(service.result(rootId).get.fresh)
+    assertFalse(myFixture.doHighlighting().toArray.exists(_.toString.contains("unknown_value")))
+
+  def testMissingImportCreationStalesRootResult(): Unit =
+    myFixture.configureByText("main.bend", "import ./later.bend as Later\n")
+    val root = myFixture.getFile.getVirtualFile
+    val rootId = new FileId(Option(root.getCanonicalPath).getOrElse(root.getPath),
+      root.getCanonicalPath != null)
+    val service = getProject.getService(classOf[BendCheckService])
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val deadline = System.nanoTime() + 15_000_000_000L
+    while service.result(rootId).isEmpty && System.nanoTime() < deadline do Thread.sleep(50)
+    val result = service.result(rootId).getOrElse(
+      throw new AssertionError("Missing import check did not publish"))
+    assertTrue(result.details.contains("Cannot read imported module"))
+    assertTrue(result.fresh)
+    myFixture.addFileToProject("later.bend", "def item() -> Type:\n  Type\n")
+    assertFalse(service.result(rootId).get.fresh)
+
+  def testOpeningDependencyAfterCheckStillTracksUnsavedEdit(): Unit =
+    val imported = myFixture.addFileToProject("later.bend",
+      "def value() -> Type:\n  Type\n")
+    myFixture.configureByText("main.bend",
+      "import ./later.bend as Later\ndef main() -> Type:\n  Later.value()\n")
+    val root = myFixture.getFile.getVirtualFile
+    val rootId = new FileId(Option(root.getCanonicalPath).getOrElse(root.getPath),
+      root.getCanonicalPath != null)
+    val service = getProject.getService(classOf[BendCheckService])
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val deadline = System.nanoTime() + 15_000_000_000L
+    while service.result(rootId).isEmpty && System.nanoTime() < deadline do Thread.sleep(50)
+    assertTrue(service.result(rootId).get.fresh)
+    val dep = imported.getVirtualFile
+    val depId = new FileId(Option(dep.getCanonicalPath).getOrElse(dep.getPath),
+      dep.getCanonicalPath != null)
+    myFixture.openFileInEditor(dep)
+    WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
+      override def run(): Unit = myFixture.getEditor.getDocument.setText(
+        "def value() -> Type:\n  unknown\n"))
+    assertFalse("Document opened after publication must invalidate its root",
+      service.resultsFor(depId).head.fresh)
+
+  def testExternalSymlinkTargetOpenedAfterCheckInvalidatesRoot(): Unit =
+    val target = directory.resolve("external.bend")
+    val alias = directory.resolve("alias.bend")
+    Files.writeString(target, "def value() -> Type:\n  Type\n")
+    Files.createSymbolicLink(alias, target.getFileName)
+    myFixture.configureByText("main.bend",
+      s"import ${alias.toString} as External\ndef main() -> Type:\n  External.value()\n")
+    val root = myFixture.getFile.getVirtualFile
+    val rootId = new FileId(Option(root.getCanonicalPath).getOrElse(root.getPath),
+      root.getCanonicalPath != null)
+    val service = getProject.getService(classOf[BendCheckService])
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val deadline = System.nanoTime() + 15_000_000_000L
+    while service.result(rootId).isEmpty && System.nanoTime() < deadline do Thread.sleep(50)
+    val checked = service.result(rootId).getOrElse(
+      throw new AssertionError("External graph check did not publish"))
+    assertEquals(checked.details, BendCheckOutcome.Success, checked.outcome)
+    val external = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(target)
+    assertNotNull(external)
+    myFixture.openFileInEditor(external)
+    val depId = new FileId(target.toRealPath().toString, true)
+    WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
+      override def run(): Unit = myFixture.getEditor.getDocument.setText(
+        "def value() -> Type:\n  unknown\n"))
+    assertFalse("Canonical target edit must invalidate a symlink import root",
+      service.resultsFor(depId).head.fresh)
+
+  def testProofSiblingLawsEditInvalidatesGuardResult(): Unit =
+    val laws = myFixture.addFileToProject("LAWS.bend", "# initial laws\n")
+    myFixture.configureByText("PROOF.bend", "def main() -> Type:\n  Type\n")
+    val proof = myFixture.getFile.getVirtualFile
+    val proofId = new FileId(Option(proof.getCanonicalPath).getOrElse(proof.getPath),
+      proof.getCanonicalPath != null)
+    val service = getProject.getService(classOf[BendCheckService])
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val deadline = System.nanoTime() + 15_000_000_000L
+    while service.result(proofId).isEmpty && System.nanoTime() < deadline do Thread.sleep(50)
+    val checked = service.result(proofId).getOrElse(
+      throw new AssertionError("PROOF guard check did not publish"))
+    assertTrue(checked.details.contains("PROOF.bend must import ./LAWS.bend"))
+    myFixture.openFileInEditor(laws.getVirtualFile)
+    WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
+      override def run(): Unit = myFixture.getEditor.getDocument.setText("# unsaved laws\n"))
+    assertFalse("Sibling LAWS edit must stale a PROOF guard result",
+      service.resultsFor(proofId).head.fresh)

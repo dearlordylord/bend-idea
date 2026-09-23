@@ -4,29 +4,52 @@ import com.dearlordylord.bend.idea.adapters.cli.BendCliCheckBackend
 import com.dearlordylord.bend.idea.adapters.cli.BendExternalInputs
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
 import com.dearlordylord.bend.idea.analysis.model.*
+import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
+import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
+import java.nio.file.Path
 
 /** One explicit worker per project; document changes invalidate root results. */
 final class BendCheckSession(project: Project) extends BendCheckService, Disposable:
   private val backend = new BendCliCheckBackend
   private val generations = mutable.Map.empty[FileId, Long]
   private val results = mutable.Map.empty[FileId, BendCheckResult]
+  private val captures = mutable.Map.empty[FileId, BendCheckSnapshot]
+  private val pendingCaptures = mutable.Map.empty[FileId, BendCheckSnapshot]
   private val subscriptions = mutable.Map.empty[FileId, () => Unit]
   private val rootOrder = mutable.Queue.empty[FileId]
   private val maxRoots = 128
   private var active: Option[(FileId, Long, () => Boolean)] = None
   private var started = false
   private var disposed = false
+
+  EditorFactory.getInstance().getEventMulticaster.addDocumentListener(new DocumentListener:
+    override def documentChanged(event: DocumentEvent): Unit =
+      val file = FileDocumentManager.getInstance().getFile(event.getDocument)
+      if file != null then
+        val canonical = Option(file.getCanonicalPath)
+        val identity = new FileId(canonical.getOrElse(file.getPath), canonical.isDefined)
+        val roots = synchronized {
+          (captures.toList ++ pendingCaptures.toList).collect { case (root, snapshot) if
+            root != identity && (snapshot.graph.exists(_.files.exists(_.source.id == identity)) ||
+              snapshot.siblingLaws.exists(_.id == identity)) => root
+          }.distinct
+        }
+        roots.foreach(sourceChanged)
+  , this)
 
   project.getMessageBus.connect(this).subscribe(VirtualFileManager.VFS_CHANGES,
     new BulkFileListener:
@@ -35,7 +58,14 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
         val affected = synchronized {
           val roots = results.iterator.collect { case (root, result) if
               changed(result.key.executable) ||
-              result.key.basePath.exists(changed) => root }.toList
+              result.key.basePath.exists(changed) ||
+              captures.get(root).flatMap(_.graph).exists(graph =>
+                graph.files.exists(file => changed(file.source.path) ||
+                  changed(file.source.id.value)) ||
+                graph.edges.exists(edge => changed(edge.requestedPath))) ||
+              captures.get(root).exists(snapshot =>
+                Path.of(snapshot.path).getFileName.toString == "PROOF.bend" &&
+                  changed(Path.of(snapshot.path).resolveSibling("LAWS.bend").toString)) => root }.toList
           roots.foreach { root =>
             generations(root) = generations.getOrElse(root, 0L) + 1
             results(root) = results(root).copy(fresh = false)
@@ -51,6 +81,9 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
     if !disposed then
       generations(root) = generations.getOrElse(root, 0L) + 1
       results.get(root).foreach(result => results(root) = result.copy(fresh = false))
+      ApplicationManager.getApplication.invokeLater(() => {
+        if !project.isDisposed then DaemonCodeAnalyzer.getInstance(project).restart()
+      })
   }
 
   override def begin(snapshot: BendCheckSnapshot,
@@ -63,6 +96,7 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
           val oldest = rootOrder.dequeue()
           subscriptions.remove(oldest).foreach(_())
           results.remove(oldest)
+          captures.remove(oldest)
           generations.remove(oldest)
         rootOrder.enqueue(root)
       subscriptions.remove(root).foreach(_())
@@ -105,15 +139,17 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
     reservation match
       case None => None
       case Some((_, generation, isCurrent)) =>
+        synchronized { pendingCaptures(root) = snapshot }
         try
           if canceled() || !isCurrent() || synchronized { disposed ||
               generations.get(root) != Some(generation) } then None
           else
             val checked = backend.check(snapshot, () => canceled() || synchronized { disposed ||
               generations.get(root) != Some(generation) })
-            synchronized {
+            val inputsCurrent = graphCurrent(snapshot)
+            val published = synchronized {
               val selection = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).selection
-              if disposed || canceled() || !isCurrent() ||
+              if disposed || canceled() || !isCurrent() || !inputsCurrent ||
                   generations.get(root) != Some(generation) ||
                   selection.configurationRevision != snapshot.toolchain.configurationRevision ||
                   selection.executable != snapshot.toolchain.executable ||
@@ -121,15 +157,28 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
                     checked.key.basePath) then None
               else
                 results(root) = checked
+                captures(root) = snapshot
                 Some(checked)
             }
+            published
         finally synchronized {
+          pendingCaptures.remove(root)
           if active.exists(a => a._1 == root && a._2 == generation) then
             active = None
             started = false
         }
 
   override def result(root: FileId): Option[BendCheckResult] =
+    val captured = synchronized { captures.get(root) }
+    val graphChanged = if captured.exists(s => !graphCurrent(s)) then synchronized {
+      results.get(root) match
+        case Some(r) if r.fresh =>
+          results(root) = r.copy(fresh = false)
+          generations(root) = generations.getOrElse(root, 0L) + 1
+          true
+        case _ => false
+    }
+    else false
     val (value, changed) = synchronized {
       results.get(root) match
         case Some(result) if result.fresh && result.key.externalStamp != BendExternalInputs.stamp(
@@ -139,8 +188,39 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
           (Some(stale), true)
         case current => (current, false)
     }
-    if changed && !project.isDisposed then DaemonCodeAnalyzer.getInstance(project).restart()
+    if (changed || graphChanged) && !project.isDisposed then
+      DaemonCodeAnalyzer.getInstance(project).restart()
     value
+
+  override def resultsFor(source: FileId): List[BendCheckResult] =
+    // External annotators run under an IDE read action. Do not traverse disk
+    // here; VFS and document events stale root-owned results.
+    synchronized { results.values.toList }.filter { checked =>
+      checked.key.root == source || checked.sources.exists(_.id == source)
+    }
+
+  private def graphCurrent(snapshot: BendCheckSnapshot): Boolean =
+    snapshot.graph match
+      case None => true
+      case Some(graph) =>
+        val catalog = project.getService(classOf[BendSourceCatalog])
+        def read(path: String): Option[BendSourceRecord] = catalog.source(path)
+        val dependencies = graph.files.filterNot(_.source.id == snapshot.root).forall { file =>
+          read(file.source.path).exists(current =>
+            current.id == file.source.id && current.revision == file.source.revision &&
+              current.text == file.source.text)
+        }
+        val observed = graph.edges.filter(_.target.isEmpty).forall(edge =>
+          read(edge.requestedPath).isEmpty)
+        val laws = if Path.of(snapshot.path).getFileName.toString == "PROOF.bend" then
+          val current = read(Path.of(snapshot.path).resolveSibling("LAWS.bend").toString)
+          (snapshot.siblingLaws, current) match
+            case (None, None) => true
+            case (Some(before), Some(after)) =>
+              before.id == after.id && before.revision == after.revision && before.text == after.text
+            case _ => false
+        else true
+        dependencies && observed && laws
 
   override def busy: Boolean = synchronized { active.nonEmpty }
 
@@ -148,7 +228,9 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
     disposed = true
     subscriptions.values.foreach(_())
     subscriptions.clear()
+    pendingCaptures.clear()
     rootOrder.clear()
     results.clear()
+    captures.clear()
     generations.clear()
   }

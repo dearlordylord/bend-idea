@@ -6,10 +6,14 @@ import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 
 /** Read-only graph query used by source symbols and later checker snapshots. */
 trait BendWorkspaceGraph:
-  def load(root: BendSourceRecord, basePath: String, packageCache: String): BendLoadedGraph
+  def load(root: BendSourceRecord, basePath: String, packageCache: String,
+      canceled: () => Boolean = () => false): BendLoadedGraph
+  /** Capture the sibling required by the compiler's PROOF filename guard. */
+  def siblingLaws(proofPath: String): Option[BendSourceRecord]
 
 /** The adapter supplies a catalog; the workspace subsystem owns all loading policy. */
 object BendWorkspaceGraph:
   def load(root: BendSourceRecord, basePath: String, packageCache: String,
-      catalog: BendSourceCatalog): BendLoadedGraph =
-    BendGraphLoader.load(root, BendGraphLoader.Config(basePath, packageCache), catalog)
+      catalog: BendSourceCatalog, canceled: () => Boolean = () => false): BendLoadedGraph =
+    BendGraphLoader.load(root, BendGraphLoader.Config(basePath, packageCache), catalog,
+      canceled = canceled)
