@@ -178,7 +178,7 @@ final class BendLexer extends LexerBase:
     else if word == "as" && inImport then
       kind = BendTokens.Keyword
       withExpected(Namespace)
-    else if Set("match", "case", "do", "return", "for", "exs", "where", "is").contains(word) then kind = BendTokens.Keyword
+    else if BendWords.control(word) then kind = BendTokens.Keyword
     else if Set("Type", "Data", "Kind", "Quant", "Nat", "U32", "F32", "Char", "String", "Bool", "Unit", "Empty", "IO", "List", "Array", "Maybe", "Result", "Either", "Sigma", "Word").contains(word) then kind = BendTokens.BuiltinType
     else if word == "_" then kind = BendTokens.Wildcard
     else kind = BendTokens.Identifier

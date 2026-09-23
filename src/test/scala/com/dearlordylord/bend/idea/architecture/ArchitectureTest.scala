@@ -17,6 +17,10 @@ final class ArchitectureTest:
     assertTrue("The editing feature boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.editing.BendCommenter"))
     assertTrue("The completion feature boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"))
     assertTrue("The shared template API boundary must be inspected", classes.contain("com.dearlordylord.bend.idea.features.templates.api.BendSnippets$"))
+    assertTrue("Source identity must be inspected", classes.contain("com.dearlordylord.bend.idea.model.FileId"))
+    assertTrue("The tolerant parser must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.parser.BendSurfaceParser"))
+    assertTrue("Native declaration PSI must be inspected", classes.contain("com.dearlordylord.bend.idea.syntax.psi.BendDeclaration"))
+    assertTrue("The symbols API must be inspected", classes.contain("com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols$"))
     ArchitectureRules.check(classes, "com.dearlordylord.bend.idea")
 
   @Test def rejectsForbiddenCompiledScalaDependencies(): Unit =

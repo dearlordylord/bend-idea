@@ -1,6 +1,6 @@
 # Bend IDEA
 
-A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, supports standard hash line commenting, and provides lexical keyword completion with six editable snippets. Declaration parsing, name completion and compiler integration follow in later issues.
+A native IntelliJ IDEA plugin for Bend 2, implemented in Scala 3. It recognizes `.bend` files, supplies light/dark file icons, highlights source, supports standard hash line commenting, and provides keyword, snippet and current-file declaration completion. Local scope, imported names and compiler integration follow in later issues.
 
 - [Implementation specification and roadmap](https://github.com/dearlordylord/bend-idea/issues/1)
 - [Language and platform design investigation](BEND_IDEA_DESIGN.md)
@@ -60,3 +60,5 @@ Launch `runIde`, open an `example.bend` file, and confirm the Bend file type and
 Issue #3 adds a restartable UTF-16 lexer, configurable Bend token colors and the standard hash line-comment action. The editor fixtures exercise highlighting after an edit inside a string, comment toggling including the last line without a newline, and undo through the IntelliJ action. The parser definition currently supplies a token tree; tolerant declaration PSI is owned by issue #5.
 
 Issue #4 adds explicit Bend 2 keyword completion and editable `def`, `type`, `law`, `match`, `do` and `import` snippets. Suggestions are withheld inside comments and string literals, including unfinished strings. The completion fixtures invoke IntelliJ lookup and live-template editing, including a linked law placeholder and the final caret position.
+
+Issue #5 adds a tolerant declaration PSI and source symbol API. Current-file completion reads the current editor buffer for functions, laws, datatypes and constructors, retaining declared signatures, quantities/templates and adjacent source comments. It uses source order and does not insert a call automatically. Parser recovery remains deliberately surface-level until later scope and expression slices.

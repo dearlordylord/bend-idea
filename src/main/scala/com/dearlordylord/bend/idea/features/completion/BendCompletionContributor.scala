@@ -1,6 +1,7 @@
 package com.dearlordylord.bend.idea.features.completion
 
 import com.dearlordylord.bend.idea.features.templates.api.BendSnippets
+import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
 import com.intellij.codeInsight.completion.{CompletionContributor, CompletionParameters, CompletionProvider, CompletionResultSet, CompletionType, InsertionContext}
 import com.intellij.codeInsight.lookup.{LookupElement, LookupElementBuilder}
@@ -8,7 +9,7 @@ import com.intellij.codeInsight.template.TemplateManager
 import com.intellij.patterns.PlatformPatterns.psiElement
 import com.intellij.util.ProcessingContext
 
-/** Lexical Bend 2 completion. Later source symbols use the shared symbols.api owner. */
+/** Bend 2 keywords, snippets and current-file source symbols. */
 final class BendCompletionContributor extends CompletionContributor:
   extend(CompletionType.BASIC, psiElement(), new CompletionProvider[CompletionParameters]:
     override def addCompletions(parameters: CompletionParameters, context: ProcessingContext, result: CompletionResultSet): Unit =
@@ -24,8 +25,17 @@ final class BendCompletionContributor extends CompletionContributor:
           case BendCompletionContributor.Site.Law => BendCompletionContributor.lawWords
           case BendCompletionContributor.Site.TypeHeader => BendCompletionContributor.typeHeaderWords
           case BendCompletionContributor.Site.Type => BendCompletionContributor.typeWords
+          case BendCompletionContributor.Site.Qualified => Nil
         words.foreach { word =>
           result.addElement(LookupElementBuilder.create(word).withTypeText("Bend 2 keyword"))
+        }
+        BendSourceSymbols.visibleCandidates(parameters.getOriginalFile, offset).foreach { symbol =>
+          val signature = symbol.signature.source.replaceAll("\\s+", " ").trim
+          val comments = symbol.comments.replaceAll("\\s+", " ").trim
+          val tail = "  " + signature + (if comments.isEmpty then "" else "  # " + comments)
+          result.addElement(LookupElementBuilder.create(symbol.declaration, symbol.name)
+            .withTailText(tail, true)
+            .withTypeText(symbol.category.toString.toLowerCase))
         }
         val triggers = site match
           case BendCompletionContributor.Site.TopLevel => Set("def", "type", "law", "import")
@@ -53,7 +63,7 @@ final class BendCompletionContributor extends CompletionContributor:
 
 object BendCompletionContributor:
   private enum Site:
-    case TopLevel, Body, Do, Match, Law, TypeHeader, Type
+    case TopLevel, Body, Do, Match, Law, TypeHeader, Type, Qualified
 
   private val declarations = List("def", "type", "law", "import", "@unsafe")
   private val expressions = List("match", "do", "Type", "Data", "Kind", "Quant")
@@ -69,7 +79,7 @@ object BendCompletionContributor:
       val lineStart = source.lastIndexOf('\n', offset - 1) + 1
       val before = source.substring(lineStart, offset)
       // A declaration name, import path/alias, or qualified name is not a keyword site.
-      if before.endsWith(".") then None
+      if before.endsWith(".") then Some(Site.Qualified)
       else if before.matches("\\s*(?:for|exs)\\s+[A-Za-z_][A-Za-z0-9_.]*\\s*:\\s*[A-Za-z_]*") then Some(Site.Type)
       else if before.matches(".*[({][^)}]*:\\s*[A-Za-z_]*") then Some(Site.Type)
       else if before.matches("\\s*@unsafe\\s+[A-Za-z_]*") then Some(Site.TopLevel)
