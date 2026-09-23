@@ -1,11 +1,20 @@
-<idea-plugin>
+<idea-plugin url="https://github.com/dearlordylord/bend-idea">
     <id>com.dearlordylord.bend.idea</id>
     <name>Bend2</name>
     <vendor url="https://github.com/dearlordylord/bend-idea">dearlordylord</vendor>
     <description><![CDATA[
-        Native Bend 2 language support with highlighting, line comments,
-        keyword completion and editable snippets.
-        Editing support loads without a Bend installation.
+Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
+
+<ul>
+  <li>Syntax highlighting, hash line comments, and editable snippets</li>
+  <li>Completion for declarations, local bindings, Base, imports, and import paths</li>
+  <li>Go to Declaration, Find Usages, and source Quick Documentation</li>
+  <li>Manual and optional background compiler checking of unsaved source and imports</li>
+</ul>
+
+Editing works without a Bend installation. Checking requires a configured Bend compiler with
+<code>--check-only</code> support. See the
+<a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
 <p>Version 0.1.1:</p>

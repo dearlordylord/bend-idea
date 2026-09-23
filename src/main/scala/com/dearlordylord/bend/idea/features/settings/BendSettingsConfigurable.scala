@@ -2,12 +2,12 @@ package com.dearlordylord.bend.idea.features.settings
 
 import com.dearlordylord.bend.idea.toolchain.api.{BendToolchainChoices, BendToolchainSettings}
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.options.{Configurable, ConfigurationException}
+import com.intellij.openapi.options.{BaseConfigurable, ConfigurationException}
 import com.intellij.util.ui.FormBuilder
 import javax.swing.{JCheckBox, JComponent, JLabel, JPanel, JTextField}
 
 /** Application settings; the status tells users how to repair a missing Base. */
-final class BendSettingsConfigurable extends Configurable:
+final class BendSettingsConfigurable extends BaseConfigurable:
   private var panel: JPanel = null
   private var executable: JTextField = null
   private var base: JTextField = null

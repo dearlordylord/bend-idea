@@ -61,7 +61,16 @@ val requireSigning by tasks.registering {
     }
 }
 tasks.named("signPlugin") { dependsOn(requireSigning) }
+
 tasks.named("verifyPluginSignature") { dependsOn("signPlugin") }
+tasks.named("publishPlugin") {
+    dependsOn("verifyPluginSignature")
+    doFirst {
+        require(providers.environmentVariable("BEND_IDEA_SIGNING_DIR").isPresent) {
+            "Set BEND_IDEA_SIGNING_DIR before publishing; unsigned updates are not released."
+        }
+    }
+}
 
 intellijPlatform {
     buildSearchableOptions = false
@@ -73,7 +82,7 @@ intellijPlatform {
     }
     pluginConfiguration {
         id = "com.dearlordylord.bend.idea"
-        name = "Bend"
+        name = "Bend2"
         version = project.version.toString()
         ideaVersion {
             sinceBuild = "251"
@@ -84,5 +93,8 @@ intellijPlatform {
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1")
             create(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2026.1")
         }
+    }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
     }
 }
