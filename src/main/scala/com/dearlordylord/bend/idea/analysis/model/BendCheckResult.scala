@@ -124,11 +124,18 @@ final case class BendSourceMapping(source: FileId, revision: Long,
         (offset > edit.fromStart && offset < edit.fromEnd) ||
           (rejectEditStart && edit.fromStart < edit.fromEnd && offset == edit.fromStart)) then None
     else
-      val shift = edits.filter(_.fromEnd <= offset)
-        .map(edit => (edit.toEnd - edit.toStart) - (edit.fromEnd - edit.fromStart)).sum
-      val mapped = offset + shift
-      Option.when(mapped >= 0 && mapped <= to.length &&
-        (offset == from.length || mapped == to.length || from.charAt(offset) == to.charAt(mapped)))(mapped)
+      // Edit edges are explicit correspondences even when the replaced text
+      // starts or ends with different code units (for example `/abs/path` ->
+      // `./path`). Unchanged offsets still require matching adjacent text.
+      val boundary = edits.find(_.fromEnd == offset).map(_.toEnd)
+        .orElse(edits.find(_.fromStart == offset).map(_.toStart))
+      boundary.orElse {
+        val shift = edits.filter(_.fromEnd <= offset)
+          .map(edit => (edit.toEnd - edit.toStart) - (edit.fromEnd - edit.fromStart)).sum
+        val mapped = offset + shift
+        Option.when(mapped >= 0 && mapped <= to.length &&
+          (offset == from.length || mapped == to.length || from.charAt(offset) == to.charAt(mapped)))(mapped)
+      }
 
   private def mapRange(start: Int, end: Int, from: String, to: String,
       edits: List[EditRange], rejectEditStart: Boolean): Option[BendTextRange] =

@@ -93,6 +93,30 @@ final class BendSourceMappingTest:
     assertEquals(Some(BendTextRange(first.originalStart - 1, first.originalStart)),
       source.copiedToOriginalRange(first.copiedStart - 1, first.copiedStart))
 
+  @Test def absoluteImportRewriteMapsItsStartBoundaryInBothDirections(): Unit =
+    val originalText =
+      "import /opt/bend/lib/module.bend as M\n" +
+        "def main() -> Type:\n  M.item()\n"
+    val originalPath = "/opt/bend/lib/module.bend"
+    val copiedPath = "./module.bend"
+    val originalStart = originalText.indexOf(originalPath)
+    val originalEnd = originalStart + originalPath.length
+    val copiedText = originalText.replace(originalPath, copiedPath)
+    val copiedStart = copiedText.indexOf(copiedPath)
+    val copiedEnd = copiedStart + copiedPath.length
+    val blankedEnd = copiedText.indexOf('\n') + 1
+    val source = BendSourceMapping(new FileId("/tmp/absolute.bend", false), 29L,
+      "/tmp/absolute.bend", "/tmp/copy/absolute.bend", "M",
+      originalText, copiedText, Set(0),
+      List(BendRewrittenRange(originalStart, originalEnd, copiedStart, copiedEnd)),
+      "\n" + copiedText.substring(blankedEnd),
+      List(BendBlankedRange(0, 0, blankedEnd, 0, 1)))
+
+    assertEquals(Some(copiedStart), source.originalToCopiedOffset(originalStart))
+    assertEquals(Some(originalStart), source.originalOffset(copiedStart))
+    assertEquals(Some(BendTextRange(originalStart - 1, originalStart)),
+      source.copiedToOriginalRange(copiedStart - 1, copiedStart))
+
   @Test def blankedCrlfImportsAreSyntheticAndBodyRangesComposeExactly(): Unit =
     val source = mapping()
     val firstBlank = source.blankedImportRanges.head
