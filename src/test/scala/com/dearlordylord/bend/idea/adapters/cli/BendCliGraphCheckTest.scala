@@ -72,6 +72,8 @@ final class BendCliGraphCheckTest:
     assertEquals(original, Files.readString(dependency))
     assertEquals(before, snapshotCount(dir))
     assertTrue(result.mappings.exists(_.source == edited.id))
+    assertEquals(edited.revision, result.sources.find(_.id == edited.id).get.revision)
+    assertEquals(edited.revision, result.mappings.find(_.source == edited.id).get.revision)
     val rootMap = result.mappings.find(_.source == root.id).get
     assertEquals(1, rootMap.rewrites.size)
     val rewrite = rootMap.rewrites.head
@@ -93,11 +95,21 @@ final class BendCliGraphCheckTest:
     Files.createDirectories(cached.getParent)
     Files.writeString(absolute, "import Base\ndef square() -> U32:\n  1\n")
     Files.writeString(cached, "import Base\ndef value() -> U32:\n  2\n")
-    val root = source(dir.resolve("main.bend"),
-      s"import ${absolute.toString} as M\nimport 0xabc/value.bend as C\ndef main() -> U32:\n  U32.add(M.square(), C.value())\n")
+    val rootText =
+      s"# 😀 root\r\nimport ${absolute.toString} as M\r\n" +
+        "import 0xabc/value.bend as C\r\n" +
+        "def main() -> U32:\r\n  U32.add(M.square(), C.value())\r\n"
+    val root = source(dir.resolve("main.bend"), rootText)
     val result = check(dir, bend, root)
     assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
     assertEquals(BendCompleteness.Complete, result.completeness)
+    val rootMap = result.mappings.find(_.source == root.id).get
+    assertEquals(2, rootMap.rewrites.size)
+    val mainStart = rootMap.compilerText.indexOf("def main")
+    assertEquals(Some(rootText.indexOf("def main")), rootMap.compilerToOriginalOffset(mainStart))
+    assertEquals(Some(BendTextRange(rootText.indexOf("def main"),
+      rootText.indexOf("def main") + "def main".length)),
+      rootMap.compilerToOriginalRange(mainStart, mainStart + "def main".length))
     val baseId = new FileId(base.toRealPath().toString, true)
     assertTrue("Matching Base remains a captured input", result.sources.exists(_.id == baseId))
     assertFalse("Base is read from the compiler installation, not a copied source",

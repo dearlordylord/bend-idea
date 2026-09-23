@@ -47,35 +47,163 @@ final case class BendCheckedSource(id: FileId, path: String, text: String, revis
 final case class BendRewrittenRange(originalStart: Int, originalEnd: Int,
     copiedStart: Int, copiedEnd: Int)
 
-final case class BendSourceMapping(source: FileId, originalPath: String, copiedPath: String,
-    namespace: String, originalText: String, copiedText: String,
-    rewrittenLines: Set[Int], rewrites: List[BendRewrittenRange],
-    compilerText: String, blankedImportRanges: List[(Int, Int)]):
+/** A source line removed by the compiler loader. The line separator, when present,
+  * remains in compiler text to preserve following line numbers, but belongs to the
+  * synthetic line and is not an attributable code unit.
+  */
+final case class BendBlankedRange(line: Int, copiedStart: Int, copiedEnd: Int,
+    compilerStart: Int, compilerEnd: Int)
+
+/** A half-open UTF-16 source range. */
+final case class BendTextRange(start: Int, end: Int)
+
+/** Maps one immutable source version through both CLI materialization steps.
+  * Ranges are ordered half-open UTF-16 code-unit offsets, matching IntelliJ
+  * documents and Java/Scala String indexes.
+  */
+final case class BendSourceMapping(source: FileId, revision: Long,
+    originalPath: String, copiedPath: String, namespace: String,
+    originalText: String, copiedText: String, rewrittenLines: Set[Int],
+    rewrites: List[BendRewrittenRange], compilerText: String,
+    blankedImportRanges: List[BendBlankedRange]):
   def originalLine(line: Int): Option[Int] =
     Option.when(line >= 0 && line < originalText.split("\n", -1).length)(line)
 
-  /** Exact copied-to-original offset outside replaced import paths. */
-  def originalOffset(copiedOffset: Int): Option[Int] =
-    if copiedOffset < 0 || copiedOffset > copiedText.length ||
-        rewrites.exists(r => copiedOffset >= r.copiedStart && copiedOffset < r.copiedEnd) then None
-    else
-      val shift = rewrites.filter(_.copiedEnd <= copiedOffset)
-        .map(r => (r.copiedEnd - r.copiedStart) - (r.originalEnd - r.originalStart)).sum
-      Some(copiedOffset - shift)
+  private final case class EditRange(fromStart: Int, fromEnd: Int, toStart: Int, toEnd: Int)
 
-  /** Bend blanks complete import lines before parsing; those offsets are synthetic. */
-  def copiedOffset(compilerOffset: Int): Option[Int] =
-    if compilerOffset < 0 || compilerOffset > compilerText.length then None
+  private def rewriteEdits: List[EditRange] = rewrites.map(r =>
+    EditRange(r.originalStart, r.originalEnd, r.copiedStart, r.copiedEnd))
+
+  private def blankingEdits: List[EditRange] = blankedImportRanges.map(r =>
+    EditRange(r.copiedStart, r.copiedEnd, r.compilerStart, r.compilerEnd))
+
+  private def inverse(edits: List[EditRange]): List[EditRange] = edits.map(edit =>
+    EditRange(edit.toStart, edit.toEnd, edit.fromStart, edit.fromEnd))
+
+  /** Validate that every code unit outside declared edits is actually preserved. */
+  private def preservedGaps(from: String, to: String, edits: List[EditRange]): Boolean =
+    var fromCursor = 0
+    var toCursor = 0
+    var valid = true
+    edits.foreach { edit =>
+      if valid then
+        valid = edit.fromStart >= fromCursor && edit.fromStart <= edit.fromEnd &&
+          edit.fromEnd <= from.length && edit.toStart >= toCursor &&
+          edit.toStart <= edit.toEnd && edit.toEnd <= to.length &&
+          edit.fromStart - fromCursor == edit.toStart - toCursor &&
+          from.regionMatches(fromCursor, to, toCursor, edit.fromStart - fromCursor)
+        fromCursor = edit.fromEnd
+        toCursor = edit.toEnd
+    }
+    valid && from.length - fromCursor == to.length - toCursor &&
+      from.regionMatches(fromCursor, to, toCursor, from.length - fromCursor)
+
+  private def validRewrites: Boolean =
+    preservedGaps(originalText, copiedText, rewriteEdits)
+
+  private def validBlanks: Boolean =
+    val lineRangesValid = blankedImportRanges.forall { range =>
+      range.line >= 0 && range.copiedStart >= 0 && range.copiedStart < range.copiedEnd &&
+        range.copiedEnd <= copiedText.length && range.compilerStart >= 0 &&
+        range.compilerStart <= range.compilerEnd && range.compilerEnd <= compilerText.length &&
+        (range.copiedStart == 0 || copiedText.charAt(range.copiedStart - 1) == '\n') &&
+        (range.copiedEnd == copiedText.length || copiedText.charAt(range.copiedEnd - 1) == '\n') &&
+        copiedText.take(range.copiedStart).count(_ == '\n') == range.line &&
+        (range.compilerEnd - range.compilerStart == 0 ||
+          (range.compilerEnd - range.compilerStart == 1 &&
+            compilerText.charAt(range.compilerStart) == '\n' &&
+            copiedText.charAt(range.copiedEnd - 1) == '\n'))
+    }
+    lineRangesValid && preservedGaps(copiedText, compilerText, blankingEdits)
+
+  private def mapOffset(offset: Int, from: String, to: String,
+      edits: List[EditRange], rejectEditStart: Boolean): Option[Int] =
+    if offset < 0 || offset > from.length then None
+    else if !preservedGaps(from, to, edits) then None
+    else if edits.exists(edit =>
+        (offset > edit.fromStart && offset < edit.fromEnd) ||
+          (rejectEditStart && edit.fromStart < edit.fromEnd && offset == edit.fromStart)) then None
     else
-      val before = compilerText.take(compilerOffset)
-      val line = before.count(_ == '\n')
-      val column = before.length - before.lastIndexOf('\n') - 1
-      val copyLines = copiedText.split("\n", -1)
-      if line >= copyLines.length ||
-          blankedImportRanges.exists { case (start, _) =>
-            copiedText.take(start).count(_ == '\n') == line
-          } then None
-      else Some(copyLines.take(line).map(_.length + 1).sum + column)
+      val shift = edits.filter(_.fromEnd <= offset)
+        .map(edit => (edit.toEnd - edit.toStart) - (edit.fromEnd - edit.fromStart)).sum
+      val mapped = offset + shift
+      Option.when(mapped >= 0 && mapped <= to.length &&
+        (offset == from.length || mapped == to.length || from.charAt(offset) == to.charAt(mapped)))(mapped)
+
+  private def mapRange(start: Int, end: Int, from: String, to: String,
+      edits: List[EditRange], rejectEditStart: Boolean): Option[BendTextRange] =
+    if start < 0 || end < start || end > from.length then None
+    else if start == end then mapOffset(start, from, to, edits, rejectEditStart)
+      .map(offset => BendTextRange(offset, offset))
+    else if !preservedGaps(from, to, edits) ||
+        edits.exists(edit => edit.fromStart < end && start < edit.fromEnd) then None
+    else for
+      mappedStart <- mapOffset(start, from, to, edits, rejectEditStart)
+      mappedEnd <- mapOffset(end, from, to, edits, rejectEditStart)
+      if mappedEnd - mappedStart == end - start
+      if from.regionMatches(start, to, mappedStart, end - start)
+    yield BendTextRange(mappedStart, mappedEnd)
+
+  /** Exact copied-to-original offset; rewrite edges remain valid boundaries. */
+  def originalOffset(copiedOffset: Int): Option[Int] =
+    if !validRewrites then None
+    else mapOffset(copiedOffset, copiedText, originalText, inverse(rewriteEdits),
+      rejectEditStart = false)
+
+  /** Exact original-to-copied offset outside a rewritten import path. */
+  def originalToCopiedOffset(originalOffset: Int): Option[Int] =
+    if !validRewrites then None
+    else mapOffset(originalOffset, originalText, copiedText, rewriteEdits,
+      rejectEditStart = false)
+
+  /** Exact compiler-input-to-copied offset; blanked line content and its retained
+    * separator are synthetic. At an empty final blanked line, the shared EOF
+    * boundary maps to the end of the removed source line.
+    */
+  def compilerToCopiedOffset(compilerOffset: Int): Option[Int] =
+    if !validBlanks then None
+    else mapOffset(compilerOffset, compilerText, copiedText, inverse(blankingEdits),
+      rejectEditStart = true)
+
+  /** Compatibility name for the original compiler-input-to-copied operation. */
+  def copiedOffset(compilerOffset: Int): Option[Int] = compilerToCopiedOffset(compilerOffset)
+
+  def compilerToCopiedRange(start: Int, end: Int): Option[BendTextRange] =
+    if !validBlanks then None
+    else mapRange(start, end, compilerText, copiedText, inverse(blankingEdits),
+      rejectEditStart = true)
+
+  /** Compatibility name for compiler-input-to-copied range mapping. */
+  def copiedRange(start: Int, end: Int): Option[BendTextRange] =
+    compilerToCopiedRange(start, end)
+
+  def copiedToOriginalRange(start: Int, end: Int): Option[BendTextRange] =
+    if !validRewrites then None
+    else mapRange(start, end, copiedText, originalText, inverse(rewriteEdits),
+      rejectEditStart = false)
+
+  /** Exact copied-source-to-original-source range. */
+  def originalRange(start: Int, end: Int): Option[BendTextRange] =
+    copiedToOriginalRange(start, end)
+
+  /** Compose compiler-input -> copied-source -> original-source for #41 adapters. */
+  def compilerToOriginalOffset(compilerOffset: Int): Option[Int] =
+    compilerToCopiedOffset(compilerOffset).flatMap(originalOffset)
+
+  /** Compatibility name for compiler-input-to-original offset mapping. */
+  def originalCompilerOffset(compilerOffset: Int): Option[Int] =
+    compilerToOriginalOffset(compilerOffset)
+
+  /** Exact structured diagnostic span mapping. Any rewritten or synthetic code unit
+    * makes the full range unavailable, even when both endpoints happen to map.
+    */
+  def compilerToOriginalRange(start: Int, end: Int): Option[BendTextRange] =
+    compilerToCopiedRange(start, end).flatMap(range =>
+      copiedToOriginalRange(range.start, range.end))
+
+  /** Compatibility name for compiler-input-to-original range mapping. */
+  def originalCompilerRange(start: Int, end: Int): Option[BendTextRange] =
+    compilerToOriginalRange(start, end)
 
 final case class BendDiagnostic(message: String, location: BendLocation)
 

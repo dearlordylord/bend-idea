@@ -132,6 +132,10 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     assertFalse("Cancel before the worker starts must release its reservation", service.busy)
 
   def testUnsavedDependencyErrorProjectsToImportedEditorAndEditStalesRoot(): Unit =
+    // This test projects an explicit result. Background rechecks can restart the
+    // daemon during doHighlighting and obscure the projection assertion.
+    val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
+    settings.update(settings.choices.copy(diagnosticsEnabled = false))
     val imported = myFixture.addFileToProject("math.bend",
       "import Base\ndef square() -> U32:\n  1\n")
     myFixture.openFileInEditor(imported.getVirtualFile)
