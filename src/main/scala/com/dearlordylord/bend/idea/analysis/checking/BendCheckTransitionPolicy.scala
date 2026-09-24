@@ -113,7 +113,9 @@ object BendCheckTransitionPolicy:
     key.root == snapshot.root && key.sourceRevision == snapshot.sourceRevision &&
       key.sourceFingerprint == BendAnalysisKey.sourceDigest(snapshot.text) &&
       key.configurationRevision == snapshot.toolchain.configurationRevision &&
-      key.executable == snapshot.toolchain.executable
+      key.executable == snapshot.toolchain.executable &&
+      key.snapshotProvenance == BendCheckSnapshotProvenance.from(snapshot) &&
+      key.basePath == snapshot.selectedBasePath
 
   private def reserve(state: BendCheckState, snapshot: BendCheckSnapshot,
       origin: BendCheckOrigin): BendCheckTransition =

@@ -21,7 +21,8 @@ final class BendCheckTransitionPolicyTest:
       completeness: BendCompleteness = BendCompleteness.Complete,
       reliance: BendReliance = BendReliance.None): BendCheckResult =
     BendCheckResult(BendAnalysisKey.from(snapshot).copy(inputFingerprint = "captured-graph",
-      externalStamp = "external-inputs"), BendCheckOutcome.Success, completeness, reliance,
+      externalStamp = "external-inputs", basePath = snapshot.selectedBasePath),
+      BendCheckOutcome.Success, completeness, reliance,
       List(BendDiagnostic(details, BendLocation.RootOnly)), details)
 
   private val currentFacts = BendCheckFinishFacts(sourceCurrent = true, graphCurrent = true,
@@ -84,6 +85,36 @@ final class BendCheckTransitionPolicyTest:
       rejected.state.roots(captured.root).result.get.completeness)
     assertEquals(BendReliance.UnsafeOrForeign,
       rejected.state.roots(captured.root).result.get.reliance)
+
+  @Test def finishRejectsResultFromAnotherGraphOrBase(): Unit =
+    val captured = snapshot("root-a.bend").copy(
+      text = "import Base\ndef main() -> Type:\n  Type\n",
+      inputFingerprint = "current-graph")
+    val (reserved, generation) = begin(BendCheckState(), captured)
+    val started = running(reserved, captured, generation)
+
+    val otherGraph = captured.copy(inputFingerprint = "different-graph")
+    val graphResult = result(otherGraph, "wrong graph")
+    val graphMismatch = transition(started,
+      WorkerFinished(captured.root, generation, captured, graphResult, currentFacts))
+    assertEquals("The result key must retain its captured graph provenance", Discarded,
+      graphMismatch.decision)
+
+    val otherBase = captured.copy(toolchain = captured.toolchain.copy(
+      baseSource = "/other/base.bend"))
+    val baseResult = result(otherBase, "wrong Base")
+    val baseMismatch = transition(started,
+      WorkerFinished(captured.root, generation, captured, baseResult, currentFacts))
+    assertEquals("The result key must retain its selected Base identity", Discarded,
+      baseMismatch.decision)
+
+    val currentBaseResult = result(captured, "foreign Base path")
+    val foreignBaseKey = currentBaseResult.copy(key = currentBaseResult.key.copy(
+      basePath = Some("/other/base.bend")))
+    val basePathMismatch = transition(started,
+      WorkerFinished(captured.root, generation, captured, foreignBaseKey, currentFacts))
+    assertEquals("The backend Base path must match the selected Base", Discarded,
+      basePathMismatch.decision)
 
   @Test def lateFinishAndExitCannotReplaceANewerGeneration(): Unit =
     val captured = snapshot("root-a.bend")
