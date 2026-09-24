@@ -1,7 +1,8 @@
 package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.adapters.cli.{BendCliCheckBackend, BendExternalInputs}
-import com.dearlordylord.bend.idea.analysis.api.BendCheckService
+import com.dearlordylord.bend.idea.analysis.api.{BendBackgroundCheckControl,
+  BendBackgroundCheckTicket, BendCheckService}
 import com.dearlordylord.bend.idea.analysis.checking.*
 import com.dearlordylord.bend.idea.analysis.checking.BendCheckAction.*
 import com.dearlordylord.bend.idea.analysis.checking.BendCheckDecision.*
@@ -27,8 +28,9 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import java.nio.file.Path
 
-/** One explicit worker per project; the transition policy owns root acceptance state. */
-final class BendCheckSession(project: Project) extends BendCheckService, Disposable:
+/** One project worker; the transition policy owns root acceptance and scheduler state. */
+final class BendCheckSession(project: Project) extends BendCheckService, BendBackgroundCheckControl,
+    Disposable:
   private val uiRefreshDelayMillis = 2000
   private val backend = new BendCliCheckBackend
   private var policyState = BendCheckState()
@@ -67,8 +69,15 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
           currentChecks.remove(generation)
           notifyAll()
         }
+      case action: ScheduleBackground => backgroundAdapter.foreach(_.applyPolicyAction(action))
+      case action: CancelBackgroundTimer => backgroundAdapter.foreach(_.applyPolicyAction(action))
+      case action: DropBackgroundRoot => backgroundAdapter.foreach(_.applyPolicyAction(action))
       case RefreshUi => scheduleUiRefresh()
     }
+
+  private def backgroundAdapter: Option[BendBackgroundChecking] =
+    if project.isDisposed then None
+    else Option(project.getService(classOf[BendBackgroundChecking]))
 
   private def scheduleUiRefresh(): Unit =
     val restartRequest = new Runnable:
@@ -145,13 +154,16 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
         changed(Path.of(snapshot.path).resolveSibling("LAWS.bend").toString))
 
   override def begin(snapshot: BendCheckSnapshot,
+      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Boolean =
+    beginWithOrigin(snapshot, subscribe, isCurrent, BendCheckOrigin.Explicit, None)
+
+  private def beginWithOrigin(snapshot: BendCheckSnapshot,
       subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean,
-      background: Boolean = false): Boolean =
-    val origin = if background then BendCheckOrigin.Background else BendCheckOrigin.Explicit
+      origin: BendCheckOrigin, backgroundToken: Option[Long]): Boolean =
     val deadline = System.nanoTime() + 5_000_000_000L
     var finished = false
     while !finished do
-      val transition = applyEvent(BeginRequested(snapshot, origin))
+      val transition = applyEvent(BeginRequested(snapshot, origin, backgroundToken))
       transition.decision match
         case Started(generation) =>
           val reserved = synchronized {
@@ -179,6 +191,54 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
           // grants the manual action the sole slot before background work.
         case _ => finished = true
     false
+
+  override def requestBackground(root: FileId): Unit =
+    val transition = applyEvent(BackgroundRequested(root))
+    perform(transition.actions)
+
+  override def backgroundTimerFired(root: FileId,
+      token: Long): Option[BendBackgroundCheckTicket] =
+    val transition = applyEvent(BackgroundTimerFired(root, token))
+    perform(transition.actions)
+    transition.decision match
+      case BackgroundReady(current, attempt) =>
+        Some(BendBackgroundCheckTicket(root, current, attempt))
+      case _ => None
+
+  override def backgroundCurrent(ticket: BendBackgroundCheckTicket): Boolean = synchronized {
+    policyState.backgroundEnabled && !policyState.disposed &&
+      policyState.roots.get(ticket.root).flatMap(_.background).exists(intent =>
+        intent.token == ticket.token && (intent.phase == BendBackgroundPhase.Preparing ||
+          intent.phase == BendBackgroundPhase.InFlight))
+  }
+
+  override def beginBackground(ticket: BendBackgroundCheckTicket,
+      snapshot: BendCheckSnapshot, subscribe: (() => Unit) => (() => Unit),
+      isCurrent: () => Boolean): Boolean =
+    beginWithOrigin(snapshot, subscribe, () => backgroundCurrent(ticket) && isCurrent(),
+      BendCheckOrigin.Background, Some(ticket.token))
+
+  override def backgroundAttemptFailed(ticket: BendBackgroundCheckTicket): Unit =
+    val transition = applyEvent(BackgroundAttemptFailed(ticket.root, ticket.token))
+    perform(transition.actions)
+
+  override def backgroundStaleObserved(root: FileId): Unit =
+    val transition = applyEvent(BackgroundStaleObserved(root))
+    perform(transition.actions)
+
+  override def backgroundConfigurationChanged(enabled: Boolean): Unit =
+    val transition = applyEvent(BackgroundConfigurationChanged(enabled))
+    perform(transition.actions)
+
+  override def backgroundSchedulerDisposed(): Unit =
+    val transition = applyEvent(BackgroundSchedulerDisposed)
+    perform(transition.actions)
+
+  override def backgroundAffectedRoots(source: FileId): Set[FileId] = synchronized {
+    policyState.roots.toList.collect { case (root, rootState) if root == source ||
+      rootDependsOn(rootState, source) => root
+    }.toSet ++ policyState.active.filter(_.root == source).map(_.root)
+  }
 
   override def cancel(root: FileId): Unit =
     val result = applyEvent(CancelRequested(root))
@@ -223,12 +283,17 @@ final class BendCheckSession(project: Project) extends BendCheckService, Disposa
                 .getService(classOf[BendToolchainSettings]).selection
               val externalCurrent = checked.key.externalStamp == BendExternalInputs.stamp(
                 checked.key.executable, checked.key.basePath)
-              val result = applyEvent(WorkerFinished(root, generation, snapshot, checked,
-                BendCheckFinishFacts(sourceCurrent, inputsCurrent,
-                  selection.configurationRevision == snapshot.toolchain.configurationRevision &&
-                  selection.executable == snapshot.toolchain.executable,
-                  externalCurrent, workerCanceled)))
-              perform(result.actions)
+              val facts = BendCheckFinishFacts(sourceCurrent, inputsCurrent,
+                selection.configurationRevision == snapshot.toolchain.configurationRevision &&
+                selection.executable == snapshot.toolchain.executable,
+                externalCurrent, workerCanceled)
+              val result = applyEvent(WorkerFinished(root, generation, snapshot, checked, facts))
+              val retry = if result.decision == Discarded && sourceCurrent && !workerCanceled then
+                synchronized { policyState.active.filter(_.generation == generation)
+                  .flatMap(_.backgroundToken) }
+                  .map(token => applyEvent(BackgroundAttemptFailed(root, token)))
+              else None
+              perform(result.actions ++ retry.toVector.flatMap(_.actions))
               result.decision match
                 case Published(value) => Some(value)
                 case _ => None

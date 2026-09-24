@@ -296,6 +296,8 @@ This table describes contribution to the proposed architecture; it does not repl
 | #46 | Proof edits | `features.semantics`, `analysis` | Candidate snapshot validation and edit preconditions |
 | #47 | Normalization | `features.semantics`, `analysis` | Contextual evaluation, killable worker, display-only output |
 | #49 | Module-path navigation | `symbols.references`, `workspace` | Leading-import ranges, validated graph edges, current physical file PSI |
+| #52 | Explicit checking policy | `analysis.checking`, `analysis.api`, `adapters.intellij` | Shared immutable transitions, result provenance and current-only publication |
+| #53 | Background checking scheduler | `analysis.checking`, `analysis.api`, `adapters.intellij` | Policy-owned debounce tokens, worker priority, bounded retries and root eviction; adapter-owned handles |
 
 ## Implementation order without a large framework phase
 
@@ -351,7 +353,7 @@ Use pure functions for scope eligibility, graph validation, source-map compositi
 transition(RootState, AnalysisEvent) -> NewState + RequestedEffects
 ```
 
-For example, `DependencyChanged` marks a result stale and requests cancellation; `WorkerFinished` accepts or discards a result according to its key and generation. The project service serializes transitions and performs their requested effects. These are ordinary data types and functions, not a requirement to build an effect interpreter framework. A state-machine unit test is useful for a difficult publication race, alongside the real subprocess/editor test.
+For example, `DependencyChanged` marks a result stale and requests cancellation; a background request records a token and asks the adapter to schedule its timer; a due timer must present that token before capture can reserve the worker; and `WorkerFinished` accepts or discards a result according to its key and generation. The project service serializes transitions and performs their requested effects. Timers, listeners, documents, VFS objects and executor handles remain in the IntelliJ adapter. These are ordinary data types and functions, not a requirement to build an effect interpreter framework. State-machine tests cover stale timer/capture callbacks, retry bounds and eviction, alongside real subprocess/editor tests for effects and publication.
 
 Keep mutation where the platform requires it: PSI writes occur in undoable commands; service state changes under one owner. Do not attempt to make platform objects immutable or spread mutable compiler state through the JVM model. Exhaustive result variants and explicit unavailable/ambiguous cases suit functional modeling in Scala 3.
 

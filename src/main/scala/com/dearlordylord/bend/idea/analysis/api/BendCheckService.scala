@@ -8,8 +8,7 @@ import com.dearlordylord.bend.idea.analysis.model.BendCheckingStatus
 trait BendCheckService:
   /** Reserve the project worker and observe later edits to this root document. */
   def begin(snapshot: BendCheckSnapshot,
-      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean,
-      background: Boolean = false): Boolean
+      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Boolean
   def cancel(root: FileId): Unit
   def configurationChanged(): Unit
   def check(snapshot: BendCheckSnapshot, canceled: () => Boolean): Option[BendCheckResult]
@@ -18,3 +17,18 @@ trait BendCheckService:
   def resultsFor(source: FileId): List[BendCheckResult]
   def busy: Boolean
   def status(root: FileId): BendCheckingStatus
+
+/** Narrow scheduler control; policy decisions stay behind this analysis boundary. */
+final case class BendBackgroundCheckTicket(root: FileId, token: Long, attempt: Int)
+
+trait BendBackgroundCheckControl:
+  def requestBackground(root: FileId): Unit
+  def backgroundTimerFired(root: FileId, token: Long): Option[BendBackgroundCheckTicket]
+  def backgroundCurrent(ticket: BendBackgroundCheckTicket): Boolean
+  def beginBackground(ticket: BendBackgroundCheckTicket, snapshot: BendCheckSnapshot,
+      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Boolean
+  def backgroundAttemptFailed(ticket: BendBackgroundCheckTicket): Unit
+  def backgroundStaleObserved(root: FileId): Unit
+  def backgroundConfigurationChanged(enabled: Boolean): Unit
+  def backgroundSchedulerDisposed(): Unit
+  def backgroundAffectedRoots(source: FileId): Set[FileId]

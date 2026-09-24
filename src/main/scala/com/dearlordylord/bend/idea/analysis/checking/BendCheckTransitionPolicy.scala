@@ -10,7 +10,13 @@ enum BendCheckWorkerPhase:
   case Reserved, Running
 
 final case class BendCheckWorker(root: FileId, generation: Long, origin: BendCheckOrigin,
-    phase: BendCheckWorkerPhase)
+    phase: BendCheckWorkerPhase, backgroundToken: Option[Long] = None)
+
+enum BendBackgroundPhase:
+  case Scheduled, Preparing, Ready, InFlight
+
+final case class BendBackgroundIntent(token: Long, attempt: Int,
+    phase: BendBackgroundPhase)
 
 final case class BendPendingCheckSnapshot(generation: Long, snapshot: BendCheckSnapshot)
 
@@ -18,12 +24,15 @@ final case class BendPendingCheckSnapshot(generation: Long, snapshot: BendCheckS
 final case class BendRootCheckState(generation: Long = 0L,
     result: Option[BendCheckResult] = None,
     snapshot: Option[BendCheckSnapshot] = None,
-    pending: Option[BendPendingCheckSnapshot] = None)
+    pending: Option[BendPendingCheckSnapshot] = None,
+    background: Option[BendBackgroundIntent] = None)
 
 final case class BendCheckState(roots: Map[FileId, BendRootCheckState] = Map.empty,
     active: Option[BendCheckWorker] = None,
     rootOrder: Vector[FileId] = Vector.empty,
     nextGeneration: Long = 0L,
+    nextBackgroundToken: Long = 0L,
+    backgroundEnabled: Boolean = true,
     explicitWaiting: Boolean = false,
     disposed: Boolean = false)
 
@@ -36,8 +45,15 @@ final case class BendCheckFinishFacts(sourceCurrent: Boolean, graphCurrent: Bool
 
 sealed trait BendCheckEvent
 object BendCheckEvent:
-  final case class BeginRequested(snapshot: BendCheckSnapshot, origin: BendCheckOrigin)
+  final case class BeginRequested(snapshot: BendCheckSnapshot, origin: BendCheckOrigin,
+      backgroundToken: Option[Long] = None)
       extends BendCheckEvent
+  final case class BackgroundRequested(root: FileId) extends BendCheckEvent
+  final case class BackgroundTimerFired(root: FileId, token: Long) extends BendCheckEvent
+  final case class BackgroundAttemptFailed(root: FileId, token: Long) extends BendCheckEvent
+  final case class BackgroundStaleObserved(root: FileId) extends BendCheckEvent
+  final case class BackgroundConfigurationChanged(enabled: Boolean) extends BendCheckEvent
+  case object BackgroundSchedulerDisposed extends BendCheckEvent
   final case class WorkerStarted(root: FileId, generation: Long, snapshot: BendCheckSnapshot)
       extends BendCheckEvent
   final case class InputsInvalidated(roots: Set[FileId], reason: BendCheckInvalidationReason)
@@ -58,6 +74,10 @@ object BendCheckAction:
   final case class UnsubscribeRoot(root: FileId) extends BendCheckAction
   final case class CancelWorker(generation: Long) extends BendCheckAction
   final case class SlotReleased(generation: Long) extends BendCheckAction
+  final case class ScheduleBackground(root: FileId, token: Long, delayMillis: Long)
+      extends BendCheckAction
+  final case class CancelBackgroundTimer(root: FileId, token: Long) extends BendCheckAction
+  final case class DropBackgroundRoot(root: FileId) extends BendCheckAction
   case object RefreshUi extends BendCheckAction
 
 enum BendCheckDecision:
@@ -65,13 +85,16 @@ enum BendCheckDecision:
   case WaitingForWorker(generation: Long)
   case RejectedBusy, RejectedDisposed, Continue, Discarded
   case Published(result: BendCheckResult)
+  case BackgroundReady(token: Long, attempt: Int)
 
 final case class BendCheckTransition(state: BendCheckState,
     actions: Vector[BendCheckAction], decision: BendCheckDecision)
 
-/** Pure owner for root generations, result acceptance, and explicit worker-slot transitions. */
+/** Pure owner for generations, publication, worker slots, and background scheduling decisions. */
 object BendCheckTransitionPolicy:
   val MaxTrackedRoots = 128
+  val BackgroundDebounceMillis = 500L
+  val MaxBackgroundRetries = 2
 
   import BendCheckAction.*
   import BendCheckDecision.*
@@ -88,26 +111,6 @@ object BendCheckTransitionPolicy:
   private def stale(root: BendRootCheckState): BendRootCheckState =
     root.copy(result = root.result.map(_.copy(fresh = false)))
 
-  private def invalidate(state: BendCheckState, root: FileId,
-      actions: Vector[BendCheckAction]): (BendCheckState, Vector[BendCheckAction]) =
-    state.roots.get(root) match
-      case None => (state, actions)
-      case Some(current) =>
-        val (advanced, generation) = nextGeneration(state)
-        val updated = stale(current).copy(generation = generation)
-        val active = advanced.active.filter(_.root == root)
-        active match
-          case Some(worker) if worker.phase == BendCheckWorkerPhase.Reserved =>
-            val cleared = updated.copy(pending = None)
-            (advanced.copy(roots = advanced.roots.updated(root, cleared), active = None),
-              actions :+ SlotReleased(worker.generation))
-          case Some(worker) =>
-            (advanced.copy(roots = advanced.roots.updated(root, updated)),
-              actions :+ CancelWorker(worker.generation))
-          case None =>
-            (advanced.copy(roots = advanced.roots.updated(root, updated)),
-              actions)
-
   private def keyMatches(snapshot: BendCheckSnapshot, result: BendCheckResult): Boolean =
     val key = result.key
     key.root == snapshot.root && key.sourceRevision == snapshot.sourceRevision &&
@@ -117,28 +120,94 @@ object BendCheckTransitionPolicy:
       key.snapshotProvenance == BendCheckSnapshotProvenance.from(snapshot) &&
       key.basePath == snapshot.selectedBasePath
 
+  private def dropRoot(state: BendCheckState, root: FileId,
+      actions: Vector[BendCheckAction]): (BendCheckState, Vector[BendCheckAction]) =
+    val background = state.roots.get(root).flatMap(_.background)
+    val active = state.active.filter(_.root == root)
+    val (withoutActive, workerActions) = active match
+      case Some(worker) if worker.phase == BendCheckWorkerPhase.Reserved =>
+        (state.copy(active = None), Vector(CancelWorker(worker.generation),
+          SlotReleased(worker.generation)))
+      case Some(worker) => (state, Vector(CancelWorker(worker.generation)))
+      case None => (state, Vector.empty)
+    val withoutRoot = withoutActive.copy(roots = withoutActive.roots - root,
+      rootOrder = withoutActive.rootOrder.filterNot(_ == root))
+    val timerAction = background.toVector.map(intent => CancelBackgroundTimer(root, intent.token))
+    (withoutRoot, actions ++ workerActions ++ timerAction ++
+      Vector(UnsubscribeRoot(root), DropBackgroundRoot(root)))
+
+  private def ensureTracked(state: BendCheckState, root: FileId,
+      actions: Vector[BendCheckAction]): (BendCheckState, Vector[BendCheckAction]) =
+    if state.roots.contains(root) then (state, actions)
+    else
+      var current = state
+      var effects = actions
+      while current.rootOrder.size >= MaxTrackedRoots do
+        val oldest = current.rootOrder.find(id => !current.active.exists(_.root == id))
+          .getOrElse(current.rootOrder.head)
+        val removed = dropRoot(current, oldest, effects)
+        current = removed._1
+        effects = removed._2
+      (current.copy(roots = current.roots.updated(root, BendRootCheckState()),
+        rootOrder = current.rootOrder :+ root), effects)
+
+  private def scheduleReady(state: BendCheckState,
+      actions: Vector[BendCheckAction]): (BendCheckState, Vector[BendCheckAction]) =
+    if state.active.nonEmpty || state.explicitWaiting || !state.backgroundEnabled then
+      (state, actions)
+    else
+      state.rootOrder.iterator.flatMap(root => state.roots.get(root).flatMap(_.background)
+        .filter(_.phase == BendBackgroundPhase.Ready).map(root -> _)).take(1).toList.headOption match
+        case None => (state, actions)
+        case Some((root, intent)) =>
+          val scheduled = intent.copy(phase = BendBackgroundPhase.Scheduled)
+          (state.copy(roots = state.roots.updated(root,
+            state.roots(root).copy(background = Some(scheduled)))),
+            actions :+ ScheduleBackground(root, intent.token, BackgroundDebounceMillis))
+
+  private def invalidate(state: BendCheckState, root: FileId,
+      actions: Vector[BendCheckAction]): (BendCheckState, Vector[BendCheckAction]) =
+    state.roots.get(root) match
+      case None => (state, actions)
+      case Some(current) =>
+        val (advanced, generation) = nextGeneration(state)
+        val updated = stale(current).copy(generation = generation,
+          background = current.background.map(intent => intent.copy(
+            phase = if intent.phase == BendBackgroundPhase.InFlight ||
+              intent.phase == BendBackgroundPhase.Preparing then BendBackgroundPhase.Ready
+            else intent.phase)))
+        val active = advanced.active.filter(_.root == root)
+        active match
+          case Some(worker) if worker.phase == BendCheckWorkerPhase.Reserved =>
+            val cleared = updated.copy(pending = None)
+            (advanced.copy(roots = advanced.roots.updated(root, cleared), active = None),
+              actions ++ Vector(CancelWorker(worker.generation), SlotReleased(worker.generation)))
+          case Some(worker) =>
+            (advanced.copy(roots = advanced.roots.updated(root, updated)),
+              actions :+ CancelWorker(worker.generation))
+          case None =>
+            (advanced.copy(roots = advanced.roots.updated(root, updated)), actions)
+
   private def reserve(state: BendCheckState, snapshot: BendCheckSnapshot,
-      origin: BendCheckOrigin): BendCheckTransition =
+      origin: BendCheckOrigin, backgroundToken: Option[Long] = None): BendCheckTransition =
     val root = snapshot.root
-    var retained = state
-    var order = state.rootOrder
-    var actions = Vector.empty[BendCheckAction]
-    if !retained.roots.contains(root) then
-      while order.size >= MaxTrackedRoots do
-        val oldest = order.head
-        order = order.tail
-        retained = retained.copy(roots = retained.roots - oldest)
-        actions :+= UnsubscribeRoot(oldest)
-      order :+= root
-      retained = retained.copy(rootOrder = order)
+    val (retained, actions) = ensureTracked(state, root, Vector.empty)
     val (advanced, generation) = nextGeneration(retained)
     val previous = advanced.roots.getOrElse(root, BendRootCheckState())
+    val nextBackground = if origin == BendCheckOrigin.Background then
+      previous.background.filter(intent => backgroundToken.contains(intent.token))
+        .map(_.copy(phase = BendBackgroundPhase.InFlight))
+    else None
     val updated = stale(previous).copy(generation = generation,
-      pending = Some(BendPendingCheckSnapshot(generation, snapshot)))
-    val active = BendCheckWorker(root, generation, origin, BendCheckWorkerPhase.Reserved)
+      pending = Some(BendPendingCheckSnapshot(generation, snapshot)),
+      background = nextBackground)
+    val active = BendCheckWorker(root, generation, origin, BendCheckWorkerPhase.Reserved,
+      backgroundToken)
+    val cancelCurrent = if origin == BendCheckOrigin.Explicit then previous.background.toVector
+      .map(intent => CancelBackgroundTimer(root, intent.token)) else Vector.empty
     done(advanced.copy(roots = advanced.roots.updated(root, updated), active = Some(active),
-      explicitWaiting = false), actions ++ Vector(ReplaceRootSubscription(root), RefreshUi),
-      Started(generation))
+      explicitWaiting = false), actions ++ cancelCurrent ++
+      Vector(ReplaceRootSubscription(root), RefreshUi), Started(generation))
 
   def transition(state: BendCheckState, event: BendCheckEvent): BendCheckTransition =
     import event.*
@@ -147,24 +216,133 @@ object BendCheckTransitionPolicy:
         case Disposed => done(state)
         case _ => done(state, decision = RejectedDisposed)
     else event match
-      case BeginRequested(snapshot, origin) =>
+      case BackgroundRequested(root) =>
+        if !state.backgroundEnabled then done(state)
+        else
+          val (tracked, effects) = ensureTracked(state, root, Vector.empty)
+          val old = tracked.roots(root).background
+          val token = tracked.nextBackgroundToken + 1L
+          val canceled = effects ++ old.toVector.map(intent =>
+            CancelBackgroundTimer(root, intent.token))
+          val (invalidated, invalidationActions) =
+            if tracked.active.exists(worker => worker.root == root &&
+                worker.origin == BendCheckOrigin.Background) then invalidate(tracked, root, canceled)
+            else (tracked, canceled)
+          val intent = BendBackgroundIntent(token, 0, BendBackgroundPhase.Scheduled)
+          val updated = invalidated.roots(root).copy(background = Some(intent))
+          done(invalidated.copy(roots = invalidated.roots.updated(root, updated),
+            nextBackgroundToken = token), invalidationActions :+
+            ScheduleBackground(root, token, BackgroundDebounceMillis))
+
+      case BackgroundTimerFired(root, token) =>
+        state.roots.get(root).flatMap(_.background) match
+          case Some(intent) if intent.token == token &&
+              intent.phase == BendBackgroundPhase.Scheduled && state.backgroundEnabled =>
+            if state.active.isEmpty && !state.explicitWaiting then
+              val preparing = intent.copy(phase = BendBackgroundPhase.Preparing)
+              done(state.copy(roots = state.roots.updated(root,
+                state.roots(root).copy(background = Some(preparing)))),
+                decision = BackgroundReady(token, intent.attempt))
+            else
+              val ready = intent.copy(phase = BendBackgroundPhase.Ready)
+              done(state.copy(roots = state.roots.updated(root,
+                state.roots(root).copy(background = Some(ready)))))
+          case _ => done(state)
+
+      case BackgroundAttemptFailed(root, token) =>
+        val currentWorker = state.active.filter(worker => worker.root == root &&
+          worker.origin == BendCheckOrigin.Background && worker.backgroundToken.contains(token))
+        state.roots.get(root).flatMap(_.background) match
+          case Some(intent) if intent.token == token &&
+              (intent.phase == BendBackgroundPhase.Preparing ||
+                (intent.phase == BendBackgroundPhase.InFlight && currentWorker.nonEmpty)) =>
+            val canRetry = intent.attempt < MaxBackgroundRetries
+            val nextIntent = if canRetry then Some(intent.copy(attempt = intent.attempt + 1,
+              phase = BendBackgroundPhase.Ready)) else None
+            val current = state.roots(root)
+            val clearReserved = currentWorker.exists(_.phase == BendCheckWorkerPhase.Reserved)
+            val rootState = current.copy(pending = if clearReserved then None else current.pending,
+              background = nextIntent)
+            val released = if clearReserved then Vector(CancelWorker(currentWorker.get.generation),
+              SlotReleased(currentWorker.get.generation)) else Vector.empty
+            val next = state.copy(active = if clearReserved then None else state.active,
+              roots = state.roots.updated(root, rootState))
+            val (scheduled, actions) = scheduleReady(next, released)
+            done(scheduled, actions)
+          case _ => done(state)
+
+      case BackgroundStaleObserved(root) =>
+        if !state.backgroundEnabled || !state.roots.get(root).exists(rootState =>
+            rootState.result.exists(!_.fresh) && rootState.background.isEmpty) then done(state)
+        else transition(state, BackgroundRequested(root))
+
+      case BackgroundConfigurationChanged(enabled) =>
+        var next = state.copy(backgroundEnabled = enabled)
+        var actions = Vector.empty[BendCheckAction]
+        state.roots.toList.foreach { case (root, rootState) =>
+          rootState.background.foreach(intent =>
+            actions :+= CancelBackgroundTimer(root, intent.token))
+          if state.active.exists(worker => worker.root == root &&
+              worker.origin == BendCheckOrigin.Background) then
+            val invalidated = invalidate(next, root, actions)
+            next = invalidated._1
+            actions = invalidated._2
+          next.roots.get(root).foreach(current => next = next.copy(roots =
+            next.roots.updated(root, current.copy(background = None))))
+          if !enabled then actions :+= DropBackgroundRoot(root)
+        }
+        done(next, actions :+ RefreshUi)
+
+      case BackgroundSchedulerDisposed =>
+        var next = state
+        var actions = Vector.empty[BendCheckAction]
+        state.roots.toList.foreach { case (root, rootState) =>
+          rootState.background.foreach(intent =>
+            actions :+= CancelBackgroundTimer(root, intent.token))
+          if state.active.exists(worker => worker.root == root &&
+              worker.origin == BendCheckOrigin.Background) then
+            val invalidated = invalidate(next, root, actions)
+            next = invalidated._1
+            actions = invalidated._2
+          next.roots.get(root).foreach(current => next = next.copy(roots =
+            next.roots.updated(root, current.copy(background = None))))
+          actions :+= DropBackgroundRoot(root)
+        }
+        done(next, actions)
+
+      case BeginRequested(snapshot, BendCheckOrigin.Background, backgroundToken) =>
+        val intent = state.roots.get(snapshot.root).flatMap(_.background)
+        val matching = backgroundToken.exists(token => intent.exists(current =>
+          current.token == token && current.phase == BendBackgroundPhase.Preparing))
+        if !state.backgroundEnabled || !matching then done(state, decision = RejectedBusy)
+        else state.active match
+          case Some(_) =>
+            val ready = intent.get.copy(phase = BendBackgroundPhase.Ready)
+            done(state.copy(roots = state.roots.updated(snapshot.root,
+              state.roots(snapshot.root).copy(background = Some(ready)))),
+              decision = RejectedBusy)
+          case None if state.explicitWaiting =>
+            val ready = intent.get.copy(phase = BendBackgroundPhase.Ready)
+            done(state.copy(roots = state.roots.updated(snapshot.root,
+              state.roots(snapshot.root).copy(background = Some(ready)))),
+              decision = RejectedBusy)
+          case None => reserve(state, snapshot, BendCheckOrigin.Background, backgroundToken)
+
+      case BeginRequested(snapshot, BendCheckOrigin.Explicit, _) =>
         state.active match
-          case Some(worker) if origin == BendCheckOrigin.Explicit &&
-              worker.origin == BendCheckOrigin.Background =>
+          case Some(worker) if worker.origin == BendCheckOrigin.Background =>
             val (invalidated, actions) =
               if state.explicitWaiting then (state, Vector.empty)
               else invalidate(state, worker.root, Vector.empty)
             val preempted = invalidated.copy(explicitWaiting = true)
             if worker.phase == BendCheckWorkerPhase.Reserved then
-              val started = reserve(preempted.copy(active = None), snapshot, origin)
-              val priorEffects = if state.explicitWaiting then Vector.empty else
-                Vector(CancelWorker(worker.generation)) ++ actions
+              val started = reserve(preempted.copy(active = None), snapshot,
+                BendCheckOrigin.Explicit)
+              val priorEffects = if state.explicitWaiting then Vector.empty else actions
               started.copy(actions = priorEffects ++ started.actions)
             else done(preempted, actions, WaitingForWorker(worker.generation))
           case Some(_) => done(state, decision = RejectedBusy)
-          case None if origin == BendCheckOrigin.Background && state.explicitWaiting =>
-            done(state, decision = RejectedBusy)
-          case None => reserve(state, snapshot, origin)
+          case None => reserve(state, snapshot, BendCheckOrigin.Explicit)
 
       case WorkerStarted(root, generation, snapshot) =>
         val accepted = state.active.exists(worker => worker.root == root &&
@@ -182,7 +360,8 @@ object BendCheckTransitionPolicy:
             Vector.empty[BendCheckAction])) { case ((current, requested), root) =>
           invalidate(current, root, requested)
         }
-        done(next, actions)
+        val (scheduled, effects) = scheduleReady(next, actions)
+        done(scheduled, effects)
 
       case SnapshotInvalidated(root, generation, snapshot, reason) =>
         val matches = state.roots.get(root).exists(rootState =>
@@ -194,10 +373,15 @@ object BendCheckTransitionPolicy:
           invalidated.copy(actions = invalidated.actions :+ RefreshUi)
 
       case CancelRequested(root) =>
-        if !state.active.exists(_.root == root) then done(state)
+        if !state.active.exists(_.root == root) &&
+            !state.roots.get(root).exists(_.background.nonEmpty) then done(state)
         else
-          val (next, actions) = invalidate(state, root, Vector.empty)
-          done(next, actions :+ RefreshUi)
+          val current = state.roots.get(root).flatMap(_.background).toVector.map(intent =>
+            CancelBackgroundTimer(root, intent.token))
+          val (next, actions) = invalidate(state, root, current)
+          val withoutBackground = next.roots.get(root).fold(next)(value => next.copy(roots =
+            next.roots.updated(root, value.copy(background = None))))
+          done(withoutBackground, actions :+ RefreshUi)
 
       case ConfigurationInvalidated =>
         val (next, actions) = state.roots.keys.toList.sortBy(_.value).foldLeft((state,
@@ -218,30 +402,45 @@ object BendCheckTransitionPolicy:
           facts.externalInputsCurrent && !facts.canceled
         if !accepted then done(state, decision = Discarded)
         else
-          val snapshot = pending.get.snapshot
-          val published = current.get.copy(result = Some(result), snapshot = Some(snapshot),
-            pending = None)
+          val captured = pending.get.snapshot
+          val background = state.active.flatMap(_.backgroundToken)
+            .filter(token => current.flatMap(_.background).exists(_.token == token))
+          val published = current.get.copy(result = Some(result), snapshot = Some(captured),
+            pending = None, background = if background.nonEmpty then None else current.get.background)
           done(state.copy(roots = state.roots.updated(root, published)),
             Vector(RefreshUi), Published(result))
 
       case WorkerExited(root, generation) =>
-        val workerMatches = state.active.exists(worker => worker.root == root &&
-          worker.generation == generation)
+        val worker = state.active.filter(current => current.root == root &&
+          current.generation == generation)
         val roots = state.roots.get(root) match
           case Some(current) if current.pending.exists(_.generation == generation) =>
             state.roots.updated(root, current.copy(pending = None))
           case _ => state.roots
-        if workerMatches then done(state.copy(active = None, roots = roots),
-          Vector(SlotReleased(generation)))
+        if worker.nonEmpty then
+          val exited = worker.get
+          val withoutAbandonedIntent = roots.get(root).map { current =>
+            if exited.backgroundToken.exists(token => current.background.exists(intent =>
+                intent.token == token && intent.phase == BendBackgroundPhase.InFlight)) then
+              roots.updated(root, current.copy(background = None))
+            else roots
+          }.getOrElse(roots)
+          val (scheduled, actions) = scheduleReady(state.copy(active = None,
+            roots = withoutAbandonedIntent), Vector(SlotReleased(generation)))
+          done(scheduled, actions)
         else if roots != state.roots then done(state.copy(roots = roots))
         else done(state)
 
       case ExplicitWaitAbandoned =>
-        done(state.copy(explicitWaiting = false))
+        val (scheduled, actions) = scheduleReady(state.copy(explicitWaiting = false), Vector.empty)
+        done(scheduled, actions)
 
       case Disposed =>
         val activeActions = state.active.toVector.flatMap(worker =>
           Vector(CancelWorker(worker.generation), SlotReleased(worker.generation)))
-        val subscriptions = state.rootOrder.map(UnsubscribeRoot.apply)
+        val roots = state.rootOrder.flatMap(root =>
+          Vector(UnsubscribeRoot(root), DropBackgroundRoot(root)) ++
+            state.roots.get(root).flatMap(_.background).map(intent =>
+              CancelBackgroundTimer(root, intent.token)))
         done(state.copy(roots = Map.empty, active = None, rootOrder = Vector.empty,
-          explicitWaiting = false, disposed = true), activeActions ++ subscriptions)
+          explicitWaiting = false, disposed = true), activeActions ++ roots)
