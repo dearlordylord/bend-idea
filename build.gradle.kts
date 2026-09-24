@@ -1,4 +1,6 @@
+import org.gradle.api.tasks.scala.ScalaCompile
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import java.io.ByteArrayOutputStream
 
 plugins {
     scala
@@ -83,6 +85,29 @@ val mutationPolicySources = files(
         fileTree(root) { include("**/*.scala") }
     }
 )
+val policyLintArguments: (List<File>) -> List<String> = { sources ->
+    listOf(
+        "--config",
+        file(".scalafix.conf").absolutePath,
+        "--scala-version",
+        providers.gradleProperty("scalaVersion").get(),
+        "--syntactic",
+        "--check"
+    ) + sources.flatMap { source -> listOf("--files", source.absolutePath) }
+}
+val scopedPolicySources: (List<File>) -> List<File> = { additionalSources ->
+    val missingRoots = mutationPolicyRoots.filterNot { file(it).isDirectory }
+    check(missingRoots.isEmpty()) {
+        "Mutation policy source roots are missing: ${missingRoots.joinToString()}"
+    }
+    val productionSources = mutationPolicySources.files.sortedBy {
+        it.relativeTo(projectDir).invariantSeparatorsPath
+    }
+    check(productionSources.isNotEmpty()) {
+        "Mutation policy lint has no Scala sources in its configured roots."
+    }
+    (productionSources + additionalSources).distinct()
+}
 val policyMutationCheck by tasks.registering(JavaExec::class) {
     description = "Checks for mutable vars in the explicitly scoped pure policy packages."
     group = "verification"
@@ -92,32 +117,108 @@ val policyMutationCheck by tasks.registering(JavaExec::class) {
     inputs.file(".scalafix.conf")
     inputs.property("scalafixVersion", scalafixVersion)
     doFirst {
-        val missingRoots = mutationPolicyRoots.filterNot { file(it).isDirectory }
-        check(missingRoots.isEmpty()) {
-            "Mutation policy source roots are missing: ${missingRoots.joinToString()}"
-        }
-        val sources = mutationPolicySources.files.sortedBy {
-            it.relativeTo(projectDir).invariantSeparatorsPath
-        }
-        check(sources.isNotEmpty()) {
-            "Mutation policy lint has no Scala sources in its configured roots."
-        }
-        setArgs(
-            listOf(
-                "--config",
-                file(".scalafix.conf").absolutePath,
-                "--scala-version",
-                providers.gradleProperty("scalaVersion").get(),
-                "--syntactic",
-                "--check"
-            ) + sources.flatMap { source ->
-                listOf("--files", source.absolutePath)
-            }
-        )
+        setArgs(policyLintArguments(scopedPolicySources(emptyList())))
     }
 }
 
-tasks.check { dependsOn(architectureTest, policyMutationCheck) }
+val policyMutationProbe = file("quality-gate/fixtures/PolicyMutationProbe.scala")
+val discardedResultProbe = file("quality-gate/fixtures/DiscardedResultProbe.scala")
+val mutationProbeStdout = ByteArrayOutputStream()
+val mutationProbeStderr = ByteArrayOutputStream()
+val compilerProbeStdout = ByteArrayOutputStream()
+val compilerProbeStderr = ByteArrayOutputStream()
+val policyMutationNegativeCheck by tasks.registering(JavaExec::class) {
+    description = "Proves that the scoped mutation lint rejects a policy-package var."
+    group = "verification"
+    classpath = scalafixCli
+    mainClass.set("scalafix.cli.Cli")
+    isIgnoreExitValue = true
+    inputs.files(mutationPolicySources, policyMutationProbe)
+    inputs.file(".scalafix.conf")
+    inputs.property("scalafixVersion", scalafixVersion)
+    doFirst {
+        check(policyMutationProbe.isFile &&
+            policyMutationProbe.readText().contains("package com.dearlordylord.bend.idea.analysis.") &&
+            policyMutationProbe.readText().contains("var ")) {
+            "The mutation negative probe must contain a var in an analysis policy package."
+        }
+        mutationProbeStdout.reset()
+        mutationProbeStderr.reset()
+        standardOutput = mutationProbeStdout
+        errorOutput = mutationProbeStderr
+        setArgs(policyLintArguments(scopedPolicySources(listOf(policyMutationProbe))))
+    }
+    doLast {
+        val output = String(mutationProbeStdout.toByteArray(), Charsets.UTF_8) +
+            String(mutationProbeStderr.toByteArray(), Charsets.UTF_8)
+        check(executionResult.get().exitValue != 0) {
+            "The policy mutation probe unexpectedly passed the scoped Scalafix check."
+        }
+        check(output.contains("DisableSyntax", ignoreCase = true) ||
+            output.contains("noVars", ignoreCase = true)) {
+            "The policy mutation probe failed without a DisableSyntax diagnostic:\n$output"
+        }
+        logger.lifecycle("Verified scoped mutation lint rejects the policy-package var probe.")
+    }
+}
+
+val discardedProbeOutput = layout.buildDirectory.dir("quality-gate/discarded-result")
+val compileDiscardedResultNegativeCheck by tasks.registering(JavaExec::class) {
+    description = "Proves the configured Scala warning flags reject a discarded non-Unit result."
+    group = "verification"
+    val scalaCompile = tasks.named<ScalaCompile>("compileScala").get()
+    classpath = scalaCompile.scalaClasspath
+    mainClass.set("dotty.tools.dotc.Main")
+    isIgnoreExitValue = true
+    inputs.file(discardedResultProbe)
+    inputs.property("scalaWarningParameters", scalaCompile.scalaCompileOptions.additionalParameters)
+    doFirst {
+        val warningParameters = scalaCompile.scalaCompileOptions.additionalParameters
+        check(warningParameters.contains("-Werror") &&
+            warningParameters.contains("-Wvalue-discard")) {
+            "The discarded-result probe must use the configured fatal value-discard warning."
+        }
+        check(discardedResultProbe.isFile) { "The discarded-result probe source is missing." }
+        val outputDirectory = discardedProbeOutput.get().asFile
+        project.delete(outputDirectory)
+        check(outputDirectory.mkdirs() || outputDirectory.isDirectory) {
+            "Could not create compiler probe output directory: $outputDirectory"
+        }
+        compilerProbeStdout.reset()
+        compilerProbeStderr.reset()
+        standardOutput = compilerProbeStdout
+        errorOutput = compilerProbeStderr
+        setArgs(warningParameters + listOf(
+            "-classpath",
+            sourceSets.main.get().compileClasspath.asPath,
+            "-d",
+            outputDirectory.absolutePath,
+            discardedResultProbe.absolutePath
+        ))
+    }
+    doLast {
+        val output = String(compilerProbeStdout.toByteArray(), Charsets.UTF_8) +
+            String(compilerProbeStderr.toByteArray(), Charsets.UTF_8)
+        check(executionResult.get().exitValue != 0) {
+            "The discarded-result probe unexpectedly compiled with the configured warning flags."
+        }
+        check(output.contains("E175") ||
+            output.contains("discarded non-Unit", ignoreCase = true)) {
+            "The discarded-result probe failed without a value-discard diagnostic:\n$output"
+        }
+        logger.lifecycle("Verified Scala warning flags reject the discarded non-Unit result probe.")
+    }
+}
+
+val qualityGateNegativeChecks by tasks.registering {
+    description = "Runs negative probes for the configured compiler and policy lint gates."
+    group = "verification"
+    dependsOn(policyMutationNegativeCheck, compileDiscardedResultNegativeCheck)
+}
+
+tasks.check {
+    dependsOn(architectureTest, policyMutationCheck, qualityGateNegativeChecks)
+}
 
 val requireSigning by tasks.registering {
     doLast {
