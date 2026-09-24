@@ -1,7 +1,9 @@
 package com.dearlordylord.bend.idea.features.checking
 
+import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
 import com.dearlordylord.bend.idea.analysis.model.{BendCheckOutcome, BendCheckSnapshot, BendCompleteness}
+import com.dearlordylord.bend.idea.analysis.model.BendReliance
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.{BendToolchainChoices, BendToolchainSettings}
 import com.intellij.openapi.application.ApplicationManager
@@ -21,12 +23,11 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
     original = settings.choices
     directory = Files.createTempDirectory("bend-check-editor-")
-    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
+    val compiler = RealBendCompilerFixture.inputs
     val executable = directory.resolve("bend")
-    Files.writeString(executable, "#!/bin/sh\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-    executable.toFile.setExecutable(true)
+    compiler.writeLauncher(executable)
     val selectedBase = directory.resolve("base.bend")
-    Files.copy(pinned.resolveSibling("base.bend"), selectedBase)
+    Files.copy(compiler.base, selectedBase)
     settings.update(BendToolchainChoices(executable = executable.toString,
       baseSource = selectedBase.toString, diagnosticsEnabled = false))
 
@@ -57,6 +58,8 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       throw new AssertionError("Explicit check did not publish a result"))
     assertEquals(BendCheckOutcome.Failed, result.outcome)
     assertEquals(BendCompleteness.Unknown, result.completeness)
+    assertEquals(BendReliance.Unknown, result.reliance)
+    assertEquals("Check failed", result.status)
     assertTrue(result.details.contains("unknown_name"))
     val highlights = myFixture.doHighlighting()
     assertTrue(highlights.toArray.exists(_.toString.contains("unknown_name")))
@@ -90,7 +93,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     val marker = directory.resolve("started")
     val executable = directory.resolve("slow-bend")
     Files.writeString(executable,
-      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 10\n")
+      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 10\n")
     executable.toFile.setExecutable(true)
     settings.update(settings.choices.copy(executable = executable.toString))
     myFixture.configureByText("slow.bend", "def main() -> Type:\n  Type\n")
@@ -158,6 +161,12 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       dep.getCanonicalPath != null)
     assertEquals(com.dearlordylord.bend.idea.analysis.model.BendLocation.SourceLine(depId, 2),
       result.diagnostics.head.location)
+    val checkedDependency = result.sources.find(_.id == depId).get
+    assertTrue("Published graph result must remain current", result.fresh)
+    assertEquals("Captured dependency text must match its current editor buffer",
+      dependencyDocument.getText, checkedDependency.text)
+    assertEquals("Captured dependency revision must match its current editor buffer",
+      dependencyDocument.getModificationStamp, checkedDependency.revision)
     myFixture.openFileInEditor(dep)
     assertTrue(myFixture.doHighlighting().toArray.exists(_.toString.contains("unknown_value")))
     WriteCommandAction.runWriteCommandAction(getProject, new Runnable:

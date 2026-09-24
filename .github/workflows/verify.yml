@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       SIGNING_CONFIGURED: ${{ secrets.BEND_IDEA_SIGNING_PRIVATE_KEY != '' && secrets.BEND_IDEA_SIGNING_CERTIFICATE_CHAIN != '' }}
@@ -20,9 +20,41 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Read real compiler pins
+        id: bend-pins
+        run: |
+          set -euo pipefail
+          bend_commit="$(awk -F= '$1 == "bend.commit" { print $2; count++ } END { if (count != 1) exit 1 }' ci/bend-test-toolchain.properties)"
+          bun_version="$(awk -F= '$1 == "bun.version" { print $2; count++ } END { if (count != 1) exit 1 }' ci/bend-test-toolchain.properties)"
+          [[ "$bend_commit" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$bun_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          {
+            echo "bend_commit=$bend_commit"
+            echo "bun_version=$bun_version"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: bendlang/bend
+          ref: ${{ steps.bend-pins.outputs.bend_commit }}
+          path: _ci/bend
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        id: setup-bun
+        with:
+          bun-version: ${{ steps.bend-pins.outputs.bun_version }}
       - uses: gradle/actions/setup-gradle@v4
-      - name: Test, check architecture, package and verify compatibility
-        run: ./gradlew --no-daemon check buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration
+      - name: Verify compiler and runtime provenance
+        env:
+          BEND_TEST_COMPILER_DIR: ${{ github.workspace }}/_ci/bend
+          BEND_TEST_BUN: ${{ steps.setup-bun.outputs.bun-path }}
+        run: bash ci/verify-bend-test-inputs.sh
+      - name: Test editor, architecture and real Bend checks
+        env:
+          BEND_TEST_COMPILER_DIR: ${{ github.workspace }}/_ci/bend
+          BEND_TEST_BUN: ${{ steps.setup-bun.outputs.bun-path }}
+        run: ./gradlew --no-daemon check
+      - name: Build and verify plugin compatibility
+        run: ./gradlew --no-daemon buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration
       - name: Sign and verify distribution
         if: github.event_name == 'push' && env.SIGNING_CONFIGURED == 'true'
         env:

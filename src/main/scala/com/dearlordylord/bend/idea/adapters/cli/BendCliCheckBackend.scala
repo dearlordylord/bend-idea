@@ -36,20 +36,18 @@ final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("j
     var observed = ""
     // A help probe must precede every source invocation, including a potentially
     // side-effecting main on an older compiler that ignores unknown switches.
-    BendBoundedProcess.run(List(executable, "--help"), path.getParent, environment,
-      canceled = canceled) match
-      case BendProcessOutcome.Exited(0, output) if
-          output.matches("(?s).*bend <file\\.bend> --check-only check the file and its imports; run nothing.*") =>
-        observed += ":" + BendAnalysisKey.sourceDigest(output)
-      case BendProcessOutcome.TimedOut(_) =>
-        return result(BendCheckOutcome.TimedOut, BendCompleteness.Unknown, BendReliance.Unknown,
-          "Bend capability probe timed out; no source was checked.")
-      case BendProcessOutcome.Canceled(_) =>
-        return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown,
-          "Bend check canceled.")
-      case _ =>
-        return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown,
-          "This Bend compiler does not document --check-only; no source was checked.")
+    BendCliVerdictDecoder.capability(BendBoundedProcess.run(
+      List(executable, "--help"), path.getParent, environment, canceled = canceled)) match
+      case BendCliVerdictDecoder.Capability.Supported(help) =>
+        observed += ":" + BendAnalysisKey.sourceDigest(help)
+      case BendCliVerdictDecoder.Capability.TimedOut(details) =>
+        return result(BendCheckOutcome.TimedOut, BendCompleteness.Unknown, BendReliance.Unknown, details)
+      case BendCliVerdictDecoder.Capability.Canceled(details) =>
+        return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown, details)
+      case BendCliVerdictDecoder.Capability.OutputLimit(details) =>
+        return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown, details)
+      case BendCliVerdictDecoder.Capability.Unavailable(details) =>
+        return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown, details)
     if snapshot.graph.isEmpty then
       BendCheckPolicy.unsupportedImport(snapshot) match
         case Some(message) =>
@@ -104,35 +102,14 @@ final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("j
       Files.createDirectory(offline)
       val isolated = environment ++ Map("BEND_LIB" -> offline.toString,
         "BEND_HUB" -> "file:///__bend_editor_offline__")
-      BendBoundedProcess.run(List(executable, copied.toString, "--check-only"), temp, isolated,
-        canceled = canceled) match
-        case BendProcessOutcome.Exited(0, output) if output.contains("All terms check") =>
-          val relied = if output.contains("relies on unsafe or foreign code") ||
-              output.contains("rely on unsafe or foreign code") then BendReliance.UnsafeOrForeign
-            else BendReliance.None
-          BendCheckResult(key, BendCheckOutcome.Success, BendCompleteness.Complete,
-            relied, Nil, output)
-        case BendProcessOutcome.Exited(0, output) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown,
-            "Compiler returned success without a check verdict.\n" + output)
-        case BendProcessOutcome.Exited(_, output) =>
-          val clean = output.replaceAll("\\u001b\\[[0-9;]*m", "").trim
-          val incomplete = clean.matches("(?s).*\\b[0-9]+ TODOs? found\\..*")
-          val line = reliableLine(clean, snapshot.text)
-          result(BendCheckOutcome.Failed,
-            if incomplete then BendCompleteness.Incomplete else BendCompleteness.Unknown,
-            BendReliance.Unknown, if clean.isEmpty then "Bend failed without output." else clean, line)
-        case BendProcessOutcome.TimedOut(output) =>
-          result(BendCheckOutcome.TimedOut, BendCompleteness.Unknown, BendReliance.Unknown,
-            "Bend check timed out.\n" + output)
-        case BendProcessOutcome.OutputLimit(output) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown,
-            "Bend check output exceeded the limit.\n" + output)
-        case BendProcessOutcome.StartFailed(message) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown, message)
-        case BendProcessOutcome.Canceled(_) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown,
-            "Bend check canceled.")
+      val decoded = BendCliVerdictDecoder.check(BendBoundedProcess.run(
+        List(executable, copied.toString, "--check-only"), temp, isolated, canceled = canceled))
+      if decoded.outcome == BendCheckOutcome.Success then
+        BendCheckResult(key, decoded.outcome, decoded.completeness, decoded.reliance, Nil, decoded.details)
+      else
+        val location = if decoded.sourceLocationAllowed then reliableLine(decoded.details, snapshot.text)
+          else BendLocation.RootOnly
+        result(decoded.outcome, decoded.completeness, decoded.reliance, decoded.details, location)
     catch
       case e: java.io.IOException =>
         result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown,
@@ -265,37 +242,16 @@ final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("j
         "Bend check canceled.", mappings = mappings)
       val isolated = environment ++ Map("BEND_LIB" -> offline.toString,
         "BEND_HUB" -> "file:///__bend_editor_offline__")
-      BendBoundedProcess.run(List(executable, rootPath.toString, "--check-only"), temp,
-        isolated, canceled = canceled) match
-        case BendProcessOutcome.Exited(0, output) if output.contains("All terms check") =>
-          val relied = if output.contains("relies on unsafe or foreign code") ||
-              output.contains("rely on unsafe or foreign code") then BendReliance.UnsafeOrForeign
-            else BendReliance.None
-          result(BendCheckOutcome.Success, BendCompleteness.Complete, output,
-            mappings = mappings, reliance = relied)
-        case BendProcessOutcome.Exited(0, output) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
-            "Compiler returned success without a check verdict.\n" + output, mappings = mappings)
-        case BendProcessOutcome.Exited(_, output) =>
-          val clean = output.replaceAll("\\u001b\\[[0-9;]*m", "").trim
-          val incomplete = clean.matches("(?s).*\\b[0-9]+ TODOs? found\\..*")
-          val location = graphLocation(clean, mappings, snapshot.root)
-          result(BendCheckOutcome.Failed,
-            if incomplete then BendCompleteness.Incomplete else BendCompleteness.Unknown,
-            if clean.isEmpty then "Bend failed without output." else clean,
-            List(BendDiagnostic(if clean.isEmpty then "Bend failed without output." else clean, location)),
-            mappings)
-        case BendProcessOutcome.TimedOut(output) =>
-          result(BendCheckOutcome.TimedOut, BendCompleteness.Unknown,
-            "Bend check timed out.\n" + output, mappings = mappings)
-        case BendProcessOutcome.OutputLimit(output) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
-            "Bend check output exceeded the limit.\n" + output, mappings = mappings)
-        case BendProcessOutcome.StartFailed(message) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, message, mappings = mappings)
-        case BendProcessOutcome.Canceled(_) =>
-          result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
-            "Bend check canceled.", mappings = mappings)
+      val decoded = BendCliVerdictDecoder.check(BendBoundedProcess.run(
+        List(executable, rootPath.toString, "--check-only"), temp, isolated, canceled = canceled))
+      if decoded.outcome == BendCheckOutcome.Success then
+        result(decoded.outcome, decoded.completeness, decoded.details,
+          mappings = mappings, reliance = decoded.reliance)
+      else
+        val location = if decoded.sourceLocationAllowed then graphLocation(decoded.details, mappings, snapshot.root)
+          else BendLocation.RootOnly
+        result(decoded.outcome, decoded.completeness, decoded.details,
+          List(BendDiagnostic(decoded.details, location)), mappings, decoded.reliance)
     catch
       case e: java.io.IOException =>
         result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
