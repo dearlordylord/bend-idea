@@ -243,15 +243,20 @@ object BendCheckTransitionPolicy:
   ): (BendCheckState, Vector[BendCheckAction]) =
     if state.roots.contains(root) then (state, actions)
     else
-      var current = state
-      var effects = actions
-      while current.rootOrder.size >= MaxTrackedRoots do
-        val oldest = current.rootOrder
-          .find(id => !current.active.exists(_.root == id))
-          .getOrElse(current.rootOrder.head)
-        val removed = dropRoot(current, oldest, effects)
-        current = removed._1
-        effects = removed._2
+      @scala.annotation.tailrec
+      def makeRoom(
+          current: BendCheckState,
+          effects: Vector[BendCheckAction]
+      ): (BendCheckState, Vector[BendCheckAction]) =
+        if current.rootOrder.size < MaxTrackedRoots then (current, effects)
+        else
+          val oldest = current.rootOrder
+            .find(id => !current.active.exists(_.root == id))
+            .getOrElse(current.rootOrder.head)
+          val removed = dropRoot(current, oldest, effects)
+          makeRoom(removed._1, removed._2)
+
+      val (current, effects) = makeRoom(state, actions)
       (
         current.copy(
           roots = current.roots.updated(root, BendRootCheckState()),
@@ -503,54 +508,60 @@ object BendCheckTransitionPolicy:
           else transition(state, BackgroundRequested(root))
 
         case BackgroundConfigurationChanged(enabled) =>
-          var next = state.copy(backgroundEnabled = enabled)
-          var actions = Vector.empty[BendCheckAction]
-          state.roots.toList.foreach { case (root, rootState) =>
-            rootState.background.foreach(intent =>
-              actions :+= CancelBackgroundTimer(root, intent.token)
+          val (next, actions) = state.roots.toList.foldLeft(
+            (
+              state.copy(backgroundEnabled = enabled),
+              Vector.empty[BendCheckAction]
             )
-            if state.active.exists(worker =>
-                worker.root == root &&
-                  worker.origin == BendCheckOrigin.Background
-              )
-            then
-              val invalidated = invalidate(next, root, actions)
-              next = invalidated._1
-              actions = invalidated._2
-            next.roots
+          ) { case ((currentState, accumulated), (root, rootState)) =>
+            val withTimerCancellation = rootState.background.fold(accumulated)(
+              intent => accumulated :+ CancelBackgroundTimer(root, intent.token)
+            )
+            val invalidated =
+              if state.active.exists(worker =>
+                  worker.root == root &&
+                    worker.origin == BendCheckOrigin.Background
+                )
+              then invalidate(currentState, root, withTimerCancellation)
+              else (currentState, withTimerCancellation)
+            val withoutBackground = invalidated._1.roots
               .get(root)
-              .foreach(current =>
-                next = next.copy(roots =
-                  next.roots.updated(root, current.copy(background = None))
+              .fold(invalidated._1)(current =>
+                invalidated._1.copy(roots =
+                  invalidated._1.roots
+                    .updated(root, current.copy(background = None))
                 )
               )
-            if !enabled then actions :+= DropBackgroundRoot(root)
+            val nextActions =
+              if !enabled then invalidated._2 :+ DropBackgroundRoot(root)
+              else invalidated._2
+            (withoutBackground, nextActions)
           }
           done(next, actions :+ RefreshUi)
 
         case BackgroundSchedulerDisposed =>
-          var next = state
-          var actions = Vector.empty[BendCheckAction]
-          state.roots.toList.foreach { case (root, rootState) =>
-            rootState.background.foreach(intent =>
-              actions :+= CancelBackgroundTimer(root, intent.token)
+          val (next, actions) = state.roots.toList.foldLeft(
+            (state, Vector.empty[BendCheckAction])
+          ) { case ((currentState, accumulated), (root, rootState)) =>
+            val withTimerCancellation = rootState.background.fold(accumulated)(
+              intent => accumulated :+ CancelBackgroundTimer(root, intent.token)
             )
-            if state.active.exists(worker =>
-                worker.root == root &&
-                  worker.origin == BendCheckOrigin.Background
-              )
-            then
-              val invalidated = invalidate(next, root, actions)
-              next = invalidated._1
-              actions = invalidated._2
-            next.roots
+            val invalidated =
+              if state.active.exists(worker =>
+                  worker.root == root &&
+                    worker.origin == BendCheckOrigin.Background
+                )
+              then invalidate(currentState, root, withTimerCancellation)
+              else (currentState, withTimerCancellation)
+            val withoutBackground = invalidated._1.roots
               .get(root)
-              .foreach(current =>
-                next = next.copy(roots =
-                  next.roots.updated(root, current.copy(background = None))
+              .fold(invalidated._1)(current =>
+                invalidated._1.copy(roots =
+                  invalidated._1.roots
+                    .updated(root, current.copy(background = None))
                 )
               )
-            actions :+= DropBackgroundRoot(root)
+            (withoutBackground, invalidated._2 :+ DropBackgroundRoot(root))
           }
           done(next, actions)
 
