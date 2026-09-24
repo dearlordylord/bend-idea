@@ -10,7 +10,7 @@ The release gates passed on 2026-09-24 with JDK 21.0.10 and pinned Bend source `
 
 The signed archive is `build/distributions/bend-idea-0.1.3-signed.zip` (SHA-256: `80c25586c0e909b39c78521fc377b0f995212ed5dd78935e6bf665130ce12fdc`). Signature verification passed. Marketplace accepted it as Stable update `1178310` on 2026-09-24. It is under review; Marketplace says Support will conduct additional checks before publication. Do not describe it as public until the status changes.
 
-The verifier reports two Internal API usages: `Configurable.getDisplayNameFast()` is invoked and overridden in `BendSettingsConfigurable`. This rollback was submitted as requested despite that known issue; the fix is being prepared separately and must not be uploaded before explicit approval.
+The verifier reports two Internal API usages in this rollback artifact: `Configurable.getDisplayNameFast()` is invoked and overridden in `BendSettingsConfigurable`. The follow-up fix is committed and pushed as `codex/fix-internal-api` at `e3fcf3d`; verification of the current source reports no Internal API usages on IC 2025.1 or IU 2026.1. No fixed Marketplace package has been uploaded. Wait for explicit approval before submitting it.
 
 ## Previous submission
 
