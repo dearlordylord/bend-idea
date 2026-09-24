@@ -16,9 +16,7 @@ import scala.collection.mutable
 final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("java.io.tmpdir")))
     extends BendCheckBackend:
   override def check(snapshot: BendCheckSnapshot, canceled: () => Boolean): BendCheckResult =
-    val importsBase = snapshot.graph.fold(BendImportLines.parse(snapshot.text).exists(_.spelling == "Base"))(
-      _.files.exists(_.source.imports.exists(_.spelling == "Base")))
-    val basePath = Option.when(importsBase)(snapshot.toolchain.baseSource)
+    val basePath = snapshot.selectedBasePath
     var key = BendAnalysisKey.from(snapshot).copy(basePath = basePath,
       externalStamp = BendExternalInputs.stamp(snapshot.toolchain.executable, basePath))
     def result(outcome: BendCheckOutcome, completeness: BendCompleteness,
@@ -53,7 +51,7 @@ final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("j
         case Some(message) =>
           return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown, message)
         case None => ()
-    if importsBase then
+    if basePath.nonEmpty then
       val capturedBase = snapshot.graph.flatMap { graph =>
         graph.edges.find(_.importLine.spelling == "Base").flatMap(_.target)
           .flatMap(graph.source).map(_.text)
@@ -79,9 +77,8 @@ final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("j
         case _ =>
           return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown, BendReliance.Unknown,
             "Configured Base does not match this compiler's Base; no source was checked.")
-    key = BendAnalysisKey.from(snapshot.copy(inputFingerprint =
-      BendAnalysisKey.sourceDigest(snapshot.inputFingerprint + observed))).copy(
-      basePath = basePath, externalStamp = key.externalStamp)
+    key = key.copy(inputFingerprint =
+      BendAnalysisKey.sourceDigest(snapshot.inputFingerprint + observed))
     if snapshot.graph.nonEmpty then
       return checkGraph(snapshot, key, executable, path, environment, canceled)
     var temp: Path = null

@@ -2,16 +2,30 @@ package com.dearlordylord.bend.idea.analysis.model
 
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSelection
+import com.dearlordylord.bend.idea.workspace.api.BendImportLines
 import com.dearlordylord.bend.idea.workspace.model.{BendLoadedGraph, BendSourceRecord}
 
 /** A root is distinct from a source file imported under that root. */
 final case class BendCheckSnapshot(root: FileId, path: String, text: String,
     sourceRevision: Long, toolchain: BendToolchainSelection,
     inputFingerprint: String = "", graph: Option[BendLoadedGraph] = None,
-    siblingLaws: Option[BendSourceRecord] = None)
+    siblingLaws: Option[BendSourceRecord] = None):
+  def selectedBasePath: Option[String] =
+    val importsBase = graph.fold(
+      BendImportLines.parse(text).exists(_.spelling == "Base"))(
+        _.files.exists(_.source.imports.exists(_.spelling == "Base")))
+    Option.when(importsBase)(toolchain.baseSource)
+
+/** Snapshot identity retained independently of the backend's derived input fingerprint. */
+final case class BendCheckSnapshotProvenance(graphFingerprint: String, baseSource: String)
+
+object BendCheckSnapshotProvenance:
+  def from(snapshot: BendCheckSnapshot): BendCheckSnapshotProvenance =
+    BendCheckSnapshotProvenance(snapshot.inputFingerprint, snapshot.toolchain.baseSource)
 
 final case class BendAnalysisKey(root: FileId, sourceRevision: Long, sourceFingerprint: String,
     configurationRevision: Long, executable: String, inputFingerprint: String,
+    snapshotProvenance: BendCheckSnapshotProvenance,
     externalStamp: String = "", basePath: Option[String] = None)
 
 object BendAnalysisKey:
@@ -23,7 +37,7 @@ object BendAnalysisKey:
   def from(snapshot: BendCheckSnapshot): BendAnalysisKey =
     BendAnalysisKey(snapshot.root, snapshot.sourceRevision, sourceDigest(snapshot.text),
       snapshot.toolchain.configurationRevision, snapshot.toolchain.executable,
-      snapshot.inputFingerprint)
+      snapshot.inputFingerprint, BendCheckSnapshotProvenance.from(snapshot))
 
 enum BendCheckOutcome:
   case Success, Failed, Unavailable, TimedOut

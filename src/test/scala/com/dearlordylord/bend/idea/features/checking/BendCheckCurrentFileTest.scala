@@ -109,17 +109,19 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
         override def documentChanged(event: DocumentEvent): Unit = callback()
       document.addDocumentListener(listener)
       () => document.removeDocumentListener(listener)
-    assertTrue(service.begin(snapshot, subscribe, () =>
-      document.getModificationStamp == snapshot.sourceRevision))
+    val reservation = service.begin(snapshot, subscribe, () =>
+      document.getModificationStamp == snapshot.sourceRevision).getOrElse(
+      throw new AssertionError("First check must reserve the worker"))
     val worker = new Thread(new Runnable:
-      override def run(): Unit = { service.check(snapshot, () => false); () })
+      override def run(): Unit = { service.check(snapshot, reservation, () => false); () })
     worker.start()
     val until = System.nanoTime() + 10_000_000_000L
     while !Files.exists(marker) && System.nanoTime() < until do Thread.sleep(25)
     assertTrue("First worker must have started", Files.exists(marker))
-    assertFalse("A second worker must be rejected", service.begin(snapshot, subscribe, () => true))
+    assertTrue("A second worker must be rejected",
+      service.begin(snapshot, subscribe, () => true).isEmpty)
     assertTrue("A reservation may be claimed by only one worker",
-      service.check(snapshot, () => false).isEmpty)
+      service.check(snapshot, reservation, () => false).isEmpty)
     WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
       override def run(): Unit =
         myFixture.getEditor.getDocument.setText("def main() -> Type:\n  Type # edited\n"))
@@ -131,7 +133,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       getProject.getService(classOf[BendCheckService]).result(id).isEmpty)
     val next = snapshot.copy(text = document.getText,
       sourceRevision = document.getModificationStamp)
-    assertTrue(service.begin(next, subscribe, () => true))
+    assertTrue(service.begin(next, subscribe, () => true).isDefined)
     service.cancel(id)
     assertFalse("Cancel before the worker starts must release its reservation", service.busy)
 
@@ -168,6 +170,9 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     assertEquals("Captured dependency revision must match its current editor buffer",
       dependencyDocument.getModificationStamp, checkedDependency.revision)
     myFixture.openFileInEditor(dep)
+    val importedResults = service.resultsFor(depId)
+    assertTrue("Published root diagnostics should stay current for the imported source",
+      importedResults.exists(r => r.fresh && r.diagnostics.exists(_.message.contains("unknown_value"))))
     assertTrue(myFixture.doHighlighting().toArray.exists(_.toString.contains("unknown_value")))
     WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
       override def run(): Unit = dependencyDocument.setText(

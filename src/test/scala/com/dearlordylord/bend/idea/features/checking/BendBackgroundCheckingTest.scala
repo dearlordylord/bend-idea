@@ -2,7 +2,7 @@ package com.dearlordylord.bend.idea.features.checking
 
 import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.adapters.intellij.{BendBackgroundChecking, BendCheckSession}
-import com.dearlordylord.bend.idea.analysis.api.BendCheckService
+import com.dearlordylord.bend.idea.analysis.api.{BendBackgroundCheckControl, BendCheckService}
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.{BendToolchainChoices, BendToolchainSettings}
@@ -172,6 +172,44 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     assertEquals(BendCheckOutcome.Failed, checked.outcome)
     assertTrue("Manual action must start its own process", Files.size(marker) >= 2L)
 
+  def testCapturedSameRootBackgroundCheckCannotConsumeManualReservation(): Unit =
+    val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
+    val backgroundText = "import Base\ndef main() -> U32:\n  unknown_background\n"
+    val manualText = "import Base\ndef main() -> U32:\n  unknown_manual\n"
+    val file = myFixture.configureByText("same-root-capture.bend", backgroundText)
+      .getVirtualFile
+    val root = id(file)
+    val backgroundSnapshot = BendCheckSnapshot(root, file.getPath, backgroundText, 1L,
+      settings.selection)
+    val manualSnapshot = backgroundSnapshot.copy(text = manualText, sourceRevision = 2L)
+    val session = new BendCheckSession(getProject)
+    try
+      val control = session.asInstanceOf[BendBackgroundCheckControl]
+      val scheduled = control.requestBackground(root).getOrElse(
+        throw new AssertionError("Background request must produce a schedule token"))
+      val ticket = control.backgroundTimerFired(root, scheduled.token).getOrElse(
+        throw new AssertionError("Current background timer must become due"))
+      val backgroundReservation = control.beginBackground(ticket, backgroundSnapshot,
+        callback => () => (), () => true).getOrElse(
+        throw new AssertionError("Background capture must reserve the worker"))
+      val manualReservation = session.begin(manualSnapshot, callback => () => (), () => true)
+        .getOrElse(throw new AssertionError("Manual request must preempt the reserved capture"))
+      assertTrue(session.busy)
+
+      assertTrue("Stale capture must not dispatch against the manual reservation",
+        session.check(backgroundSnapshot, backgroundReservation, () => false).isEmpty)
+      assertTrue("Stale capture must not release the manual worker slot", session.busy)
+      assertTrue("Stale capture must not publish", session.result(root).isEmpty)
+
+      val checked = session.check(manualSnapshot, manualReservation, () => false)
+        .getOrElse(throw new AssertionError("Manual reservation must complete its own check"))
+      assertEquals(manualSnapshot.sourceRevision, checked.key.sourceRevision)
+      assertTrue(checked.details.contains("unknown_manual"))
+      assertFalse(checked.details.contains("unknown_background"))
+      assertEquals(Some(checked), session.result(root))
+      assertFalse("Completed manual check must release its slot", session.busy)
+    finally Disposer.dispose(session)
+
   def testDependencyEditDuringFirstRootCheckSchedulesReplacement(): Unit =
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
     val marker = directory.resolve("dependency-started")
@@ -251,9 +289,10 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     val snapshot = BendCheckSnapshot(root, file.getPath, document.getText,
       document.getModificationStamp, settings.selection)
     val transient = new BendCheckSession(getProject)
-    assertTrue(transient.begin(snapshot, callback => () => (), () => true))
+    val reservation = transient.begin(snapshot, callback => () => (), () => true).getOrElse(
+      throw new AssertionError("Transient check must reserve its worker"))
     val worker = new Thread(new Runnable:
-      override def run(): Unit = { transient.check(snapshot, () => false); () })
+      override def run(): Unit = { transient.check(snapshot, reservation, () => false); () })
     worker.start()
     try
       val started = System.nanoTime() + 10_000_000_000L
