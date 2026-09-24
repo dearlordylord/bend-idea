@@ -17,11 +17,12 @@ Editing works without a Bend installation. Checking requires a configured Bend c
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.2:</p>
+<p>Version 0.1.4:</p>
 <ul>
   <li>Add a Bend structure view, source-preserving formatting, and binding-aware rename</li>
   <li>Search workspace declarations with Go to Symbol</li>
   <li>Make compiler checks more reliable with pinned offline test inputs, current-only results, conservative verdicts, and exact imported-source mapping</li>
+  <li>Remove IntelliJ Internal API usages reported by Plugin Verifier</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
