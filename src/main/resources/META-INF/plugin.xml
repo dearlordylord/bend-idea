@@ -17,10 +17,11 @@ Editing works without a Bend installation. Checking requires a configured Bend c
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.1:</p>
+<p>Version 0.1.2:</p>
 <ul>
-  <li>Navigate to an imported Bend module from its import path</li>
-  <li>Allow installation on newer IntelliJ IDEA builds; verified with IDEA Ultimate 2026.1</li>
+  <li>Add a Bend structure view, source-preserving formatting, and binding-aware rename</li>
+  <li>Search workspace declarations with Go to Symbol</li>
+  <li>Make compiler checks more reliable with pinned offline test inputs, current-only results, conservative verdicts, and exact imported-source mapping</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
