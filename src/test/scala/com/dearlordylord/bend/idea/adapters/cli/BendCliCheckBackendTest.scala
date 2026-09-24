@@ -119,11 +119,24 @@ final class BendCliCheckBackendTest:
     val source = "import Base\ndef main() -> U32:\n  0\n"
     val missing = backend(executable).check(snapshot(executable.resolveSibling("missing"), source, original))
     assertEquals(BendCheckOutcome.Unavailable, missing.outcome)
-    val installed = Path.of(System.getProperty("user.home"), ".bend", "bin", "bend")
-    if Files.isExecutable(installed) then
-      val unsupported = backend(executable).check(snapshot(installed, source, original))
-      assertEquals(BendCheckOutcome.Unavailable, unsupported.outcome)
-      assertTrue(unsupported.details.contains("--check-only"))
+
+    val unsupportedCompiler = executable.resolveSibling("unsupported-bend")
+    val sourceMarker = unsupportedCompiler.resolveSibling(
+      unsupportedCompiler.getFileName.toString + ".source-invoked")
+    Files.writeString(unsupportedCompiler,
+      "#!/bin/sh\n" +
+        "if [ \"${1:-}\" = \"--help\" ]; then\n" +
+        "  printf '%s\\n' 'bend <file.bend> runs source only'\n" +
+        "  exit 0\n" +
+        "fi\n" +
+        "touch \"$0.source-invoked\"\n" +
+        "exit 1\n")
+    assertTrue("Could not mark unsupported compiler launcher executable",
+      unsupportedCompiler.toFile.setExecutable(true))
+    val unsupported = backend(executable).check(snapshot(unsupportedCompiler, source, original))
+    assertEquals(BendCheckOutcome.Unavailable, unsupported.outcome)
+    assertTrue(unsupported.details.contains("--check-only"))
+    assertFalse("Unsupported compilers must not receive source arguments", Files.exists(sourceMarker))
   }
 
   @Test def cancellationRemovesSnapshotAndTerminatesSourceProcess(): Unit =
