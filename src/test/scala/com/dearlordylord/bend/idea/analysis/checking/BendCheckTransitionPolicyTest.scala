@@ -462,6 +462,54 @@ final class BendCheckTransitionPolicyTest:
     )
     assertFalse(thirdExit.actions.exists(_.isInstanceOf[ScheduleBackground]))
 
+  @Test def backgroundScheduleInstallationFailureUsesBoundedPolicyRetry()
+      : Unit =
+    val captured = snapshot("background-schedule-failure.bend")
+    val first = transition(BendCheckState(), BackgroundRequested(captured.root))
+    val token = first.state.roots(captured.root).background.get.token
+
+    val retried =
+      transition(first.state, BackgroundScheduleFailed(captured.root, token))
+    assertEquals(1, retried.state.roots(captured.root).background.get.attempt)
+    assertTrue(
+      retried.actions.contains(CancelBackgroundTimer(captured.root, token))
+    )
+    assertTrue(
+      retried.actions.contains(
+        ScheduleBackground(
+          captured.root,
+          token,
+          BendCheckTransitionPolicy.BackgroundDebounceMillis
+        )
+      )
+    )
+
+    val secondFailure =
+      transition(retried.state, BackgroundScheduleFailed(captured.root, token))
+    assertEquals(
+      2,
+      secondFailure.state.roots(captured.root).background.get.attempt
+    )
+    assertTrue(
+      secondFailure.actions.contains(
+        ScheduleBackground(
+          captured.root,
+          token,
+          BendCheckTransitionPolicy.BackgroundDebounceMillis
+        )
+      )
+    )
+
+    val exhausted = transition(
+      secondFailure.state,
+      BackgroundScheduleFailed(captured.root, token)
+    )
+    assertTrue(exhausted.state.roots(captured.root).background.isEmpty)
+    assertTrue(
+      exhausted.actions.contains(CancelBackgroundTimer(captured.root, token))
+    )
+    assertFalse(exhausted.actions.exists(_.isInstanceOf[ScheduleBackground]))
+
   @Test def rootEvictionCancelsTimerAndDropsAdapterHandle(): Unit =
     var state = BendCheckState()
     var oldest = Option.empty[(FileId, Long)]

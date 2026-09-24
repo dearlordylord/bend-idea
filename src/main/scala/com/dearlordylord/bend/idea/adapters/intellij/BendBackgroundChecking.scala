@@ -145,21 +145,37 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
   private[intellij] def applyPolicyAction(action: BendCheckAction): Unit =
     action match
       case ScheduleBackground(root, token, delayMillis) =>
-        val file = synchronized { rootFiles.get(root) }
-        file.foreach { source =>
-          if !disposed && !project.isDisposed then
-            synchronized {
-              timers.remove(root).foreach(_._2.cancel(false))
-              val future = executor.schedule(
-                new Runnable:
-                  override def run(): Unit = runTimer(source, root, token)
-                ,
-                delayMillis,
-                TimeUnit.MILLISECONDS
-              )
-              timers(root) = token -> future
-            }
+        val failed = synchronized {
+          if disposed || project.isDisposed ||
+            !control.backgroundScheduleCurrent(root, token)
+          then false
+          else
+            rootFiles
+              .get(root)
+              .filter(file =>
+                file.isValid && settings.selection.diagnosticsEnabled
+              ) match
+              case Some(source) =>
+                try
+                  val future = executor.schedule(
+                    new Runnable:
+                      override def run(): Unit = runTimer(source, root, token)
+                    ,
+                    delayMillis,
+                    TimeUnit.MILLISECONDS
+                  )
+                  timers.remove(root).foreach(_._2.cancel(false))
+                  timers(root) = token -> future
+                  false
+                catch
+                  case NonFatal(_) =>
+                    cancelObsoleteTimer(root, token)
+                    true
+              case None =>
+                cancelObsoleteTimer(root, token)
+                true
         }
+        if failed then control.backgroundScheduleFailed(root, token)
       case CancelBackgroundTimer(root, token) =>
         synchronized {
           timers.get(root).filter(_._1 == token).foreach { case (_, future) =>
@@ -173,6 +189,21 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
           val _ = rootFiles.remove(root)
         }
       case _ => ()
+
+  /** Called with the timer-map lock held after a current schedule cannot
+    * install.
+    */
+  private def cancelObsoleteTimer(root: FileId, token: Long): Unit =
+    timers.get(root).filter(_._1 != token).foreach { case (_, future) =>
+      future.cancel(false)
+      val _ = timers.remove(root)
+    }
+
+  private[intellij] def scheduledToken(root: FileId): Option[Long] =
+    synchronized { timers.get(root).map(_._1) }
+
+  private[intellij] def hasRootHandle(root: FileId): Boolean =
+    synchronized { rootFiles.contains(root) }
 
   private def runTimer(file: VirtualFile, root: FileId, token: Long): Unit =
     synchronized {

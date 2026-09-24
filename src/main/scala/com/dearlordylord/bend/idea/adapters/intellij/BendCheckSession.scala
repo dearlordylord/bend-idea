@@ -288,6 +288,21 @@ final class BendCheckSession(project: Project)
         BendBackgroundCheckTicket(root, intent.token, intent.attempt)
       )
 
+  override def backgroundScheduleCurrent(root: FileId, token: Long): Boolean =
+    synchronized {
+      !policyState.disposed && policyState.backgroundEnabled &&
+      policyState.roots
+        .get(root)
+        .flatMap(_.background)
+        .exists(intent =>
+          intent.token == token && intent.phase == BendBackgroundPhase.Scheduled
+        )
+    }
+
+  override def backgroundScheduleFailed(root: FileId, token: Long): Unit =
+    val transition = applyEvent(BackgroundScheduleFailed(root, token))
+    perform(transition.actions)
+
   override def backgroundTimerFired(
       root: FileId,
       token: Long

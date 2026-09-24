@@ -44,6 +44,10 @@ final case class BendBackgroundCheckTicket(
 
 trait BendBackgroundCheckControl:
   def requestBackground(root: FileId): Option[BendBackgroundCheckTicket]
+
+  /** True only while this exact debounce token remains scheduled by policy. */
+  def backgroundScheduleCurrent(root: FileId, token: Long): Boolean
+  def backgroundScheduleFailed(root: FileId, token: Long): Unit
   def backgroundTimerFired(
       root: FileId,
       token: Long

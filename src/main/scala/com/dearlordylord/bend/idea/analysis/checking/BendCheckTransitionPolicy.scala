@@ -78,6 +78,8 @@ object BendCheckEvent:
       extends BendCheckEvent
   final case class BackgroundAttemptFailed(root: FileId, token: Long)
       extends BendCheckEvent
+  final case class BackgroundScheduleFailed(root: FileId, token: Long)
+      extends BendCheckEvent
   final case class BackgroundStaleObserved(root: FileId) extends BendCheckEvent
   final case class BackgroundConfigurationChanged(enabled: Boolean)
       extends BendCheckEvent
@@ -494,6 +496,29 @@ object BendCheckTransitionPolicy:
                 roots = state.roots.updated(root, rootState)
               )
               val (scheduled, actions) = scheduleReady(next, released)
+              done(scheduled, actions)
+            case _ => done(state)
+
+        case BackgroundScheduleFailed(root, token) =>
+          state.roots.get(root).flatMap(_.background) match
+            case Some(intent)
+                if state.backgroundEnabled && intent.token == token &&
+                  intent.phase == BendBackgroundPhase.Scheduled =>
+              val canRetry = intent.attempt < MaxBackgroundRetries
+              val nextIntent = if canRetry then
+                Some(
+                  intent.copy(
+                    attempt = intent.attempt + 1,
+                    phase = BendBackgroundPhase.Ready
+                  )
+                )
+              else None
+              val updated = state.roots(root).copy(background = nextIntent)
+              val next = state.copy(roots = state.roots.updated(root, updated))
+              val (scheduled, actions) = scheduleReady(
+                next,
+                Vector(CancelBackgroundTimer(root, token))
+              )
               done(scheduled, actions)
             case _ => done(state)
 
