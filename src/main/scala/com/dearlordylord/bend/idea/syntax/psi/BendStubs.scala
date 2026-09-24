@@ -95,7 +95,7 @@ object BendStubElementTypes:
       stub => new BendConstructor(stub)
     )
 
-object BendFileElementType
+final class BendFileElementType
     extends IStubFileElementType[PsiFileStub[?]](
       "BEND_FILE",
       BendLanguage.instance
@@ -103,3 +103,7 @@ object BendFileElementType
   override def getExternalId: String = "bend.FILE"
   override def getStubVersion: Int = 1
   override def indexStub(stub: PsiFileStub[?], sink: IndexSink): Unit = ()
+
+object BendFileElementType:
+  val instance: IStubFileElementType[PsiFileStub[?]] =
+    new BendFileElementType

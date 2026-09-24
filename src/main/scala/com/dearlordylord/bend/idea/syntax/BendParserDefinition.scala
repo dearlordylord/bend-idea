@@ -42,7 +42,7 @@ final class BendParserDefinition extends ParserDefinition:
 
 object BendParserDefinition:
   val File: IFileElementType =
-    com.dearlordylord.bend.idea.syntax.psi.BendFileElementType
+    com.dearlordylord.bend.idea.syntax.psi.BendFileElementType.instance
 
 final class BendFile(viewProvider: FileViewProvider)
     extends PsiFileBase(viewProvider, BendLanguage.instance):
