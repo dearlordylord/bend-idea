@@ -73,7 +73,7 @@ intellijPlatform {
     }
     pluginConfiguration {
         id = "com.dearlordylord.bend.idea"
-        name = "Bend"
+        name = "Bend2"
         version = project.version.toString()
         ideaVersion {
             sinceBuild = "251"
