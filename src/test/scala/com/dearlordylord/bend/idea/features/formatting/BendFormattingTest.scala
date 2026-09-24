@@ -2,7 +2,10 @@ package com.dearlordylord.bend.idea.features.formatting
 
 import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.adapters.cli.BendCliCheckBackend
-import com.dearlordylord.bend.idea.analysis.model.{BendCheckOutcome, BendCheckSnapshot}
+import com.dearlordylord.bend.idea.analysis.model.{
+  BendCheckOutcome,
+  BendCheckSnapshot
+}
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSelection
 import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
@@ -21,14 +24,19 @@ final class BendFormattingTest extends BasePlatformTestCase:
 
   def testCommaSpacingInHeadersAndCallsIsIdempotent(): Unit =
     val expected = "def main(x: U32, y: U32) -> U32:\n  U32.add(x, y)\n"
-    assertEquals(expected, reformat("def main(x: U32 ,y: U32) -> U32:\n  U32.add(x ,y)\n"))
+    assertEquals(
+      expected,
+      reformat("def main(x: U32 ,y: U32) -> U32:\n  U32.add(x ,y)\n")
+    )
     myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
     assertEquals(expected, myFixture.getEditor.getDocument.getText)
 
   def testReformatPreservesSurfaceTokensAndDeclarationKinds(): Unit =
-    val source = "type Pair is Data:\n  Pair{left: U32,right: U32}\ndef main(x: U32,y: U32) -> U32:\n  U32.add(x,y)\n"
+    val source =
+      "type Pair is Data:\n  Pair{left: U32,right: U32}\ndef main(x: U32,y: U32) -> U32:\n  U32.add(x,y)\n"
     val file = myFixture.configureByText("surface.bend", source)
-    def shape: List[(String, String)] = BendSourceSymbols.declarations(file)
+    def shape: List[(String, String)] = BendSourceSymbols
+      .declarations(file)
       .map(symbol => (symbol.category.toString, symbol.name))
     def tokens: List[(String, String)] =
       val lexer = new BendLexer()
@@ -37,8 +45,10 @@ final class BendFormattingTest extends BasePlatformTestCase:
       val result = List.newBuilder[(String, String)]
       while lexer.getTokenType != null do
         if lexer.getTokenType != TokenType.WHITE_SPACE then
-          result += ((lexer.getTokenType.toString,
-            text.substring(lexer.getTokenStart, lexer.getTokenEnd)))
+          result += ((
+            lexer.getTokenType.toString,
+            text.substring(lexer.getTokenStart, lexer.getTokenEnd)
+          ))
         lexer.advance()
       result.result()
     val beforeShape = shape
@@ -52,7 +62,8 @@ final class BendFormattingTest extends BasePlatformTestCase:
     assertEquals(expected, reformat("def main() -> U32:\n    1\n"))
 
   def testSensitiveGapsAndLineBreaksStayIntact(): Unit =
-    val source = "# a,b\ndef main():\n  pair(1,\n    2)\n  A<B<C>>\n  x{==}y\n  &1foo\n  \"a,b\"\n"
+    val source =
+      "# a,b\ndef main():\n  pair(1,\n    2)\n  A<B<C>>\n  x{==}y\n  &1foo\n  \"a,b\"\n"
     assertEquals(source, reformat(source))
 
   def testIncompleteSourceKeepsNonCommaWhitespace(): Unit =
@@ -67,23 +78,44 @@ final class BendFormattingTest extends BasePlatformTestCase:
       val executable = directory.resolve("bend")
       compiler.writeLauncher(executable)
       val original = directory.resolve("main.bend")
-      val source = "import Base\ndef main(x: U32,y: U32) -> U32:\n    U32.add(x,y)\n"
+      val source =
+        "import Base\ndef main(x: U32,y: U32) -> U32:\n    U32.add(x,y)\n"
       Files.writeString(original, source)
-      val toolchain = BendToolchainSelection(executable.toString,
-        compiler.base.toString, "", true, 1L)
+      val toolchain = BendToolchainSelection(
+        executable.toString,
+        compiler.base.toString,
+        "",
+        true,
+        1L
+      )
       val backend = new BendCliCheckBackend(directory)
       def outcome(text: String): BendCheckOutcome =
-        backend.check(BendCheckSnapshot(new FileId(original.toString, false),
-          original.toString, text, 1L, toolchain)).outcome
+        backend
+          .check(
+            BendCheckSnapshot(
+              new FileId(original.toString, false),
+              original.toString,
+              text,
+              1L,
+              toolchain
+            )
+          )
+          .outcome
       val before = outcome(source)
       val formatted = reformat(source)
       assertEquals(BendCheckOutcome.Success, before)
-      assertEquals("import Base\ndef main(x: U32, y: U32) -> U32:\n  U32.add(x, y)\n", formatted)
+      assertEquals(
+        "import Base\ndef main(x: U32, y: U32) -> U32:\n  U32.add(x, y)\n",
+        formatted
+      )
       assertEquals(before, outcome(formatted))
       assertEquals(source, Files.readString(original))
     finally
       val paths = Files.walk(directory)
-      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
-          val _ = Files.deleteIfExists(p)
-        })
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally paths.close()

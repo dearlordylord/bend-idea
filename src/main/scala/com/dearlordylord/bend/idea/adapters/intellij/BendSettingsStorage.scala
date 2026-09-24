@@ -2,7 +2,11 @@ package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.toolchain.api.*
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
-import com.intellij.openapi.components.{PersistentStateComponent, State, Storage}
+import com.intellij.openapi.components.{
+  PersistentStateComponent,
+  State,
+  Storage
+}
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.application.{ApplicationManager, ModalityState}
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
@@ -16,14 +20,17 @@ final class BendSettingsState:
   var diagnosticsEnabled: Boolean = true
 
 @State(name = "BendSettings", storages = Array(new Storage("BendSettings.xml")))
-final class BendSettingsStorage extends PersistentStateComponent[BendSettingsState] with BendToolchainSettings:
+final class BendSettingsStorage
+    extends PersistentStateComponent[BendSettingsState]
+    with BendToolchainSettings:
   private var data = new BendSettingsState
   private var revision = 0L
 
   override def getState: BendSettingsState = data
   override def loadState(state: BendSettingsState): Unit =
     val rootsChanged = synchronized {
-      val changed = data.baseSource != state.baseSource || data.packageCache != state.packageCache
+      val changed =
+        data.baseSource != state.baseSource || data.packageCache != state.packageCache
       data = state
       revision += 1
       changed
@@ -31,19 +38,32 @@ final class BendSettingsStorage extends PersistentStateComponent[BendSettingsSta
     notifyChanged(rootsChanged)
 
   override def choices: BendToolchainChoices = synchronized {
-    BendToolchainChoices(data.executable, data.baseSource, data.packageCache, data.diagnosticsEnabled)
+    BendToolchainChoices(
+      data.executable,
+      data.baseSource,
+      data.packageCache,
+      data.diagnosticsEnabled
+    )
   }
 
   override def selection: BendToolchainSelection = synchronized {
-    BendToolchainPaths.resolve(choices, System.getProperty("user.home"),
-      Option(System.getenv("BEND_LIB")), revision)
+    BendToolchainPaths.resolve(
+      choices,
+      System.getProperty("user.home"),
+      Option(System.getenv("BEND_LIB")),
+      revision
+    )
   }
 
   override def update(value: BendToolchainChoices): Unit =
-    def valid(path: String): Boolean = path.trim.isEmpty || path.startsWith("~/") ||
-      java.nio.file.Path.of(path).isAbsolute
-    require(List(value.executable, value.baseSource, value.packageCache).forall(valid),
-      "Bend paths must be absolute or start with ~/.")
+    def valid(path: String): Boolean =
+      path.trim.isEmpty || path.startsWith("~/") ||
+        java.nio.file.Path.of(path).isAbsolute
+    require(
+      List(value.executable, value.baseSource, value.packageCache)
+        .forall(valid),
+      "Bend paths must be absolute or start with ~/."
+    )
     val (changed, rootsChanged) = synchronized {
       if value == choices then (false, false)
       else
@@ -67,14 +87,20 @@ final class BendSettingsStorage extends PersistentStateComponent[BendSettingsSta
           val app = ApplicationManager.getApplication
           val updateRoots = new Runnable:
             override def run(): Unit =
-              ProjectRootManagerEx.getInstanceEx(project).makeRootsChange(
-                new Runnable { override def run(): Unit = () },
-                RootsChangeRescanningInfo.RESCAN_DEPENDENCIES_IF_NEEDED)
+              ProjectRootManagerEx
+                .getInstanceEx(project)
+                .makeRootsChange(
+                  new Runnable { override def run(): Unit = () },
+                  RootsChangeRescanningInfo.RESCAN_DEPENDENCIES_IF_NEEDED
+                )
           val writeRoots = new Runnable:
             override def run(): Unit = app.runWriteAction(updateRoots)
           if app.isDispatchThread then writeRoots.run()
           else app.invokeAndWait(writeRoots, ModalityState.any())
-        Option(project.getService(classOf[BendCheckService])).foreach(_.configurationChanged())
-        project.getService(classOf[BendBackgroundChecking]).configurationChanged()
+        Option(project.getService(classOf[BendCheckService]))
+          .foreach(_.configurationChanged())
+        project
+          .getService(classOf[BendBackgroundChecking])
+          .configurationChanged()
         DaemonCodeAnalyzer.getInstance(project).restart()
     }

@@ -25,12 +25,20 @@ final case class BendCheckSnapshot(
     )(_.files.exists(_.source.imports.exists(_.spelling == "Base")))
     Option.when(importsBase)(toolchain.baseSource)
 
-/** Snapshot identity retained independently of the backend's derived input fingerprint. */
-final case class BendCheckSnapshotProvenance(graphFingerprint: String, baseSource: String)
+/** Snapshot identity retained independently of the backend's derived input
+  * fingerprint.
+  */
+final case class BendCheckSnapshotProvenance(
+    graphFingerprint: String,
+    baseSource: String
+)
 
 object BendCheckSnapshotProvenance:
   def from(snapshot: BendCheckSnapshot): BendCheckSnapshotProvenance =
-    BendCheckSnapshotProvenance(snapshot.inputFingerprint, snapshot.toolchain.baseSource)
+    BendCheckSnapshotProvenance(
+      snapshot.inputFingerprint,
+      snapshot.toolchain.baseSource
+    )
 
 final case class BendAnalysisKey(
     root: FileId,
