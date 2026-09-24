@@ -14,7 +14,7 @@ import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.psi.TokenType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
 final class BendFormattingTest extends BasePlatformTestCase:
   private def reformat(source: String): String =
@@ -76,7 +76,7 @@ final class BendFormattingTest extends BasePlatformTestCase:
     val directory = Files.createTempDirectory("bend-format-check-")
     try
       val executable = directory.resolve("bend")
-      compiler.writeLauncher(executable)
+      val _ = compiler.writeLauncher(executable)
       val original = directory.resolve("main.bend")
       val source =
         "import Base\ndef main(x: U32,y: U32) -> U32:\n    U32.add(x,y)\n"

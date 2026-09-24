@@ -18,7 +18,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.containers.MultiMap
 import org.junit.Assert.*
 import scala.jdk.CollectionConverters.*
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
 final class BendLocalRenameTest extends BasePlatformTestCase:
   def testParameterRenameUsesNativeReferences(): Unit =
@@ -220,7 +220,7 @@ final class BendLocalRenameTest extends BasePlatformTestCase:
     val directory = Files.createTempDirectory("bend-rename-check-")
     try
       val executable = directory.resolve("bend")
-      compiler.writeLauncher(executable)
+      val _ = compiler.writeLauncher(executable)
       val original = directory.resolve("main.bend")
       val source = "import Base\ndef main(value: U32) -> U32:\n  value\n"
       Files.writeString(original, source)

@@ -34,7 +34,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     directory = Files.createTempDirectory("bend-check-editor-")
     val compiler = RealBendCompilerFixture.inputs
     val executable = directory.resolve("bend")
-    compiler.writeLauncher(executable)
+    val _ = compiler.writeLauncher(executable)
     val selectedBase = directory.resolve("base.bend")
     Files.copy(compiler.base, selectedBase)
     settings.update(

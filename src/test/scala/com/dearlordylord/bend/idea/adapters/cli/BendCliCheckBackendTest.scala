@@ -17,7 +17,7 @@ final class BendCliCheckBackendTest:
     val directory = Files.createTempDirectory("bend-check-test-")
     try
       val executable = directory.resolve("bend")
-      compiler.writeLauncher(executable)
+      val _ = compiler.writeLauncher(executable)
       run(executable)
     finally
       val paths = Files.walk(directory)

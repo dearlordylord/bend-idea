@@ -23,7 +23,7 @@ final class BendCliGraphCheckTest:
     val directory = Files.createTempDirectory("bend-graph-check-")
     try
       val executable = directory.resolve("bend")
-      compiler.writeLauncher(executable)
+      val _ = compiler.writeLauncher(executable)
       run(directory, executable)
     finally
       val files = Files.walk(directory)

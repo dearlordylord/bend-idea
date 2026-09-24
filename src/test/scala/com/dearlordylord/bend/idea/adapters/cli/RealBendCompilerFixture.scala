@@ -184,7 +184,8 @@ object RealBendCompilerFixture:
           s"Empty output verifying real Bend test input: ${command.mkString(" ")}"
         )
       output
-    finally Files.deleteIfExists(capture)
+    finally
+      val _ = Files.deleteIfExists(capture)
 
   private def shellQuote(value: String): String =
     "'" + value.replace("'", "'\\''") + "'"

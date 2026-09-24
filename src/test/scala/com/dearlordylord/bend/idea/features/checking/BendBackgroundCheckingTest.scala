@@ -37,7 +37,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     directory = Files.createTempDirectory("bend-background-editor-")
     val compiler = RealBendCompilerFixture.inputs
     val executable = directory.resolve("bend")
-    compiler.writeLauncher(executable)
+    val _ = compiler.writeLauncher(executable)
     val selectedBase = directory.resolve("base.bend")
     Files.copy(compiler.base, selectedBase)
     settings.update(
@@ -238,7 +238,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     )
     val marker = directory.resolve("started")
     val slow = directory.resolve("slow-bend")
-    RealBendCompilerFixture.writeLauncher(
+    val _ = RealBendCompilerFixture.writeLauncher(
       slow,
       RealBendCompilerFixture.markAndSleep(marker, 3)
     )
@@ -277,7 +277,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     )
     val marker = directory.resolve("manual-started")
     val slow = directory.resolve("manual-slow-bend")
-    RealBendCompilerFixture.writeLauncher(
+    val _ = RealBendCompilerFixture.writeLauncher(
       slow,
       RealBendCompilerFixture.markAndSleep(marker, 3)
     )
@@ -391,7 +391,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     )
     val marker = directory.resolve("dependency-started")
     val slow = directory.resolve("dependency-slow-bend")
-    RealBendCompilerFixture.writeLauncher(
+    val _ = RealBendCompilerFixture.writeLauncher(
       slow,
       RealBendCompilerFixture.markAndSleep(marker, 3)
     )
@@ -448,7 +448,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     )
     val marker = directory.resolve("replacement-started")
     val slow = directory.resolve("replacement-bend")
-    RealBendCompilerFixture.writeLauncher(
+    val _ = RealBendCompilerFixture.writeLauncher(
       slow,
       RealBendCompilerFixture.markAndSleep(marker, 2)
     )

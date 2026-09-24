@@ -27,7 +27,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.psi.search.GlobalSearchScope
 import org.junit.Assert.*
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
 final class BendDeclarationRenameTest extends BasePlatformTestCase:
   def testCurrentFileFunctionRenameFromUsage(): Unit =
@@ -347,7 +347,7 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
     val directory = Files.createTempDirectory("bend-declaration-rename-check-")
     try
       val executable = directory.resolve("bend")
-      compiler.writeLauncher(executable)
+      val _ = compiler.writeLauncher(executable)
       val original = directory.resolve("main.bend")
       val source =
         "import Base\ndef value(x: U32) -> U32:\n  x\ndef main() -> U32:\n  value(1)\n"
