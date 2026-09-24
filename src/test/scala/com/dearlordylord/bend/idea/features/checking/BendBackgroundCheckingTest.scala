@@ -65,10 +65,16 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     val service = getProject.getService(classOf[BendCheckService])
     myFixture.openFileInEditor(first.getVirtualFile)
     myFixture.performEditorAction("Bend.CheckCurrentFile")
-    awaitResult(id(first.getVirtualFile), _.fresh)
+    val firstResult = awaitResult(id(first.getVirtualFile), _.fresh)
     myFixture.openFileInEditor(second.getVirtualFile)
     myFixture.performEditorAction("Bend.CheckCurrentFile")
-    awaitResult(id(second.getVirtualFile), _.fresh)
+    val secondResult = awaitResult(id(second.getVirtualFile), _.fresh)
+    List(firstResult, secondResult).foreach { result =>
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      assertEquals(BendCompleteness.Unknown, result.completeness)
+      assertEquals(BendReliance.Unknown, result.reliance)
+      assertEquals("Check failed", result.status)
+    }
     val dep = id(dependency.getVirtualFile)
     assertEquals(2, service.resultsFor(dep).count(r => r.fresh &&
       r.diagnostics.exists(_.message.contains("unknown_shared"))))
@@ -234,7 +240,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     val marker = directory.resolve("dispose-started")
     val slow = directory.resolve("dispose-slow-bend")
     Files.writeString(slow,
-      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 10\n")
+      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 10\n")
     slow.toFile.setExecutable(true)
     settings.update(settings.choices.copy(executable = slow.toString,
       diagnosticsEnabled = false))

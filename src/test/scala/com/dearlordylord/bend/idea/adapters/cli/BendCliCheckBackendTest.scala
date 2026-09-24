@@ -8,7 +8,7 @@ import org.junit.Test
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Uses the pinned compiler source via Bun; the installed older binary is a negative probe. */
+/** Uses the pinned compiler source via Bun and controlled negative CLI stubs. */
 final class BendCliCheckBackendTest:
   private lazy val compiler = RealBendCompilerFixture.inputs
 
@@ -92,6 +92,26 @@ final class BendCliCheckBackendTest:
     assertEquals(BendCompleteness.Complete, checked.completeness)
   }
 
+  @Test def unfamiliarSuccessfulOutputCannotInventSuccessOrSourceLocation(): Unit = withCompiler { real =>
+    val executable = real.resolveSibling("changed-bend")
+    Files.writeString(executable,
+      "#!/bin/sh\n" +
+        "if [ \"${1:-}\" = \"--help\" ]; then\n" +
+        "  printf '%s\\n' '  bend <file.bend> --check-only check the file and its imports; run nothing'\n" +
+        "  exit 0\n" +
+        "fi\n" +
+        "printf '%s\\n' 'Warning: partial report' 'All terms check.' '3>|   missing_name'\n" +
+        "exit 0\n")
+    assertTrue(executable.toFile.setExecutable(true))
+    val original = executable.getParent.resolve("changed.bend")
+    val checked = backend(executable).check(snapshot(executable,
+      "def main() -> U32:\n  missing_name\n", original))
+    assertEquals(BendCheckOutcome.Unavailable, checked.outcome)
+    assertEquals(BendCompleteness.Unknown, checked.completeness)
+    assertEquals(BendReliance.Unknown, checked.reliance)
+    assertEquals(BendLocation.RootOnly, checked.diagnostics.head.location)
+  }
+
   @Test def mismatchedBaseIsUnavailableBeforeSourceInvocation(): Unit = withCompiler { executable =>
     val substitute = executable.getParent.resolve("base.bend")
     Files.writeString(substitute, "# a different Base\n")
@@ -144,7 +164,7 @@ final class BendCliCheckBackendTest:
     try
       val executable = directory.resolve("bend")
       Files.writeString(executable,
-        "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nsleep 10\n")
+        "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nsleep 10\n")
       executable.toFile.setExecutable(true)
       val canceled = new AtomicBoolean(false)
       val signal = new Thread(() => { Thread.sleep(150); canceled.set(true) })

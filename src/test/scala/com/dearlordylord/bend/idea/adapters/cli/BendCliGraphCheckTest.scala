@@ -66,6 +66,8 @@ final class BendCliGraphCheckTest:
     val before = snapshotCount(dir)
     val result = check(dir, bend, root, Map(dependency.toString -> edited))
     assertEquals(BendCheckOutcome.Failed, result.outcome)
+    assertEquals(BendCompleteness.Unknown, result.completeness)
+    assertEquals(BendReliance.Unknown, result.reliance)
     assertEquals(BendLocation.SourceLine(edited.id, 2), result.diagnostics.head.location)
     assertEquals(original, Files.readString(dependency))
     assertEquals(before, snapshotCount(dir))
@@ -189,7 +191,7 @@ final class BendCliGraphCheckTest:
     Files.writeString(baseWithImport, text)
     val marker = dir.resolve("source-invoked")
     Files.writeString(bend,
-      s"#!/bin/sh\nif [ \"$$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nif [ \"$$1\" = \"base\" ]; then printf 'import 0xabc/dependency.bend as Dep\\n'; exit 0; fi\ntouch '$marker'\n")
+      s"#!/bin/sh\nif [ \"$$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nif [ \"$$1\" = \"base\" ]; then printf 'import 0xabc/dependency.bend as Dep\\n'; exit 0; fi\ntouch '$marker'\n")
     val root = source(dir.resolve("main.bend"), "import Base\n")
     val selection = BendToolchainSelection(bend.toString, baseWithImport.toString,
       dir.resolve("lib").toString, true, 1L)
