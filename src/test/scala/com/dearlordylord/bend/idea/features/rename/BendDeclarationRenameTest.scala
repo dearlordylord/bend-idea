@@ -73,7 +73,8 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
     assertTrue(undo.isUndoAvailable(editor))
     val previousDialog = TestDialogManager.setTestDialog(TestDialog.YES)
     try undo.undo(editor)
-    finally TestDialogManager.setTestDialog(previousDialog)
+    finally
+      val _ = TestDialogManager.setTestDialog(previousDialog)
     assertEquals("law claim:\n  {1 == 1 : U32}\n", myFixture.getEditor.getDocument.getText)
     assertEquals("import ./LAWS.bend as Laws\ndef Laws.claim():\n  1\ndef run():\n  Laws.claim()\n",
       PsiDocumentManager.getInstance(getProject).getDocument(first).getText)
@@ -196,7 +197,9 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
         override def run(): Unit = virtual.setWritable(writable))
       settings.update(previous)
       val paths = Files.walk(directory)
-      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
       finally paths.close()
 
   def testPinnedCompilerAcceptsBeforeAndAfterDeclarationRename(): Unit =
@@ -223,5 +226,7 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
       assertEquals(source, Files.readString(original))
     finally
       val paths = Files.walk(directory)
-      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
       finally paths.close()

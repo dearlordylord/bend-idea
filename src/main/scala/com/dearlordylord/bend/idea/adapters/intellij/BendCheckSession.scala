@@ -66,7 +66,7 @@ final class BendCheckSession(project: Project) extends BendCheckService, BendBac
       case SlotReleased(generation) =>
         synchronized {
           canceledWorkers -= generation
-          currentChecks.remove(generation)
+          val _ = currentChecks.remove(generation)
           notifyAll()
         }
       case action: ScheduleBackground => backgroundAdapter.foreach(_.applyPolicyAction(action))

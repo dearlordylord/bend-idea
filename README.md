@@ -57,7 +57,7 @@ The [implementation specification](https://github.com/dearlordylord/bend-idea/is
 Use a full **JDK 21**. The Gradle wrapper downloads the pinned build tools and IDE dependencies as needed. Distributions must always be signed. Keep `private.pem` and `chain.crt` outside the repository in the directory named by `BEND_IDEA_SIGNING_DIR`.
 
 ```sh
-./gradlew check                 # editor fixtures and architecture checks
+./gradlew check                 # editor fixtures, warnings, formatting, policy lint and negative probes
 ./gradlew verifyPlugin          # check compatibility with the pinned IDEA versions
 BEND_IDEA_SIGNING_DIR="$HOME/.config/bend-idea/signing" \
   ./gradlew signPlugin verifyPluginSignature  # build and verify the signed ZIP

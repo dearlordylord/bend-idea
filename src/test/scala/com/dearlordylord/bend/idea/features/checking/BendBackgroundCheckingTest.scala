@@ -37,7 +37,9 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
       ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).update(original)
       if directory != null then
         val paths = Files.walk(directory)
-        try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+        try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
         finally paths.close()
     finally super.tearDown()
 
@@ -85,7 +87,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
       override def run(): Unit = myFixture.getEditor.getDocument.setText(
         "import Base\ndef main() -> U32:\n  0\n"))
     myFixture.performEditorAction("Bend.CheckCurrentFile")
-    awaitResult(id(first.getVirtualFile), r => r.fresh &&
+    val _ = awaitResult(id(first.getVirtualFile), r => r.fresh &&
       r.sources.forall(_.id != dep))
     assertTrue(service.result(id(second.getVirtualFile)).exists(_.fresh))
     assertEquals(1, service.resultsFor(dep).count(r => r.fresh &&
@@ -107,7 +109,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
       override def run(): Unit =
         myFixture.getEditor.getDocument.setText("import ./value.bend as V\ndef main() -> U32:\n  unknown_old\n")
         myFixture.getEditor.getDocument.setText("import ./value.bend as V\ndef main() -> U32:\n  V.value()\n"))
-    awaitResult(root, r => r.fresh && r.sources.exists(_.id == root))
+    val _ = awaitResult(root, r => r.fresh && r.sources.exists(_.id == root))
     myFixture.openFileInEditor(dep.getVirtualFile)
     WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
       override def run(): Unit = myFixture.getEditor.getDocument.setText(
@@ -292,7 +294,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     val reservation = transient.begin(snapshot, callback => () => (), () => true).getOrElse(
       throw new AssertionError("Transient check must reserve its worker"))
     val worker = new Thread(new Runnable:
-      override def run(): Unit = { transient.check(snapshot, reservation, () => false); () })
+      override def run(): Unit = { val _ = transient.check(snapshot, reservation, () => false); () })
     worker.start()
     try
       val started = System.nanoTime() + 10_000_000_000L

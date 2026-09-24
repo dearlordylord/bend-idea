@@ -3,30 +3,51 @@ package com.dearlordylord.bend.idea.syntax.psi
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
 import com.intellij.psi.TokenType
 
-/** Distinct source forms. These describe syntax and make no proof or type judgment. */
+/** Distinct source forms. These describe syntax and make no proof or type
+  * judgment.
+  */
 sealed trait BendProofForm:
   def from: Int
   def until: Int
 
 object BendProofForm:
-  final case class Hole(name: String, from: Int, until: Int) extends BendProofForm
+  final case class Hole(name: String, from: Int, until: Int)
+      extends BendProofForm
   final case class Reflexivity(from: Int, until: Int) extends BendProofForm
-  final case class Rewrite(from: Int, until: Int, motive: Option[(Int, Int)]) extends BendProofForm
-  final case class Equality(from: Int, until: Int, inequality: Boolean) extends BendProofForm
-  final case class OperatorAnnotation(from: Int, until: Int, typeRange: Option[(Int, Int)]) extends BendProofForm
+  final case class Rewrite(from: Int, until: Int, motive: Option[(Int, Int)])
+      extends BendProofForm
+  final case class Equality(from: Int, until: Int, inequality: Boolean)
+      extends BendProofForm
+  final case class OperatorAnnotation(
+      from: Int,
+      until: Int,
+      typeRange: Option[(Int, Int)]
+  ) extends BendProofForm
 
-/** Tolerant lexer-backed projection for proof navigation and later semantic requests. */
+/** Tolerant lexer-backed projection for proof navigation and later semantic
+  * requests.
+  */
 object BendProofSurface:
-  private final case class Word(text: String, from: Int, until: Int, kind: com.intellij.psi.tree.IElementType)
+  private final case class Word(
+      text: String,
+      from: Int,
+      until: Int,
+      kind: com.intellij.psi.tree.IElementType
+  )
 
   def scan(source: String, base: Int = 0): List[BendProofForm] =
     val lexer = new BendLexer()
     lexer.start(source)
     val words = Vector.newBuilder[Word]
     while lexer.getTokenType != null do
-      if lexer.getTokenType != TokenType.WHITE_SPACE && lexer.getTokenType != BendTokens.Comment then
-        words += Word(source.substring(lexer.getTokenStart, lexer.getTokenEnd),
-          lexer.getTokenStart + base, lexer.getTokenEnd + base, lexer.getTokenType)
+      if lexer.getTokenType != TokenType.WHITE_SPACE && lexer.getTokenType != BendTokens.Comment
+      then
+        words += Word(
+          source.substring(lexer.getTokenStart, lexer.getTokenEnd),
+          lexer.getTokenStart + base,
+          lexer.getTokenEnd + base,
+          lexer.getTokenType
+        )
       lexer.advance()
     val tokens = words.result()
     val result = List.newBuilder[BendProofForm]
@@ -46,23 +67,44 @@ object BendProofSurface:
         val close = matching(tokens, i, "{", "}")
         val stop = close.getOrElse(tokens.size)
         val relation = topLevel(tokens, i + 1, Set("==", "!="), stop)
-        if relation.nonEmpty && topLevel(tokens, relation.get + 1, ":", stop).nonEmpty then
-          result += BendProofForm.Equality(word.from,
+        if relation.nonEmpty && topLevel(
+            tokens,
+            relation.get + 1,
+            ":",
+            stop
+          ).nonEmpty
+        then
+          result += BendProofForm.Equality(
+            word.from,
             close.map(tokens(_).until).getOrElse(base + source.length),
-            tokens(relation.get).text == "!=")
+            tokens(relation.get).text == "!="
+          )
       else if word.text == "(" then
         val close = matching(tokens, i, "(", ")")
         val stop = close.getOrElse(tokens.size)
         val colon = topLevel(tokens, i + 1, ":", stop)
-        val operator = tokens.slice(i + 1, stop).exists(t =>
-          t.kind == BendTokens.Operator && t.text != "->")
+        val operator = tokens
+          .slice(i + 1, stop)
+          .exists(t => t.kind == BendTokens.Operator && t.text != "->")
         if operator && colon.nonEmpty then
-          result += BendProofForm.OperatorAnnotation(word.from,
+          result += BendProofForm.OperatorAnnotation(
+            word.from,
             close.map(tokens(_).until).getOrElse(base + source.length),
-            colon.map(j => (tokens(j).until, close.map(tokens(_).from).getOrElse(base + source.length))))
+            colon.map(j =>
+              (
+                tokens(j).until,
+                close.map(tokens(_).from).getOrElse(base + source.length)
+              )
+            )
+          )
     result.result()
 
-  private def matching(tokens: Vector[Word], at: Int, open: String, close: String): Option[Int] =
+  private def matching(
+      tokens: Vector[Word],
+      at: Int,
+      open: String,
+      close: String
+  ): Option[Int] =
     var depth = 0
     var i = at
     while i < tokens.size do
@@ -73,10 +115,19 @@ object BendProofSurface:
       i += 1
     None
 
-  private def topLevel(tokens: Vector[Word], from: Int, wanted: String,
-      until: Int = Int.MaxValue): Option[Int] = topLevel(tokens, from, Set(wanted), until)
+  private def topLevel(
+      tokens: Vector[Word],
+      from: Int,
+      wanted: String,
+      until: Int = Int.MaxValue
+  ): Option[Int] = topLevel(tokens, from, Set(wanted), until)
 
-  private def topLevel(tokens: Vector[Word], from: Int, wanted: Set[String], until: Int): Option[Int] =
+  private def topLevel(
+      tokens: Vector[Word],
+      from: Int,
+      wanted: Set[String],
+      until: Int
+  ): Option[Int] =
     var depth = 0
     var i = from
     while i < math.min(tokens.size, until) do
@@ -85,6 +136,6 @@ object BendProofSurface:
       word match
         case "(" | "[" | "{" => depth += 1
         case ")" | "]" | "}" => depth = math.max(0, depth - 1)
-        case _ => ()
+        case _               => ()
       i += 1
     None

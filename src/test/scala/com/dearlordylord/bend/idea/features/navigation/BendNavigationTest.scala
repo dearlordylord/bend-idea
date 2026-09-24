@@ -31,7 +31,9 @@ final class BendNavigationTest extends BasePlatformTestCase:
     try
       ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).update(original)
       val walk = Files.walk(temporary)
-      try walk.sorted(java.util.Comparator.reverseOrder()).forEach(path => Files.deleteIfExists(path))
+      try walk.sorted(java.util.Comparator.reverseOrder()).forEach(path => {
+          val _ = Files.deleteIfExists(path)
+        })
       finally walk.close()
     finally super.tearDown()
 
@@ -166,7 +168,8 @@ final class BendNavigationTest extends BasePlatformTestCase:
       myFixture.getEditor.getCaretModel.moveToOffset(8)
       assertNull(GotoDeclarationAction.findTargetElement(getProject, myFixture.getEditor,
         myFixture.getCaretOffset))
-    finally Files.setPosixFilePermissions(unreadable, permissions)
+    finally
+      val _ = Files.setPosixFilePermissions(unreadable, permissions)
 
   def testLocalShadowingAndForwardEligibility(): Unit =
     val local = reference("def outer(x: U32) -> U32:\n  let x = 1\n  <caret>x\n")

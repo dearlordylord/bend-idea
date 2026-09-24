@@ -36,7 +36,9 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).update(original)
       if directory != null then
         val paths = Files.walk(directory)
-        try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+        try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
         finally paths.close()
     finally super.tearDown()
 
@@ -113,7 +115,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       document.getModificationStamp == snapshot.sourceRevision).getOrElse(
       throw new AssertionError("First check must reserve the worker"))
     val worker = new Thread(new Runnable:
-      override def run(): Unit = { service.check(snapshot, reservation, () => false); () })
+      override def run(): Unit = { val _ = service.check(snapshot, reservation, () => false); () })
     worker.start()
     val until = System.nanoTime() + 10_000_000_000L
     while !Files.exists(marker) && System.nanoTime() < until do Thread.sleep(25)
@@ -138,6 +140,10 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     assertFalse("Cancel before the worker starts must release its reservation", service.busy)
 
   def testUnsavedDependencyErrorProjectsToImportedEditorAndEditStalesRoot(): Unit =
+    // This test projects an explicit result. Background rechecks can restart the
+    // daemon during doHighlighting and obscure the projection assertion.
+    val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
+    settings.update(settings.choices.copy(diagnosticsEnabled = false))
     val imported = myFixture.addFileToProject("math.bend",
       "import Base\ndef square() -> U32:\n  1\n")
     myFixture.openFileInEditor(imported.getVirtualFile)

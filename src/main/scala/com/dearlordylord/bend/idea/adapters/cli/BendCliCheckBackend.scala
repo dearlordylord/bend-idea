@@ -9,8 +9,6 @@ import com.dearlordylord.bend.idea.workspace.model.*
 import com.dearlordylord.bend.idea.model.FileId
 import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
-import scala.jdk.CollectionConverters.*
-import scala.collection.mutable
 
 /** Text CLI backend. The only source command it can construct is --check-only. */
 final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("java.io.tmpdir")))
@@ -128,150 +126,372 @@ final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("j
           lines(line).trim == candidates.head.group(2).trim then BendLocation.Line(line)
       else BendLocation.RootOnly
 
-  private def checkGraph(snapshot: BendCheckSnapshot, key: BendAnalysisKey,
-      executable: String, executablePath: Path, environment: Map[String, String],
-      canceled: () => Boolean): BendCheckResult =
+  private def checkGraph(
+      snapshot: BendCheckSnapshot,
+      key: BendAnalysisKey,
+      executable: String,
+      executablePath: Path,
+      environment: Map[String, String],
+      canceled: () => Boolean
+  ): BendCheckResult =
     val graph = snapshot.graph.get
-    val sources = graph.files.map(file => BendCheckedSource(file.source.id, file.source.path,
-      file.source.text, file.source.revision, file.namespace))
-    def result(outcome: BendCheckOutcome, completeness: BendCompleteness,
-        details: String, diagnostics: List[BendDiagnostic] = Nil,
-        mappings: List[BendSourceMapping] = Nil, reliance: BendReliance = BendReliance.Unknown): BendCheckResult =
-      BendCheckResult(key, outcome, completeness, reliance, diagnostics, details,
-        sources = sources, mappings = mappings)
-    if graph.root != snapshot.root || graph.source(snapshot.root).forall(_.text != snapshot.text) then
-      return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
-        "The captured Bend graph does not match the selected root.")
-    val selectedBaseIds = graph.edges.filter(_.importLine.spelling == "Base")
-      .flatMap(_.target).toSet
-    if graph.edges.exists(edge => edge.importLine.spelling != "Base" &&
-        edge.target.exists(selectedBaseIds)) then
-      return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
-        "The selected Base is also imported by path. Its identity relative to the compiler's built-in Base cannot be verified in an isolated snapshot.")
+    val sources = graph.files.map(file =>
+      BendCheckedSource(
+        file.source.id,
+        file.source.path,
+        file.source.text,
+        file.source.revision,
+        file.namespace
+      )
+    )
+    def result(
+        outcome: BendCheckOutcome,
+        completeness: BendCompleteness,
+        details: String,
+        diagnostics: List[BendDiagnostic] = Nil,
+        mappings: List[BendSourceMapping] = Nil,
+        reliance: BendReliance = BendReliance.Unknown
+    ): BendCheckResult =
+      BendCheckResult(
+        key,
+        outcome,
+        completeness,
+        reliance,
+        diagnostics,
+        details,
+        sources = sources,
+        mappings = mappings
+      )
+    if graph.root != snapshot.root || graph
+        .source(snapshot.root)
+        .forall(_.text != snapshot.text)
+    then
+      return result(
+        BendCheckOutcome.Unavailable,
+        BendCompleteness.Unknown,
+        "The captured Bend graph does not match the selected root."
+      )
+    val selectedBaseIds = graph.edges
+      .filter(_.importLine.spelling == "Base")
+      .flatMap(_.target)
+      .toSet
+    if graph.edges.exists(edge =>
+        edge.importLine.spelling != "Base" &&
+          edge.target.exists(selectedBaseIds)
+      )
+    then
+      return result(
+        BendCheckOutcome.Unavailable,
+        BendCompleteness.Unknown,
+        "The selected Base is also imported by path. Its identity relative to the compiler's built-in Base cannot be verified in an isolated snapshot."
+      )
     if graph.problems.nonEmpty then
       val diagnostics = graph.problems.map { problem =>
         val (from, imp, detail) = problem match
-          case BendGraphProblem.InvalidImport(file, line, why) => (file, line, why)
+          case BendGraphProblem.InvalidImport(file, line, why) =>
+            (file, line, why)
           case BendGraphProblem.Missing(file, line, path) =>
-            (file, line, s"Cannot read imported module: ${line.spelling} ($path)")
+            (
+              file,
+              line,
+              s"Cannot read imported module: ${line.spelling} ($path)"
+            )
           case BendGraphProblem.Cycle(file, line, _) =>
             (file, line, s"Import cycle through ${line.spelling}")
           case BendGraphProblem.NamespaceConflict(file, line, _, first, next) =>
             (file, line, s"One namespace per file: '$first' and '$next'")
         val source = graph.source(from)
-        val number = source.fold(0)(s => s.text.take(imp.offset).count(_ == '\n'))
+        val number =
+          source.fold(0)(s => s.text.take(imp.offset).count(_ == '\n'))
         BendDiagnostic(detail, BendLocation.SourceLine(from, number))
       }
-      return result(BendCheckOutcome.Failed, BendCompleteness.Unknown,
-        diagnostics.map(_.message).mkString("\n"), diagnostics)
+      return result(
+        BendCheckOutcome.Failed,
+        BendCompleteness.Unknown,
+        diagnostics.map(_.message).mkString("\n"),
+        diagnostics
+      )
     var temp: Path = null
     try
       temp = Files.createTempDirectory(tempParent, "bend-editor-check-")
       val offline = temp.resolve("offline-lib")
       Files.createDirectory(offline)
-      val rootPath = temp.resolve("root").resolve(Path.of(snapshot.path).getFileName.toString)
+      val rootPath = temp
+        .resolve("root")
+        .resolve(Path.of(snapshot.path).getFileName.toString)
       val lawId = snapshot.siblingLaws.map(_.id)
       // import Base is never redirected: Bend reads its own built-in BASE_BEND.
       // Keep Base in checked-source provenance but do not claim a temp copy was
       // compiler input.
-      val baseIds = graph.edges.filter(_.importLine.spelling == "Base")
-        .flatMap(_.target).toSet - snapshot.root
+      val baseIds = graph.edges
+        .filter(_.importLine.spelling == "Base")
+        .flatMap(_.target)
+        .toSet - snapshot.root
       val materialized = graph.files.filterNot(file => baseIds(file.source.id))
       val copied = materialized.map { file =>
         val target = if file.source.id == snapshot.root then rootPath
-          else if Path.of(snapshot.path).getFileName.toString == "PROOF.bend" &&
-              lawId.contains(file.source.id) then rootPath.resolveSibling("LAWS.bend")
-          else
-            val digest = BendAnalysisKey.sourceDigest(file.source.id.value).take(24)
-            temp.resolve(digest).resolve(Path.of(file.source.path).getFileName.toString)
+        else if Path.of(snapshot.path).getFileName.toString == "PROOF.bend" &&
+          lawId.contains(file.source.id)
+        then rootPath.resolveSibling("LAWS.bend")
+        else
+          val digest =
+            BendAnalysisKey.sourceDigest(file.source.id.value).take(24)
+          temp
+            .resolve(digest)
+            .resolve(Path.of(file.source.path).getFileName.toString)
         file.source.id -> target
       }.toMap
-      val mappings = materialized.map { file =>
+      val mappingResults = materialized.map { file =>
         val original = file.source.text
-        val imports = graph.edges.filter(_.from == file.source.id)
+        val imports = graph.edges
+          .filter(_.from == file.source.id)
           .filterNot(_.importLine.spelling == "Base")
-        val rewrites = imports.flatMap(edge => edge.target.flatMap(copied.get).map { target =>
-          val sourceFile = copied(file.source.id)
-          val relative = sourceFile.getParent.relativize(target).toString.replace('\\', '/')
-          edge.importLine -> (if relative.startsWith(".") then relative else "./" + relative)
-        })
-        val replacements = rewrites.map { case (imp, value) =>
-          val start = original.indexOf(imp.spelling, imp.offset)
-          (start, imp.spelling.length, value)
-        }.filter(_._1 >= 0).sortBy(-_._1)
-        val (ranges, _) = replacements.reverse.foldLeft((List.empty[BendRewrittenRange], 0)) {
-          case ((seen, shift), (start, length, value)) =>
-            val copiedStart = start + shift
-            (seen :+ BendRewrittenRange(start, start + length, copiedStart,
-              copiedStart + value.length), shift + value.length - length)
+        val sourcePath = copied(file.source.id)
+        val plans = imports.map { edge =>
+          val imp = edge.importLine
+          val target = edge.target.flatMap(copied.get)
+          val range = BendImportLines.pathRange(original, imp)
+          (for
+            destination <- target
+            (start, end) <- range
+            if end - start == imp.spelling.length &&
+              original.substring(start, end) == imp.spelling
+          yield
+            val relative = sourcePath.getParent
+              .relativize(destination)
+              .toString
+              .replace('\\', '/')
+            val replacement =
+              if relative.startsWith(".") then relative else "./" + relative
+            SourceRewrite(start, end, imp.spelling, replacement)
+          )
         }
-        val rewritten = replacements.foldLeft(original) { case (text, (start, length, value)) =>
-          text.substring(0, start) + value + text.substring(start + length)
-        }
-        val rewrittenLines = replacements.map { case (start, _, _) =>
-          original.take(start).count(_ == '\n')
-        }.toSet
-        val destination = copied(file.source.id)
+        if plans.exists(_.isEmpty) then
+          Left(
+            "Could not locate a loaded import path exactly in its captured source."
+          )
+        else
+          rewriteSource(original, plans.flatten) match
+            case None =>
+              Left(
+                "Loaded import rewrites overlap or do not preserve the captured source."
+              )
+            case Some((rewritten, rewriteRanges, rewrittenLines)) =>
+              compilerInput(rewritten) match
+                case None =>
+                  Left("Could not map compiler-blanked import lines exactly.")
+                case Some((compilerText, blankedRanges)) =>
+                  Right(
+                    BendSourceMapping(
+                      file.source.id,
+                      file.source.revision,
+                      file.source.path,
+                      sourcePath.toString,
+                      file.namespace,
+                      original,
+                      rewritten,
+                      rewrittenLines,
+                      rewriteRanges,
+                      compilerText,
+                      blankedRanges
+                    ) -> rewritten
+                  )
+      }
+      mappingResults.collectFirst { case Left(error) => error } match
+        case Some(error) =>
+          return result(
+            BendCheckOutcome.Unavailable,
+            BendCompleteness.Unknown,
+            error + " No source was checked."
+          )
+        case None => ()
+      val mappedSources = mappingResults.collect { case Right(mapped) =>
+        mapped
+      }
+      val mappings = mappedSources.map(_._1)
+      mappedSources.foreach { case (mapping, rewritten) =>
+        val destination = Path.of(mapping.copiedPath)
         Files.createDirectories(destination.getParent)
         Files.writeString(destination, rewritten, StandardCharsets.UTF_8)
-        val lines = rewritten.split("\n", -1)
-        val blanked = BendImportLines.parse(rewritten).map { imp =>
-          val number = rewritten.take(imp.offset).count(_ == '\n')
-          val start = lines.take(number).map(_.length + 1).sum
-          (start, start + lines(number).length)
-        }
-        val compilerText = lines.zipWithIndex.map { case (line, number) =>
-          if blanked.exists { case (start, _) =>
-            start == lines.take(number).map(_.length + 1).sum
-          } then "" else line
-        }.mkString("\n")
-        BendSourceMapping(file.source.id, file.source.path, destination.toString,
-          file.namespace, original, rewritten, rewrittenLines, ranges,
-          compilerText, blanked)
       }
       if rootPath.getFileName.toString == "PROOF.bend" then
         snapshot.siblingLaws.foreach { law =>
           val destination = rootPath.resolveSibling("LAWS.bend")
           if !Files.exists(destination) then
-            Files.writeString(destination, law.text, StandardCharsets.UTF_8)
+            val _ =
+              Files.writeString(destination, law.text, StandardCharsets.UTF_8)
         }
-      if canceled() then return result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
-        "Bend check canceled.", mappings = mappings)
-      val isolated = environment ++ Map("BEND_LIB" -> offline.toString,
-        "BEND_HUB" -> "file:///__bend_editor_offline__")
+      if canceled() then
+        return result(
+          BendCheckOutcome.Unavailable,
+          BendCompleteness.Unknown,
+          "Bend check canceled.",
+          mappings = mappings
+        )
+      val isolated = environment ++ Map(
+        "BEND_LIB" -> offline.toString,
+        "BEND_HUB" -> "file:///__bend_editor_offline__"
+      )
       val decoded = BendCliVerdictDecoder.check(BendBoundedProcess.run(
-        List(executable, rootPath.toString, "--check-only"), temp, isolated, canceled = canceled))
+        List(executable, rootPath.toString, "--check-only"),
+        temp,
+        isolated,
+        canceled = canceled
+      ))
       if decoded.outcome == BendCheckOutcome.Success then
         result(decoded.outcome, decoded.completeness, decoded.details,
           mappings = mappings, reliance = decoded.reliance)
       else
-        val location = if decoded.sourceLocationAllowed then graphLocation(decoded.details, mappings, snapshot.root)
+        val location = if decoded.sourceLocationAllowed then graphLocation(decoded.details, mappings)
           else BendLocation.RootOnly
         result(decoded.outcome, decoded.completeness, decoded.details,
           List(BendDiagnostic(decoded.details, location)), mappings, decoded.reliance)
     catch
       case e: java.io.IOException =>
-        result(BendCheckOutcome.Unavailable, BendCompleteness.Unknown,
-          "Could not prepare Bend graph snapshot: " + e.getMessage)
+        result(
+          BendCheckOutcome.Unavailable,
+          BendCompleteness.Unknown,
+          "Could not prepare Bend graph snapshot: " + e.getMessage
+        )
     finally
       if temp != null then
         val files = Files.walk(temp)
-        try files.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+        try
+          files
+            .sorted(java.util.Comparator.reverseOrder())
+            .forEach(p => {
+              val _ = Files.deleteIfExists(p)
+            })
         finally files.close()
 
-  private def graphLocation(output: String, files: List[BendSourceMapping],
-      root: FileId): BendLocation =
+  private def graphLocation(
+      output: String,
+      files: List[BendSourceMapping]
+  ): BendLocation =
+    BendCliDiagnosticAttribution.graphLocation(output, files)
+
+  private final case class SourceRewrite(
+      start: Int,
+      end: Int,
+      expected: String,
+      replacement: String
+  )
+
+  private def rewriteSource(
+      original: String,
+      rewrites: List[SourceRewrite]
+  ): Option[(String, List[BendRewrittenRange], Set[Int])] =
+    val ordered = rewrites.sortBy(_.start)
+    val copied = new StringBuilder
+    val ranges = List.newBuilder[BendRewrittenRange]
+    var rewrittenLines = Set.empty[Int]
+    var originalCursor = 0
+    var valid = true
+    ordered.foreach { rewrite =>
+      if valid then
+        valid =
+          rewrite.start >= originalCursor && rewrite.end >= rewrite.start &&
+            rewrite.end <= original.length &&
+            original.substring(
+              rewrite.start,
+              rewrite.end
+            ) == rewrite.expected &&
+            !rewrite.replacement.contains('\n') && !rewrite.replacement
+              .contains('\r')
+        if valid then
+          copied.append(original.substring(originalCursor, rewrite.start))
+          val copiedStart = copied.length
+          copied.append(rewrite.replacement)
+          val copiedEnd = copied.length
+          ranges += BendRewrittenRange(
+            rewrite.start,
+            rewrite.end,
+            copiedStart,
+            copiedEnd
+          )
+          rewrittenLines += original.take(rewrite.start).count(_ == '\n')
+          originalCursor = rewrite.end
+    }
+    if !valid then None
+    else
+      copied.append(original.substring(originalCursor))
+      Some((copied.result(), ranges.result(), rewrittenLines))
+
+  private def compilerInput(
+      copied: String
+  ): Option[(String, List[BendBlankedRange])] =
+    val imports = BendImportLines.parse(copied)
+    val linePlans = imports.map { imp =>
+      BendImportLines.pathRange(copied, imp).flatMap {
+        case (pathStart, pathEnd) =>
+          Option.when(
+            pathEnd - pathStart == imp.spelling.length &&
+              copied.substring(pathStart, pathEnd) == imp.spelling
+          ) {
+            val lineStart =
+              copied.lastIndexOf('\n', math.max(0, imp.offset - 1)) + 1
+            val contentEnd = copied.indexOf('\n', imp.offset) match
+              case -1  => copied.length
+              case end => end
+            val copiedEnd =
+              if contentEnd < copied.length then contentEnd + 1 else contentEnd
+            (lineStart, copiedEnd, copied.take(lineStart).count(_ == '\n'))
+          }
+      }
+    }
+    if linePlans.exists(_.isEmpty) then None
+    else
+      val ordered = linePlans.flatten.sortBy(_._1)
+      val compiler = new StringBuilder
+      val ranges = List.newBuilder[BendBlankedRange]
+      var copiedCursor = 0
+      var valid = true
+      ordered.foreach { case (start, end, line) =>
+        if valid then
+          valid = start >= copiedCursor && end > start && end <= copied.length
+          if valid then
+            compiler.append(copied.substring(copiedCursor, start))
+            val compilerStart = compiler.length
+            if copied.charAt(end - 1) == '\n' then compiler.append('\n')
+            val compilerEnd = compiler.length
+            ranges += BendBlankedRange(
+              line,
+              start,
+              end,
+              compilerStart,
+              compilerEnd
+            )
+            copiedCursor = end
+      }
+      if !valid then None
+      else
+        compiler.append(copied.substring(copiedCursor))
+        Some((compiler.result(), ranges.result()))
+
+/** Pure conservative attribution for the text CLI, which has no source URI. */
+private[cli] object BendCliDiagnosticAttribution:
+  def graphLocation(
+      output: String,
+      files: List[BendSourceMapping]
+  ): BendLocation =
     val Marked = "(?m)^\\s*([0-9]+)>\\| ?(.*)$".r
     val marks = Marked.findAllMatchIn(output).toList
     if marks.size != 1 then BendLocation.RootOnly
     else
-      val line = marks.head.group(1).toInt - 1
+      val line = try marks.head.group(1).toInt - 1
+      catch case _: NumberFormatException => -1
       val excerpt = marks.head.group(2).trim
       val candidates = files.filter { source =>
-        val lines = source.copiedText.split("\n", -1)
-        line >= 0 && line < lines.length && lines(line).trim == excerpt &&
-          !source.rewrittenLines.contains(line)
+        val compilerLines = source.compilerText.split("\n", -1)
+        val copiedLines = source.copiedText.split("\n", -1)
+        val originalLines = source.originalText.split("\n", -1)
+        line >= 0 && line < compilerLines.length && line < copiedLines.length &&
+        line < originalLines.length && !source.rewrittenLines.contains(line) &&
+        !source.blankedImportRanges.exists(_.line == line) &&
+        compilerLines(line).trim == excerpt &&
+        copiedLines(line) == compilerLines(line) &&
+        originalLines(line) == copiedLines(line)
       }
       candidates match
         case source :: Nil => BendLocation.SourceLine(source.source, line)
-        case _ => BendLocation.RootOnly
+        case _             => BendLocation.RootOnly

@@ -4,14 +4,21 @@ import com.intellij.lexer.Lexer
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors as Colors
 import com.intellij.openapi.editor.HighlighterColors
 import com.intellij.openapi.editor.colors.TextAttributesKey
-import com.intellij.openapi.fileTypes.{SyntaxHighlighter, SyntaxHighlighterBase, SyntaxHighlighterFactory}
+import com.intellij.openapi.fileTypes.{
+  SyntaxHighlighter,
+  SyntaxHighlighterBase,
+  SyntaxHighlighterFactory
+}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.TokenType
 import com.intellij.psi.tree.IElementType
 
 object BendColors:
-  private def key(name: String, fallback: TextAttributesKey): TextAttributesKey =
+  private def key(
+      name: String,
+      fallback: TextAttributesKey
+  ): TextAttributesKey =
     TextAttributesKey.createTextAttributesKey(s"BEND_$name", fallback)
   val Keyword = key("KEYWORD", Colors.KEYWORD)
   val Declaration = key("DECLARATION", Colors.KEYWORD)
@@ -36,14 +43,20 @@ object BendColors:
 final class BendSyntaxHighlighter extends SyntaxHighlighterBase:
   override def getHighlightingLexer: Lexer = new BendLexer()
 
-  override def getTokenHighlights(tokenType: IElementType): Array[TextAttributesKey] =
+  override def getTokenHighlights(
+      tokenType: IElementType
+  ): Array[TextAttributesKey] =
     val color =
       if tokenType == BendTokens.Comment then BendColors.Comment
-      else if tokenType == BendTokens.StringDelimiter || tokenType == BendTokens.StringContent || tokenType == BendTokens.ImportPath then BendColors.String
+      else if tokenType == BendTokens.StringDelimiter || tokenType == BendTokens.StringContent || tokenType == BendTokens.ImportPath
+      then BendColors.String
       else if tokenType == BendTokens.Escape then BendColors.Escape
-      else if tokenType == BendTokens.InvalidEscape then BendColors.InvalidEscape
-      else if tokenType == BendTokens.DeclarationKeyword then BendColors.Declaration
-      else if tokenType == BendTokens.Keyword || tokenType == BendTokens.Unsafe then BendColors.Keyword
+      else if tokenType == BendTokens.InvalidEscape then
+        BendColors.InvalidEscape
+      else if tokenType == BendTokens.DeclarationKeyword then
+        BendColors.Declaration
+      else if tokenType == BendTokens.Keyword || tokenType == BendTokens.Unsafe
+      then BendColors.Keyword
       else if tokenType == BendTokens.FunctionName then BendColors.Function
       else if tokenType == BendTokens.TypeName then BendColors.Type
       else if tokenType == BendTokens.NamespaceName then BendColors.Namespace
@@ -52,17 +65,28 @@ final class BendSyntaxHighlighter extends SyntaxHighlighterBase:
       else if tokenType == BendTokens.Number then BendColors.Number
       else if tokenType == BendTokens.Quantity then BendColors.Quantity
       else if tokenType == BendTokens.Hole then BendColors.Hole
-      else if tokenType == BendTokens.Rewrite || tokenType == BendTokens.Wildcard then BendColors.Rewrite
+      else if tokenType == BendTokens.Rewrite || tokenType == BendTokens.Wildcard
+      then BendColors.Rewrite
       else if tokenType == BendTokens.Operator || tokenType == BendTokens.LeftAngle ||
-          tokenType == BendTokens.RightAngle then BendColors.Operator
-      else if Set(BendTokens.LeftParen, BendTokens.RightParen,
-          BendTokens.LeftBrace, BendTokens.RightBrace, BendTokens.LeftBracket,
-          BendTokens.RightBracket).contains(tokenType) then BendColors.Bracket
+        tokenType == BendTokens.RightAngle
+      then BendColors.Operator
+      else if Set(
+          BendTokens.LeftParen,
+          BendTokens.RightParen,
+          BendTokens.LeftBrace,
+          BendTokens.RightBrace,
+          BendTokens.LeftBracket,
+          BendTokens.RightBracket
+        ).contains(tokenType)
+      then BendColors.Bracket
       else if tokenType == BendTokens.Separator then BendColors.Separator
       else if tokenType == TokenType.BAD_CHARACTER then BendColors.Bad
       else null
     if color == null then Array.empty else Array(color)
 
 final class BendSyntaxHighlighterFactory extends SyntaxHighlighterFactory:
-  override def getSyntaxHighlighter(project: Project, virtualFile: VirtualFile): SyntaxHighlighter =
+  override def getSyntaxHighlighter(
+      project: Project,
+      virtualFile: VirtualFile
+  ): SyntaxHighlighter =
     new BendSyntaxHighlighter()

@@ -23,7 +23,9 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     try
       ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).update(original)
       val stream = Files.walk(temporary)
-      try stream.sorted(java.util.Comparator.reverseOrder()).forEach(path => Files.deleteIfExists(path))
+      try stream.sorted(java.util.Comparator.reverseOrder()).forEach(path => {
+          val _ = Files.deleteIfExists(path)
+        })
       finally stream.close()
     finally super.tearDown()
 

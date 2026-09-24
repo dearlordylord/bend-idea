@@ -20,7 +20,9 @@ final class BendCliCheckBackendTest:
       run(executable)
     finally
       val paths = Files.walk(directory)
-      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
       finally paths.close()
 
   private def snapshot(executable: Path, text: String, original: Path): BendCheckSnapshot =
@@ -178,5 +180,7 @@ final class BendCliCheckBackendTest:
       assertEquals(before, tempCount(executable.getParent))
     finally
       val paths = Files.walk(directory)
-      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
       finally paths.close()

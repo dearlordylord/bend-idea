@@ -7,9 +7,9 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
 
 final class BendDelimiterTest extends BasePlatformTestCase:
-  private def editing(source: String): String =
+  private def editing(source: String): Unit =
     myFixture.configureByText("pairs.bend", source)
-    myFixture.getEditor.getDocument.getText
+    ()
 
   def testOrdinaryPairsOvertypingAndBackspace(): Unit =
     editing("def f(): <caret>")
@@ -23,20 +23,31 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     assertEquals("def f(): ", myFixture.getEditor.getDocument.getText)
 
   def testOrdinaryPairAfterExistingDeclarations(): Unit =
-    editing("import Base\n\ntype EditorPair is Data:\n  MakePair{left: U32, right: U32}\n\n" +
-      "def main() -> U32:\n  3\n\ndef f(): <caret>")
+    editing(
+      "import Base\n\ntype EditorPair is Data:\n  MakePair{left: U32, right: U32}\n\n" +
+        "def main() -> U32:\n  3\n\ndef f(): <caret>"
+    )
     myFixture.`type`("(")
     assertTrue(myFixture.getEditor.getDocument.getText.endsWith("def f(): ()"))
 
   def testOrdinaryPairBeforeNextDeclaration(): Unit =
     editing("def f(): <caret>\ndef next(): 1\n")
     myFixture.`type`("(")
-    assertEquals("def f(): ()\ndef next(): 1\n", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def f(): ()\ndef next(): 1\n",
+      myFixture.getEditor.getDocument.getText
+    )
     myFixture.`type`(")")
-    assertEquals("def f(): ()\ndef next(): 1\n", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def f(): ()\ndef next(): 1\n",
+      myFixture.getEditor.getDocument.getText
+    )
     myFixture.getEditor.getCaretModel.moveToOffset("def f(): (".length)
     myFixture.performEditorAction(IdeActions.ACTION_EDITOR_BACKSPACE)
-    assertEquals("def f(): \ndef next(): 1\n", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def f(): \ndef next(): 1\n",
+      myFixture.getEditor.getDocument.getText
+    )
 
   def testBracesAndBracketsPair(): Unit =
     editing("def f(): <caret>")
@@ -64,7 +75,10 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     assertEquals("type Box<>", myFixture.getEditor.getDocument.getText)
     editing("def compare(x: Nat, y: Nat): x <caret>")
     myFixture.`type`("<")
-    assertEquals("def compare(x: Nat, y: Nat): x <", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def compare(x: Nat, y: Nat): x <",
+      myFixture.getEditor.getDocument.getText
+    )
 
   def testQuoteAndAnglePairedBackspace(): Unit =
     editing("def f(): <caret>")
@@ -100,7 +114,10 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     myFixture.`type`("Unit")
     myFixture.`type`(">")
     myFixture.`type`(">")
-    assertEquals("def f(x: List<Map<Unit>>): x", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def f(x: List<Map<Unit>>): x",
+      myFixture.getEditor.getDocument.getText
+    )
 
   def testComparisonAndManualAngleAreNotConsumedAsInsertedPairs(): Unit =
     editing("def f(): x <caret>> y")
@@ -121,23 +138,37 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     assertEquals("def f():\n  do IO<>", myFixture.getEditor.getDocument.getText)
     editing("def f():\n  do IO<Unit>: x <caret>")
     myFixture.`type`("<")
-    assertEquals("def f():\n  do IO<Unit>: x <", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def f():\n  do IO<Unit>: x <",
+      myFixture.getEditor.getDocument.getText
+    )
 
   def testQuotedOrPreviousLineDoDoesNotMakeTypeContext(): Unit =
     editing("def f(): \"do IO\" Map<caret>")
     myFixture.`type`("<")
-    assertEquals("def f(): \"do IO\" Map<", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def f(): \"do IO\" Map<",
+      myFixture.getEditor.getDocument.getText
+    )
     editing("def f():\n  do IO\n  Map<caret>")
     myFixture.`type`("<")
-    assertEquals("def f():\n  do IO\n  Map<", myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "def f():\n  do IO\n  Map<",
+      myFixture.getEditor.getDocument.getText
+    )
 
   def testPreviousIncompleteDoDoesNotMatchFollowingAngle(): Unit =
     editing("def f():\n  do IO\n  Map<X>\n")
     val editor = myFixture.getEditor.asInstanceOf[EditorEx]
     val text = editor.getDocument.getText
     val offset = text.indexOf("Map<") + 3
-    assertFalse(BraceMatchingUtil.isLBraceToken(
-      editor.getHighlighter.createIterator(offset), text, myFixture.getFile.getFileType))
+    assertFalse(
+      BraceMatchingUtil.isLBraceToken(
+        editor.getHighlighter.createIterator(offset),
+        text,
+        myFixture.getFile.getFileType
+      )
+    )
 
   def testTypeAngleMatchingExcludesComparisonsAndShifts(): Unit =
     editing("def f(x: List<List<U32>>) -> U32:\n  x < y >> 1\n# < >\n")
@@ -165,7 +196,9 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     assertFalse(right(shift + 1))
 
   def testConstructorFieldTypeAnglesMatchOutsideDeclarationHeader(): Unit =
-    editing("type Box is Data:\n  Box{value: Map<List<U32>, U32>}\ndef f(): Box < other\n")
+    editing(
+      "type Box is Data:\n  Box{value: Map<List<U32>, U32>}\ndef f(): Box < other\n"
+    )
     val editor = myFixture.getEditor.asInstanceOf[EditorEx]
     val text = editor.getDocument.getText
     val fileType = myFixture.getFile.getFileType
@@ -175,9 +208,17 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     val fieldClose = text.indexOf(">}")
     val comparison = text.indexOf("Box < other") + 4
     def left(offset: Int): Boolean =
-      BraceMatchingUtil.isLBraceToken(editor.getHighlighter.createIterator(offset), text, fileType)
+      BraceMatchingUtil.isLBraceToken(
+        editor.getHighlighter.createIterator(offset),
+        text,
+        fileType
+      )
     def right(offset: Int): Boolean =
-      BraceMatchingUtil.isRBraceToken(editor.getHighlighter.createIterator(offset), text, fileType)
+      BraceMatchingUtil.isRBraceToken(
+        editor.getHighlighter.createIterator(offset),
+        text,
+        fileType
+      )
     assertTrue(left(fieldOpen))
     assertTrue(left(nestedOpen))
     assertTrue(right(nestedClose))
@@ -187,8 +228,12 @@ final class BendDelimiterTest extends BasePlatformTestCase:
   def testConstructorFieldTypeAnglesPairAtNestedArgument(): Unit =
     editing("type Box is Data:\n  Box{value: Map<U32, List<caret>>}\n")
     myFixture.`type`("<")
-    assertEquals("type Box is Data:\n  Box{value: Map<U32, List<>>}\n",
-      myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "type Box is Data:\n  Box{value: Map<U32, List<>>}\n",
+      myFixture.getEditor.getDocument.getText
+    )
     myFixture.`type`(">")
-    assertEquals("type Box is Data:\n  Box{value: Map<U32, List<>>}\n",
-      myFixture.getEditor.getDocument.getText)
+    assertEquals(
+      "type Box is Data:\n  Box{value: Map<U32, List<>>}\n",
+      myFixture.getEditor.getDocument.getText
+    )

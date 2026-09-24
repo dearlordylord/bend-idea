@@ -10,7 +10,11 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiFile
 
 final class BendEnterHandler extends EnterHandlerDelegateAdapter:
-  override def postProcessEnter(file: PsiFile, editor: Editor, context: DataContext): Result =
+  override def postProcessEnter(
+      file: PsiFile,
+      editor: Editor,
+      context: DataContext
+  ): Result =
     if file.getLanguage != BendLanguage.instance then return Result.Continue
     val document = editor.getDocument
     val caret = editor.getCaretModel.getOffset
@@ -19,10 +23,15 @@ final class BendEnterHandler extends EnterHandlerDelegateAdapter:
     BendIndentPolicy.afterEnter(source, caret, step).foreach { indent =>
       val lineStart = source.lastIndexOf('\n', caret - 1) + 1
       var firstCode = lineStart
-      while firstCode < source.length && (source.charAt(firstCode) == ' ' || source.charAt(firstCode) == '\t') do
-        firstCode += 1
-      if firstCode == source.length || source.charAt(firstCode) == '\n' || source.charAt(firstCode) == '\r' ||
-          caret <= firstCode then
+      while firstCode < source.length && (source.charAt(
+          firstCode
+        ) == ' ' || source.charAt(firstCode) == '\t')
+      do firstCode += 1
+      if firstCode == source.length || source.charAt(
+          firstCode
+        ) == '\n' || source.charAt(firstCode) == '\r' ||
+        caret <= firstCode
+      then
         document.replaceString(lineStart, firstCode, " " * indent)
         editor.getCaretModel.moveToOffset(lineStart + indent)
     }

@@ -110,18 +110,20 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
     case CancelBackgroundTimer(root, token) => synchronized {
       timers.get(root).filter(_._1 == token).foreach { case (_, future) =>
         future.cancel(false)
-        timers.remove(root)
+        val _ = timers.remove(root)
       }
     }
     case DropBackgroundRoot(root) => synchronized {
       timers.remove(root).foreach(_._2.cancel(false))
-      rootFiles.remove(root)
+      val _ = rootFiles.remove(root)
     }
     case _ => ()
 
   private def runTimer(file: VirtualFile, root: FileId, token: Long): Unit =
     synchronized {
-      timers.get(root).filter(_._1 == token).foreach(_ => timers.remove(root))
+      timers.get(root).filter(_._1 == token).foreach(_ => {
+        val _ = timers.remove(root)
+      })
     }
     control.backgroundTimerFired(root, token).foreach(ticket => check(file, ticket))
 

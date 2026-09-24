@@ -157,5 +157,7 @@ final class BendLocalRenameTest extends BasePlatformTestCase:
       assertEquals(source, Files.readString(original))
     finally
       val paths = Files.walk(directory)
-      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+      try paths.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
       finally paths.close()
