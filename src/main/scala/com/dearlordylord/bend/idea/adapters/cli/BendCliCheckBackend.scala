@@ -112,7 +112,9 @@ final class BendCliCheckBackend(tempParent: Path = Path.of(System.getProperty("j
     finally
       if temp != null then
         val files = Files.walk(temp)
-        try files.sorted(java.util.Comparator.reverseOrder()).forEach(p => Files.deleteIfExists(p))
+        try files.sorted(java.util.Comparator.reverseOrder()).forEach(p => {
+          val _ = Files.deleteIfExists(p)
+        })
         finally files.close()
 
   private def reliableLine(output: String, source: String): BendLocation =
