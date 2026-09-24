@@ -15,10 +15,17 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 - Source-aware completion for declarations, constructors, parameters, local bindings, match cases, do blocks, and proof binders. Suggestions can show source signatures and nearby comments.
 - Completion from the selected Base source and direct imports, including qualified names and unsaved changes in open files. Import paths complete from local files, directories, and cached packages without downloading them.
 
+### Structure and refactoring
+
+- The structure view lists definitions, laws, data types, and constructors, and navigates to their source.
+- Folding, indentation, paired delimiter and quote editing, and conservative source-preserving formatting for supported syntax.
+- Reference-aware rename for declarations and local bindings, including related law/fill names. Unsafe renames that cause conflicts or capture are rejected.
+
 ### Navigation and documentation
 
 - Go to Declaration for resolved local, imported, and Base names, including import aliases and literal dotted names.
 - Find Usages and Highlight Usages for resolved source references across the project.
+- Go to Symbol searches workspace declarations, including declarations in open files.
 - Quick Documentation for source declarations, signatures, comments, and law/fill relationships. It shows source information, not inferred expression types.
 
 ### Compiler checking
@@ -45,10 +52,9 @@ BEND_TEST_BUN=/absolute/path/to/bun \
 
 ## Planned
 
-- **Editor structure:** brace and quote assistance, folding, structure view, indentation, and conservative formatting.
-- **More navigation and refactoring:** workspace symbol search, parameter information, semantic reading aids, and reference-based rename for locals, aliases, declarations, and paired laws.
-- **Bend workflows:** proof-root selection, law and hole navigation, proof progress, code skeletons, explicit Run and Build actions, and import/file tools.
-- **Compiler-backed assistance:** structured diagnostics, goals and context, actual expression types, expected-type completion, resource feedback, validated proof edits, and explicit normalization. These depend on compatible compiler capabilities.
+- **Additional editor assistance:** parameter information and richer context-sensitive actions.
+- **Bend workflows:** proof-root selection, dedicated law and hole navigation, proof progress, proof-skeleton generation, explicit Run and Build actions, and import/file-management actions beyond current import-path completion.
+- **Compiler-backed assistance:** structured diagnostics beyond current CLI attribution, goals and context, actual expression types, expected-type completion, resource feedback, validated proof edits, and explicit normalization. These depend on compatible compiler capabilities.
 
 The [implementation specification](https://github.com/dearlordylord/bend-idea/issues/1) and [feature issues](https://github.com/dearlordylord/bend-idea/issues) track the full roadmap.
 
