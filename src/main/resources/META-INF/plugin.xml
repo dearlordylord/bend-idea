@@ -8,10 +8,9 @@
         Editing support loads without a Bend installation.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.1:</p>
+<p>Version 0.1.3:</p>
 <ul>
-  <li>Navigate to an imported Bend module from its import path</li>
-  <li>Allow installation on newer IntelliJ IDEA builds; verified with IDEA Ultimate 2026.1</li>
+  <li>Restore the previous feature set while compatibility updates are revised</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

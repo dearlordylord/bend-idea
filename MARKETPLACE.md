@@ -1,37 +1,29 @@
 # Marketplace releases
 
-Bend2's plugin ID is `com.dearlordylord.bend.idea`; its listing name is `Bend2`. Build with JDK 21 against IntelliJ IDEA 2025.1. The plugin declares no upper IDE build limit; Plugin Verifier checks Community 2025.1 and Ultimate 2026.1. Verify each newer IDE release before claiming support.
+Bend2's plugin ID is `com.dearlordylord.bend.idea`; its Marketplace listing name is `Bend2`. Build with JDK 21. The plugin targets IntelliJ IDEA 2025.1 and declares no upper IDE build limit.
 
-Quint IDEA's update process is a local `./gradlew publishPlugin` invocation with `PUBLISH_TOKEN`, after bumping its version. It is not a scheduled or CI release. Bend IDEA follows that process for **updates after the first manual Marketplace upload**, with author signing required by this build's publish task. JetBrains documents the [first-upload rule](https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html) and [signing tasks](https://plugins.jetbrains.com/docs/intellij/plugin-signing.html).
+## 0.1.3 rollback submission
 
-## Current update: 0.1.1
+This package restores the source baseline from commit `2df22df` (the 0.1.1 release candidate) and bumps only the plugin version and release notes. The change notes state that this restores the previous feature set while compatibility updates are revised.
 
-Marketplace already has version `0.1.0` in the default channel and rejects another ZIP with that version. The next upload is `build/distributions/bend-idea-0.1.1-signed.zip` (SHA-256: `f31495d927b820cab147118e4739370fd9eda4042508c1bc898f1612dc554008`). Its embedded plugin ID is `com.dearlordylord.bend.idea`, its version is `0.1.1`, and its IDE range starts at build `251` with no upper bound. The release notes describe import-path navigation and compatibility with newer IDEA builds. Upload this signed archive as an update to the existing plugin ID and channel; do not upload an unsigned archive or reuse `0.1.0`.
+The release gates passed on 2026-09-24 with JDK 21.0.10 and pinned Bend source `ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b`, using Bun 1.4.2: 167 tests, 0 failures, 0 errors, and 0 skipped; architecture, packaging, project configuration, and signature verification also passed. Plugin Verifier reported compatibility with Community 2025.1 and Ultimate 2026.1. It also reported 9 scheduled-for-removal API usages, deprecated and experimental API usages, and two Internal API usages: `Configurable.getDisplayNameFast()` is both invoked and overridden in `BendSettingsConfigurable`.
 
-The `0.1.1` release build passed `check` (167 editor tests and 2 architecture tests), `buildPlugin`, `verifyPlugin`, `verifyPluginStructure`, `verifyPluginProjectConfiguration`, `signPlugin`, and `verifyPluginSignature`. Plugin Verifier reported compatibility with IC-251.23774.435 and IU-261.22158.277; it also reported deprecated, scheduled-for-removal, and experimental API usages. This is compatibility evidence for those two builds, not a claim that every later build has been tested. A fresh IDE installation and Marketplace acceptance are still to be checked.
+The signed archive is `build/distributions/bend-idea-0.1.3-signed.zip` (SHA-256: `c95d016a621d59fdaf59354e3f18c10ef11ea2e2f3aabeea3ff73e685960d521`). Signature verification passed. Local Plugin Verifier evidence means JetBrains may flag the same Internal API issue seen in 0.1.2; do not describe this candidate as approved or publicly available until Marketplace confirms approval.
 
-The author signing key and certificate are stored outside this repository:
+## Previous submission
 
-```text
-/home/node/.config/bend-idea/signing/private.pem
-/home/node/.config/bend-idea/signing/chain.crt
+JetBrains uploaded 0.1.2 as Stable update 1178294 but reported one Internal API usage and requested a corrected upload. Its Marketplace status remained under review at the last check. The vendor page had versions 0.1.0 and 0.1.1 under review as well.
+
+## Future updates
+
+Increment `pluginVersion` in `gradle.properties` and update the `<change-notes>` section in `src/main/resources/META-INF/plugin.xml`. Keep the open-ended IDE range and verify newer IDE releases before claiming support.
+
+Use a full JDK 21 and run the release gates:
+
+```sh
+./gradlew --no-daemon clean check buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration signPlugin verifyPluginSignature
 ```
 
-The private key has file mode `600`, and its directory has mode `700`. **Back up this signing identity securely before the environment is replaced.** Never commit or paste the private key or Marketplace token into this repository.
+Compiler tests use the pinned Bend checkout and Bun version defined in the release validation setup. Signing uses `BEND_IDEA_SIGNING_DIR` pointing to the directory containing `private.pem` and `chain.crt`; the maintainer's signing identity is stored in the iCloud Drive folder `bend-idea-signing`. Keep the private key and any Marketplace token out of Git and command history. Upload the signed archive through the authenticated Marketplace listing or use `publishPlugin` with `PUBLISH_TOKEN`. Verify the channel and version before upload, then confirm the Marketplace approval state.
 
-The original `0.1.0` upload established the Marketplace listing. For this update, use that listing's update flow or the configured `publishPlugin` task with a Marketplace token. JetBrains documents the [update API](https://plugins.jetbrains.com/docs/marketplace/plugin-upload.html) and [Gradle publishing task](https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html).
-
-## Publish an update
-
-1. Increment `pluginVersion` in `gradle.properties`. Marketplace will reject another upload with the same version in a channel. Update the `<change-notes>` section in `src/main/resources/META-INF/plugin.xml` and check that its feature claims match the release. Keep the open-ended IDE range; verify newer releases before claiming support.
-2. Use a full JDK 21. Set `BEND_IDEA_SIGNING_DIR` to the directory holding `private.pem` and `chain.crt`. Set `PUBLISH_TOKEN` from the Marketplace account's **My Tokens** page using a secret manager or local environment; keep it out of Git and command history. On this machine, the signing directory is `/home/node/.config/bend-idea/signing`.
-3. Clear old build distributions and run all release gates:
-
-   ```sh
-   ./gradlew --no-daemon clean check buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration signPlugin verifyPluginSignature
-   ```
-
-4. Check `build/distributions/bend-idea-<version>-signed.zip` and install it from disk in a fresh supported IDE. Open a `.bend` file and confirm editor registration and the light/dark file icon. Confirm the signed ZIP has `META-INF/plugin.xml`, `META-INF/pluginIcon.svg`, and `META-INF/pluginIcon_dark.svg` in its main JAR. Delete unsigned and older ZIPs from `build/distributions/`.
-5. Run `./gradlew --no-daemon publishPlugin` with `BEND_IDEA_SIGNING_DIR` and `PUBLISH_TOKEN`, or upload the signed ZIP through the existing Marketplace listing. Check the resulting update and approval status. Do not submit the same version a second time.
-
-`publishPlugin` uploads an update; it does not replace the first manual Marketplace upload. Running `publishPlugin --dry-run` only checks the Gradle task graph and does not contact Marketplace. No release CI job publishes automatically. CI uploads a signed artifact only when its signing secrets are configured; it never uploads the unsigned intermediate.
+The CI workflow does not publish to Marketplace. A successful upload is not proof of public approval or publication.
