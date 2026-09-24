@@ -1,11 +1,11 @@
 package com.dearlordylord.bend.idea.symbols.index
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.{LocalFileSystem, VirtualFile}
+import com.intellij.openapi.module.Module
+import com.intellij.openapi.vfs.{LocalFileSystem, VfsUtilCore, VirtualFile}
 import com.intellij.psi.search.GlobalSearchScope
 import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import java.nio.file.Path
-import scala.jdk.CollectionConverters.*
 
 /** Configured VFS roots shared by Go to Symbol scope and IntelliJ's library index registration. */
 object BendConfiguredSymbolRoots:
@@ -19,8 +19,11 @@ object BendConfiguredSymbolRoots:
 
   def searchScope(scope: GlobalSearchScope, project: Project): GlobalSearchScope =
     val configured = roots(project)
-    if configured.isEmpty then scope
-    else scope.union(GlobalSearchScope.filesWithLibrariesScope(project, configured.asJava))
+    val projectWide = scope == GlobalSearchScope.allScope(project) ||
+      scope == GlobalSearchScope.projectScope(project)
+    // Keep caller-defined scopes narrow; add configured libraries only for workspace-wide searches.
+    if configured.isEmpty || !projectWide then scope
+    else new ConfiguredRootsScope(project, scope, configured)
 
   def watchRoots(project: Project): List[VirtualFile] =
     val (basePath, cachePath) = project.getService(classOf[BendLoadingConfiguration]).paths
@@ -35,3 +38,16 @@ object BendConfiguredSymbolRoots:
             .flatMap(parent => Option(local.findFileByPath(parent.toString)))
           catch case _: java.nio.file.InvalidPathException => None
     }.distinct
+
+  private final class ConfiguredRootsScope(project: Project, delegate: GlobalSearchScope,
+      roots: List[VirtualFile]) extends GlobalSearchScope(project):
+    override def contains(file: VirtualFile): Boolean =
+      delegate.contains(file) || roots.exists(root => VfsUtilCore.isAncestor(root, file, false))
+
+    override def isSearchInModuleContent(module: Module): Boolean =
+      delegate.isSearchInModuleContent(module)
+
+    override def isSearchInLibraries: Boolean = true
+
+    override def compare(file1: VirtualFile, file2: VirtualFile): Int =
+      delegate.compare(file1, file2)
