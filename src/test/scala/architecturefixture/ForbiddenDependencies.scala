@@ -6,7 +6,8 @@ package architecturefixture:
   package model:
     final class BadSyntax(val node: syntax.Node)
     final class BadIo:
-      def exists(path: java.nio.file.Path): Boolean = java.nio.file.Files.exists(path)
+      def exists(path: java.nio.file.Path): Boolean =
+        java.nio.file.Files.exists(path)
 
   package workspace:
     final class BadPlatform(val range: com.intellij.openapi.util.TextRange)

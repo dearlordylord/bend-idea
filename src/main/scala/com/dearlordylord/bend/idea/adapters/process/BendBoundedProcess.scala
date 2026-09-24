@@ -14,29 +14,43 @@ enum BendProcessOutcome:
   case StartFailed(message: String)
   case Canceled(output: String)
 
-/** One bounded process operation; termination includes descendants and both streams. */
+/** One bounded process operation; termination includes descendants and both
+  * streams.
+  */
 object BendBoundedProcess:
-  def run(command: List[String], directory: Path, environment: Map[String, String],
-      timeoutMillis: Long = 15000L, maxOutputBytes: Int = 2 * 1024 * 1024,
-      canceled: () => Boolean = () => false): BendProcessOutcome =
+  def run(
+      command: List[String],
+      directory: Path,
+      environment: Map[String, String],
+      timeoutMillis: Long = 15000L,
+      maxOutputBytes: Int = 2 * 1024 * 1024,
+      canceled: () => Boolean = () => false
+  ): BendProcessOutcome =
     var process: Process = null
-    val executor = Executors.newFixedThreadPool(2, (r: Runnable) => {
-      val t = new Thread(r, "bend-check-output")
-      t.setDaemon(true)
-      t
-    })
+    val executor = Executors.newFixedThreadPool(
+      2,
+      (r: Runnable) => {
+        val t = new Thread(r, "bend-check-output")
+        t.setDaemon(true)
+        t
+      }
+    )
     val bytes = new ByteArrayOutputStream()
     val tooLarge = new AtomicBoolean(false)
-    def output: String = bytes.synchronized { bytes.toString(StandardCharsets.UTF_8) }
+    def output: String = bytes.synchronized {
+      bytes.toString(StandardCharsets.UTF_8)
+    }
     def terminate(): Unit =
       if process != null then
         process.descendants().iterator().asScala.foreach(_.destroyForcibly())
         process.destroyForcibly()
-        try process.waitFor(2, TimeUnit.SECONDS)
+        try
+          val _ = process.waitFor(2, TimeUnit.SECONDS)
         catch case _: InterruptedException => ()
     try
       if canceled() then return BendProcessOutcome.Canceled("")
-      val builder = new ProcessBuilder(command.asJava).directory(directory.toFile)
+      val builder =
+        new ProcessBuilder(command.asJava).directory(directory.toFile)
       builder.environment().putAll(environment.asJava)
       process = builder.start()
       val started = System.nanoTime()
@@ -54,12 +68,20 @@ object BendBoundedProcess:
             }
             if !tooLarge.get() then size = stream.read(buffer)
         catch case _: java.io.IOException => ()
-      val stdout = executor.submit(new Runnable { override def run(): Unit = drain(process.getInputStream) })
-      val stderr = executor.submit(new Runnable { override def run(): Unit = drain(process.getErrorStream) })
+      val stdout = executor.submit(new Runnable {
+        override def run(): Unit = drain(process.getInputStream)
+      })
+      val stderr = executor.submit(new Runnable {
+        override def run(): Unit = drain(process.getErrorStream)
+      })
       var done = false
       while !done && !tooLarge.get() && !canceled() &&
-          TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started) < timeoutMillis do
-        if Thread.currentThread().isInterrupted then throw new InterruptedException()
+        TimeUnit.NANOSECONDS.toMillis(
+          System.nanoTime() - started
+        ) < timeoutMillis
+      do
+        if Thread.currentThread().isInterrupted then
+          throw new InterruptedException()
         done = process.waitFor(50, TimeUnit.MILLISECONDS)
       if !done || tooLarge.get() then terminate()
       stdout.get(2, TimeUnit.SECONDS)
@@ -73,10 +95,13 @@ object BendBoundedProcess:
         terminate()
         Thread.currentThread().interrupt()
         BendProcessOutcome.StartFailed("Check canceled")
-      case e: java.io.IOException => BendProcessOutcome.StartFailed(Option(e.getMessage).getOrElse("Could not start Bend"))
+      case e: java.io.IOException =>
+        BendProcessOutcome.StartFailed(
+          Option(e.getMessage).getOrElse("Could not start Bend")
+        )
       case e: java.util.concurrent.TimeoutException =>
         terminate()
         BendProcessOutcome.TimedOut(output)
     finally
       terminate()
-      executor.shutdownNow()
+      val _ = executor.shutdownNow()

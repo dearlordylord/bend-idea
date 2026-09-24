@@ -3,9 +3,12 @@ package com.dearlordylord.bend.idea.syntax.lexer
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.intellij.psi.tree.IElementType
 
-/** Shared lexical vocabulary for highlighting and later parser/completion consumers. */
+/** Shared lexical vocabulary for highlighting and later parser/completion
+  * consumers.
+  */
 object BendTokens:
-  private def token(name: String): IElementType = new IElementType(name, BendLanguage.instance)
+  private def token(name: String): IElementType =
+    new IElementType(name, BendLanguage.instance)
 
   val Comment = token("COMMENT")
   val StringDelimiter = token("STRING_DELIMITER")

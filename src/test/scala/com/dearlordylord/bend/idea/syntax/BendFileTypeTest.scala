@@ -11,8 +11,14 @@ final class BendFileTypeTest extends BasePlatformTestCase:
     val file = myFixture.configureByText("example.bend", source)
     val fileType = file.getVirtualFile.getFileType
     assertTrue(fileType.isInstanceOf[BendFileType])
-    assertSame(BendLanguage.instance, fileType.asInstanceOf[BendFileType].getLanguage)
-    assertSame(fileType, FileTypeManager.getInstance.getFileTypeByExtension("bend"))
+    assertSame(
+      BendLanguage.instance,
+      fileType.asInstanceOf[BendFileType].getLanguage
+    )
+    assertSame(
+      fileType,
+      FileTypeManager.getInstance.getFileTypeByExtension("bend")
+    )
     assertEquals(source, myFixture.getEditor.getDocument.getText)
 
   def testBothThemeIconsLoad(): Unit =

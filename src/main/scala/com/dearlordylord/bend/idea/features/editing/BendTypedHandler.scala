@@ -9,21 +9,30 @@ import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 
-/** Quote handling uses the current lexer state, including unfinished literals. */
+/** Quote handling uses the current lexer state, including unfinished literals.
+  */
 final class BendTypedHandler extends TypedHandlerDelegate:
-  override def beforeCharTyped(c: Char, project: Project, editor: Editor,
-      file: PsiFile, fileType: FileType): TypedHandlerDelegate.Result =
+  override def beforeCharTyped(
+      c: Char,
+      project: Project,
+      editor: Editor,
+      file: PsiFile,
+      fileType: FileType
+  ): TypedHandlerDelegate.Result =
     if file.getLanguage != BendLanguage.instance || (c != '"' && c != '\'' && c != '<' && c != '>') ||
-        editor.getSelectionModel.hasSelection then return TypedHandlerDelegate.Result.CONTINUE
+      editor.getSelectionModel.hasSelection
+    then return TypedHandlerDelegate.Result.CONTINUE
     val offset = editor.getCaretModel.getOffset
     val source = editor.getDocument.getCharsSequence
     val lexer = new BendLexer()
     lexer.start(source)
     var endedInComment = false
     while lexer.getTokenType != null && lexer.getTokenEnd <= offset do
-      endedInComment = lexer.getTokenType == BendTokens.Comment && lexer.getTokenEnd == offset
+      endedInComment =
+        lexer.getTokenType == BendTokens.Comment && lexer.getTokenEnd == offset
       lexer.advance()
-    if endedInComment || lexer.getTokenType == BendTokens.Comment && lexer.getTokenStart <= offset then
+    if endedInComment || lexer.getTokenType == BendTokens.Comment && lexer.getTokenStart <= offset
+    then
       if c == '"' || c == '\'' then
         editor.getDocument.insertString(offset, c.toString)
         editor.getCaretModel.moveToOffset(offset + 1)
@@ -48,7 +57,9 @@ final class BendTypedHandler extends TypedHandlerDelegate:
       while previous >= 0 && source.charAt(previous) == '\\' do
         slashes += 1
         previous -= 1
-      if mode == wantedMode && slashes % 2 == 0 && offset < source.length && source.charAt(offset) == c then
+      if mode == wantedMode && slashes % 2 == 0 && offset < source.length && source
+          .charAt(offset) == c
+      then
         editor.getCaretModel.moveToOffset(offset + 1)
         TypedHandlerDelegate.Result.STOP
       else if mode != 0 then

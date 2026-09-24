@@ -1,12 +1,16 @@
 package com.dearlordylord.bend.idea.features.settings
 
-import com.dearlordylord.bend.idea.toolchain.api.{BendToolchainChoices, BendToolchainSettings}
+import com.dearlordylord.bend.idea.toolchain.api.{
+  BendToolchainChoices,
+  BendToolchainSettings
+}
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.{BaseConfigurable, ConfigurationException}
 import com.intellij.util.ui.FormBuilder
 import javax.swing.{JCheckBox, JComponent, JLabel, JPanel, JTextField}
 
-/** Application settings; the status tells users how to repair a missing Base. */
+/** Application settings; the status tells users how to repair a missing Base.
+  */
 final class BendSettingsConfigurable extends BaseConfigurable:
   private var panel: JPanel = null
   private var executable: JTextField = null
@@ -26,24 +30,39 @@ final class BendSettingsConfigurable extends BaseConfigurable:
     cache = new JTextField()
     diagnostics = new JCheckBox("Enable background diagnostics")
     status = new JLabel()
-    panel = FormBuilder.createFormBuilder()
+    panel = FormBuilder
+      .createFormBuilder()
       .addLabeledComponent("Executable (default ~/.bend/bin/bend):", executable)
-      .addLabeledComponent("Base source (default ~/.bend/bend2/base.bend):", base)
-      .addLabeledComponent("Package cache (default BEND_LIB or ~/.bend/lib):", cache)
+      .addLabeledComponent(
+        "Base source (default ~/.bend/bend2/base.bend):",
+        base
+      )
+      .addLabeledComponent(
+        "Package cache (default BEND_LIB or ~/.bend/lib):",
+        cache
+      )
       .addComponent(diagnostics)
       .addComponent(status)
-      .addComponentFillVertically(new JPanel(), 0).getPanel
+      .addComponentFillVertically(new JPanel(), 0)
+      .getPanel
     reset()
     panel
 
   override def isModified: Boolean = fields != settings.choices
 
   private def fields: BendToolchainChoices =
-    BendToolchainChoices(executable.getText, base.getText, cache.getText, diagnostics.isSelected)
+    BendToolchainChoices(
+      executable.getText,
+      base.getText,
+      cache.getText,
+      diagnostics.isSelected
+    )
 
   override def apply(): Unit =
     try settings.update(fields)
-    catch case error: IllegalArgumentException => throw new ConfigurationException(error.getMessage)
+    catch
+      case error: IllegalArgumentException =>
+        throw new ConfigurationException(error.getMessage)
     refreshStatus()
 
   override def reset(): Unit =
@@ -58,7 +77,10 @@ final class BendSettingsConfigurable extends BaseConfigurable:
     val selected = settings.selection.baseSource
     if java.nio.file.Files.isRegularFile(java.nio.file.Path.of(selected)) then
       status.setText("Base source: " + selected)
-    else status.setText("Base source unavailable. Select an installed base.bend file to enable Base names.")
+    else
+      status.setText(
+        "Base source unavailable. Select an installed base.bend file to enable Base names."
+      )
 
   override def disposeUIResources(): Unit =
     panel = null

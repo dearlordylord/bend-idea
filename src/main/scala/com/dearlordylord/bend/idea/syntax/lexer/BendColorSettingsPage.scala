@@ -3,14 +3,21 @@ package com.dearlordylord.bend.idea.syntax.lexer
 import com.dearlordylord.bend.idea.syntax.BendFileType
 import com.intellij.openapi.fileTypes.SyntaxHighlighter
 import com.intellij.openapi.editor.colors.TextAttributesKey
-import com.intellij.openapi.options.colors.{AttributesDescriptor, ColorDescriptor, ColorSettingsPage}
+import com.intellij.openapi.options.colors.{
+  AttributesDescriptor,
+  ColorDescriptor,
+  ColorSettingsPage
+}
 import com.intellij.openapi.util.IconLoader
 import javax.swing.Icon
 
 final class BendColorSettingsPage extends ColorSettingsPage:
   override def getDisplayName: String = "Bend"
-  override def getAdditionalHighlightingTagToDescriptorMap: java.util.Map[String, TextAttributesKey] = java.util.Collections.emptyMap()
-  override def getIcon: Icon = IconLoader.getIcon("/icons/bend.svg", classOf[BendFileType])
+  override def getAdditionalHighlightingTagToDescriptorMap
+      : java.util.Map[String, TextAttributesKey] =
+    java.util.Collections.emptyMap()
+  override def getIcon: Icon =
+    IconLoader.getIcon("/icons/bend.svg", classOf[BendFileType])
   override def getHighlighter: SyntaxHighlighter = new BendSyntaxHighlighter()
   override def getAttributeDescriptors: Array[AttributesDescriptor] = Array(
     AttributesDescriptor("Keyword", BendColors.Keyword),
@@ -33,7 +40,8 @@ final class BendColorSettingsPage extends ColorSettingsPage:
     AttributesDescriptor("Separator", BendColors.Separator),
     AttributesDescriptor("Invalid character", BendColors.Bad)
   )
-  override def getColorDescriptors: Array[ColorDescriptor] = ColorDescriptor.EMPTY_ARRAY
+  override def getColorDescriptors: Array[ColorDescriptor] =
+    ColorDescriptor.EMPTY_ARRAY
   override def getDemoText: String =
     """import Base
       |import ./Numbers.bend as Numbers

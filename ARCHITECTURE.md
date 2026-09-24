@@ -296,6 +296,8 @@ This table describes contribution to the proposed architecture; it does not repl
 | #46 | Proof edits | `features.semantics`, `analysis` | Candidate snapshot validation and edit preconditions |
 | #47 | Normalization | `features.semantics`, `analysis` | Contextual evaluation, killable worker, display-only output |
 | #49 | Module-path navigation | `symbols.references`, `workspace` | Leading-import ranges, validated graph edges, current physical file PSI |
+| #52 | Explicit checking policy | `analysis.checking`, `analysis.api`, `adapters.intellij` | Shared immutable transitions, result provenance and current-only publication |
+| #53 | Background checking scheduler | `analysis.checking`, `analysis.api`, `adapters.intellij` | Policy-owned debounce tokens, worker priority, bounded retries and root eviction; adapter-owned handles |
 
 ## Implementation order without a large framework phase
 
@@ -351,7 +353,7 @@ Use pure functions for scope eligibility, graph validation, source-map compositi
 transition(RootState, AnalysisEvent) -> NewState + RequestedEffects
 ```
 
-For example, `DependencyChanged` marks a result stale and requests cancellation; `WorkerFinished` accepts or discards a result according to its key and generation. The project service serializes transitions and performs their requested effects. These are ordinary data types and functions, not a requirement to build an effect interpreter framework. A state-machine unit test is useful for a difficult publication race, alongside the real subprocess/editor test.
+For example, `DependencyChanged` marks a result stale and requests cancellation; a background request records a token and asks the adapter to schedule its timer; a due timer must present that token before capture can reserve the worker; and `WorkerFinished` accepts or discards a result according to its key and generation. The project service serializes transitions and performs their requested effects. Timers, listeners, documents, VFS objects and executor handles remain in the IntelliJ adapter. These are ordinary data types and functions, not a requirement to build an effect interpreter framework. State-machine tests cover stale timer/capture callbacks, retry bounds and eviction, alongside real subprocess/editor tests for effects and publication.
 
 Keep mutation where the platform requires it: PSI writes occur in undoable commands; service state changes under one owner. Do not attempt to make platform objects immutable or spread mutable compiler state through the JVM model. Exhaustive result variants and explicit unavailable/ambiguous cases suit functional modeling in Scala 3.
 
@@ -390,6 +392,8 @@ The scaffold now provides `check`, `architectureTest`, `buildPlugin`, `verifyPlu
 - The #2 scaffold establishes Scala compilation, an actual file-recognition fixture, distribution verification and a CI entry point. Its `architectureTest` task runs as part of `check`.
 - Encode allowed production package edges explicitly. Inspect compiled dependencies rather than relying only on import text: fully qualified references and generated Scala classes can evade a source grep. Validate the chosen checker on Scala 3 output.
 - Check absence of subsystem cycles, forbidden platform/I/O dependencies in policy packages, imports of adapter implementations from policy/features, and dependencies on another feature's implementation. Maintain an explicit allowlist for narrow shared feature APIs such as templates.
+- Keep `policyMutationCheck` as an additional source-level `DisableSyntax.noVars` guard over only `model`, `workspace/api`, `workspace/model`, `workspace/loading`, `analysis/api`, `analysis/model`, and `analysis/checking`. IntelliJ, CLI/process, PSI/syntax, feature, and test owners remain outside this rule. The lint task does not replace A2/A4 compiled dependency checks.
+- Run a negative quality-gate harness from `quality-gate/fixtures` as part of `check`: a `var` in an `analysis` policy package must fail the scoped Scalafix invocation, and a discarded non-Unit result must fail dotc with the configured warning flags. Keep these probe sources outside product and test source sets, and assert each failure contains the expected diagnostic.
 - Keep a negative fixture for the checker itself: a deliberately forbidden dependency must make it fail. Ensure the rule suite checks real production classes rather than passing on an empty class selection. As packages appear in #5 and later, extend coverage in the same change.
 - Keep architectural tests independent of IDE fixtures where possible. Existing behavior tests remain the authority for semantic rules that bytecode cannot establish. JVM dependency checks do not prove cancellation, absence of network access or correctness of scopes.
 - Configure required CI checks on the protected branch once the workflow exists. A workflow file alone does not prevent a merge; repository branch/ruleset configuration is a separate setting.
