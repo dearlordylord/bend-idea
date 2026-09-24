@@ -44,7 +44,8 @@ object BendBoundedProcess:
       if process != null then
         process.descendants().iterator().asScala.foreach(_.destroyForcibly())
         process.destroyForcibly()
-        try process.waitFor(2, TimeUnit.SECONDS)
+        try
+          val _ = process.waitFor(2, TimeUnit.SECONDS)
         catch case _: InterruptedException => ()
     try
       if canceled() then return BendProcessOutcome.Canceled("")
@@ -103,4 +104,4 @@ object BendBoundedProcess:
         BendProcessOutcome.TimedOut(output)
     finally
       terminate()
-      executor.shutdownNow()
+      val _ = executor.shutdownNow()

@@ -160,9 +160,9 @@ final class BendCheckSession(project: Project)
         if rootOrder.size >= maxRoots then
           val oldest = rootOrder.dequeue()
           subscriptions.remove(oldest).foreach(_())
-          results.remove(oldest)
-          captures.remove(oldest)
-          generations.remove(oldest)
+          val _ = results.remove(oldest)
+          val _ = captures.remove(oldest)
+          val _ = generations.remove(oldest)
         rootOrder.enqueue(root)
       subscriptions.remove(root).foreach(_())
       subscriptions(root) = subscribe(() => sourceChanged(root))
@@ -259,7 +259,7 @@ final class BendCheckSession(project: Project)
             published
         finally
           synchronized {
-            pendingCaptures.remove(root)
+            val _ = pendingCaptures.remove(root)
             if active.exists(a => a._1 == root && a._2 == generation) then
               active = None
               started = false

@@ -57,7 +57,9 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
         try
           paths
             .sorted(java.util.Comparator.reverseOrder())
-            .forEach(p => Files.deleteIfExists(p))
+            .forEach(p => {
+              val _ = Files.deleteIfExists(p)
+            })
         finally paths.close()
     finally super.tearDown()
 
@@ -210,7 +212,10 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       )
     )
     val worker = new Thread(new Runnable:
-      override def run(): Unit = { service.check(snapshot, () => false); () })
+      override def run(): Unit = {
+        val _ = service.check(snapshot, () => false)
+        ()
+      })
     worker.start()
     val until = System.nanoTime() + 10_000_000_000L
     while !Files.exists(marker) && System.nanoTime() < until do Thread.sleep(25)

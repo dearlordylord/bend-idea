@@ -249,7 +249,7 @@ private[scope] object BendStructuredScope:
       else if tokens(i).text == "case" then
         val column = col(source, tokens(i).start)
         while stack.nonEmpty && column < stack.last.firstColumn do
-          stack.remove(stack.size - 1)
+          val _ = stack.remove(stack.size - 1)
         stack.lastOption.foreach { frame =>
           owners(i) = frame.id
           frame.rowColumn = column

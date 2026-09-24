@@ -35,7 +35,9 @@ final class BendCliGraphCheckTest:
       try
         files
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(p => Files.deleteIfExists(p))
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally files.close()
 
   private def source(path: Path, text: String): BendSourceRecord =

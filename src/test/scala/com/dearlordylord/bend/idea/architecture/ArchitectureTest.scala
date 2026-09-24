@@ -353,7 +353,7 @@ final class ArchitectureTest:
       "Detect one feature reaching into another",
       failures.exists(s => s.contains("A2") && s.contains("BadRename"))
     )
-    assertThrows(
+    val _ = assertThrows(
       classOf[AssertionError],
       () => ArchitectureRules.check(classes, "architecturefixture")
     )

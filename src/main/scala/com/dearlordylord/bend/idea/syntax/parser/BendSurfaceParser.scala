@@ -88,12 +88,12 @@ final class BendSurfaceParser extends PsiParser:
     var colonFound = false
     while !builder.eof() && !declarationStart(builder) && !colonFound do
       val word = text(builder)
-      word match
+      val _ = word match
         case "("                                       => stack += ")"
         case "{"                                       => stack += "}"
         case "["                                       => stack += "]"
         case close if stack.lastOption.contains(close) =>
-          stack.remove(stack.size - 1)
+          val _ = stack.remove(stack.size - 1)
         case ":" if stack.isEmpty => colonFound = true
         case _
             if Set(
@@ -111,11 +111,13 @@ final class BendSurfaceParser extends PsiParser:
               (Character.isLetterOrDigit(source.charAt(before)) || source
                 .charAt(before) == '_' || source.charAt(before) == '>' || source
                 .charAt(before) == ')')
-            then stack += ">"
+            then
+              val _ = stack += ">"
             else if c == '>' && (i == 0 || word.charAt(
                 i - 1
               ) != '-') && stack.lastOption.contains(">")
-            then stack.remove(stack.size - 1)
+            then
+              val _ = stack.remove(stack.size - 1)
         case _ => ()
       advanceReference(builder)
     header.done(BendElements.Header)

@@ -205,7 +205,9 @@ final class BendGraphLoaderTest:
       try
         paths
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(p => Files.deleteIfExists(p))
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally paths.close()
 
   private def mapCatalog(records: BendSourceRecord*): BendSourceCatalog =

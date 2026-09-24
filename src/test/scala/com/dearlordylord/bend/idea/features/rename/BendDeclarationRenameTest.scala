@@ -121,7 +121,8 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
     assertTrue(undo.isUndoAvailable(editor))
     val previousDialog = TestDialogManager.setTestDialog(TestDialog.YES)
     try undo.undo(editor)
-    finally TestDialogManager.setTestDialog(previousDialog)
+    finally
+      val _ = TestDialogManager.setTestDialog(previousDialog)
     assertEquals(
       "law claim:\n  {1 == 1 : U32}\n",
       myFixture.getEditor.getDocument.getText
@@ -335,7 +336,9 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
       try
         paths
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(p => Files.deleteIfExists(p))
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally paths.close()
 
   def testPinnedCompilerAcceptsBeforeAndAfterDeclarationRename(): Unit =
@@ -391,5 +394,7 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
       try
         paths
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(p => Files.deleteIfExists(p))
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally paths.close()

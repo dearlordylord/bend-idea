@@ -35,7 +35,9 @@ final class BendDocumentationTest extends BasePlatformTestCase:
       try
         stream
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(path => Files.deleteIfExists(path))
+          .forEach(path => {
+            val _ = Files.deleteIfExists(path)
+          })
       finally stream.close()
     finally super.tearDown()
 

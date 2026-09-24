@@ -2,7 +2,7 @@ package com.dearlordylord.bend.idea.adapters.process
 
 import org.junit.Assert.*
 import org.junit.Test
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicBoolean
 
 final class BendBoundedProcessTest:
@@ -23,7 +23,8 @@ final class BendBoundedProcessTest:
         maxOutputBytes = 128
       )
       assertTrue(output.isInstanceOf[BendProcessOutcome.OutputLimit])
-    finally Files.deleteIfExists(directory)
+    finally
+      val _ = Files.deleteIfExists(directory)
 
   @Test def cancellationTerminatesWorker(): Unit =
     val directory = Files.createTempDirectory("bend-worker-cancel-")
@@ -42,4 +43,5 @@ final class BendBoundedProcessTest:
       )
       assertTrue(result.isInstanceOf[BendProcessOutcome.Canceled])
       thread.join()
-    finally Files.deleteIfExists(directory)
+    finally
+      val _ = Files.deleteIfExists(directory)

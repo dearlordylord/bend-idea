@@ -21,7 +21,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - name: Test, check architecture, package and verify compatibility
+      - name: Test, check policy and architecture, package and verify compatibility
         run: ./gradlew --no-daemon check buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration
       - name: Sign and verify distribution
         if: github.event_name == 'push' && env.SIGNING_CONFIGURED == 'true'

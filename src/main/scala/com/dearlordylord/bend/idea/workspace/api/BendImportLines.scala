@@ -1,5 +1,7 @@
 package com.dearlordylord.bend.idea.workspace.api
 
+import com.dearlordylord.bend.idea.workspace.model.BendImport
+
 /** Loader-compatible recognition of the leading import block. The pinned loader
   * scans trimmed source lines before parsing declarations.
   */
@@ -24,33 +26,36 @@ object BendImportLines:
   /** Leading import block only, with original spellings and UTF-16 offsets. */
   def parse(
       source: String
-  ): List[com.dearlordylord.bend.idea.workspace.model.BendImport] =
-    val result =
-      List.newBuilder[com.dearlordylord.bend.idea.workspace.model.BendImport]
+  ): List[BendImport] =
     val Import =
       "^import\\s+(\\S+)(?:\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*))?\\s*(?:#.*)?$".r
-    var offset = 0
-    var leading = true
-    source.split("\n", -1).foreach { line =>
-      val trimmed = line.trim
-      if leading then
-        if trimmed.isEmpty || trimmed.startsWith("#") then ()
+    val lines = source.split("\n", -1).toList
+    val offsets = lines.scanLeft(0)((offset, line) => offset + line.length + 1)
+    val imports = offsets
+      .dropRight(1)
+      .zip(lines)
+      .foldLeft(
+        (true, List.empty[BendImport])
+      ) { case ((leading, found), (offset, line)) =>
+        val trimmed = line.trim
+        if !leading then (false, found)
+        else if trimmed.isEmpty || trimmed.startsWith("#") then (true, found)
         else if AnyImport.matches(trimmed) then
-          trimmed match
+          val imp = trimmed match
             case Import(path, alias) =>
-              result += com.dearlordylord.bend.idea.workspace.model.BendImport(
+              BendImport(
                 path,
                 Option(alias),
                 offset + line.indexOf("import")
               )
             case _ =>
-              result += com.dearlordylord.bend.idea.workspace.model.BendImport(
+              BendImport(
                 trimmed.stripPrefix("import").trim,
                 None,
                 offset + line.indexOf("import"),
                 Some("an import ('import Base', or 'import <path> as <Name>')")
               )
-        else leading = false
-      offset += line.length + 1
-    }
-    result.result()
+          (true, imp :: found)
+        else (false, found)
+      }
+    imports._2.reverse

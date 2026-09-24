@@ -162,16 +162,19 @@ final class BendSourceCompletionTest extends BasePlatformTestCase:
     com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(
       getProject,
       new Runnable:
-        override def run(): Unit = declaration.setName("U32.plus")
+        override def run(): Unit = {
+          val _ = declaration.setName("U32.plus")
+          ()
+        }
     )
     assertTrue(myFixture.getFile.getText.startsWith("def U32.plus():"))
     try
-      declaration.setName("def")
+      val _ = declaration.setName("def")
       fail("Reserved declaration name should be rejected")
     catch case _: com.intellij.util.IncorrectOperationException => ()
 
   def testLawSourceSignatureAndConstructorFields(): Unit =
-    items(
+    val _ = items(
       "law same:\n  for -A: Type\n  {A == A : Type}\ntype Pair is Data:\n  Pair{left: Nat, +right: Nat}\ndef main():\n  Pa<caret>"
     )
     val symbols = BendSourceSymbols.declarations(myFixture.getFile)
@@ -189,7 +192,7 @@ final class BendSourceCompletionTest extends BasePlatformTestCase:
     )
 
   def testCommentsRequireSameIndentation(): Unit =
-    items(
+    val _ = items(
       "def old():\n  # Body comment\ndef next():\n  0\n# Real comment\ndef final():\n  0\ndef main():\n  fi<caret>"
     )
     val declarations = BendSourceSymbols.declarations(myFixture.getFile)
@@ -221,7 +224,7 @@ final class BendSourceCompletionTest extends BasePlatformTestCase:
     assertEquals(BendSourceSymbols.fileId(a), BendSourceSymbols.fileId(a))
 
   def testSpacedComparisonReturnTypeKeepsHeaderBoundary(): Unit =
-    items(
+    val _ = items(
       "def less(a: Nat, b: Nat) -> {a < b : Nat}:\n  ?TODO\ndef next():\n  0\ndef main():\n  le<caret>"
     )
     val less = BendSourceSymbols
@@ -237,7 +240,7 @@ final class BendSourceCompletionTest extends BasePlatformTestCase:
     )
 
   def testAdjacentComparisonDoesNotConsumeHeader(): Unit =
-    items(
+    val _ = items(
       "def less(a: Nat, b: Nat) -> {a<b : Nat}:\n  ?TODO\ndef next():\n  0\ndef main():\n  le<caret>"
     )
     val less = BendSourceSymbols

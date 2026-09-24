@@ -3,7 +3,7 @@ package com.dearlordylord.bend.idea.syntax
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
 import com.dearlordylord.bend.idea.syntax.parser.BendSurfaceParser
 import com.dearlordylord.bend.idea.syntax.psi.*
-import com.intellij.lang.{ASTNode, ParserDefinition, PsiBuilder, PsiParser}
+import com.intellij.lang.{ASTNode, ParserDefinition, PsiParser}
 import com.intellij.lexer.Lexer
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.fileTypes.FileTypeManager

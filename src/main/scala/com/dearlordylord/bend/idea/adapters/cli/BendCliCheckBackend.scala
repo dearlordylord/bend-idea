@@ -12,8 +12,6 @@ import com.dearlordylord.bend.idea.workspace.model.*
 import com.dearlordylord.bend.idea.model.FileId
 import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
-import scala.jdk.CollectionConverters.*
-import scala.collection.mutable
 
 /** Text CLI backend. The only source command it can construct is --check-only.
   */
@@ -296,7 +294,9 @@ final class BendCliCheckBackend(
         try
           files
             .sorted(java.util.Comparator.reverseOrder())
-            .forEach(p => Files.deleteIfExists(p))
+            .forEach(p => {
+              val _ = Files.deleteIfExists(p)
+            })
         finally files.close()
 
   private def reliableLine(output: String, source: String): BendLocation =
@@ -503,7 +503,8 @@ final class BendCliCheckBackend(
         snapshot.siblingLaws.foreach { law =>
           val destination = rootPath.resolveSibling("LAWS.bend")
           if !Files.exists(destination) then
-            Files.writeString(destination, law.text, StandardCharsets.UTF_8)
+            val _ =
+              Files.writeString(destination, law.text, StandardCharsets.UTF_8)
         }
       if canceled() then
         return result(
@@ -601,7 +602,9 @@ final class BendCliCheckBackend(
         try
           files
             .sorted(java.util.Comparator.reverseOrder())
-            .forEach(p => Files.deleteIfExists(p))
+            .forEach(p => {
+              val _ = Files.deleteIfExists(p)
+            })
         finally files.close()
 
   private def graphLocation(

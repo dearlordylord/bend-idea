@@ -47,56 +47,53 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
     target(element, originalElement).map { case (file, site) =>
       val symbol = site.symbol
       val html = new StringBuilder
-      html.append("<div class='definition'>")
+      def append(value: String): Unit =
+        val _ = html.append(value)
+      append("<div class='definition'>")
       if symbol.category == BendSymbolCategory.Law then
-        html.append("<p>Law specification</p>")
-      html
-        .append("<pre>")
-        .append(escape(site.sourceSignature))
-        .append("</pre></div>")
-      html
-        .append("<div class='content'><p>")
-        .append(label(symbol.category))
-        .append(" in ")
-        .append(escape(file.getName))
-        .append("</p>")
+        append("<p>Law specification</p>")
+      append("<pre>")
+      append(escape(site.sourceSignature))
+      append("</pre></div>")
+      append("<div class='content'><p>")
+      append(label(symbol.category))
+      append(" in ")
+      append(escape(file.getName))
+      append("</p>")
       if symbol.comments.nonEmpty then
-        html
-          .append("<p>")
-          .append(escape(symbol.comments).replace("\n", "<br/>"))
-          .append("</p>")
+        append("<p>")
+        append(escape(symbol.comments).replace("\n", "<br/>"))
+        append("</p>")
       site.law.foreach { law =>
-        html
-          .append("<p>Law specification in ")
-          .append(escape(sourceName(law)))
-          .append("</p><pre>")
-          .append(escape(law.signature.source))
-          .append("</pre>")
+        append("<p>Law specification in ")
+        append(escape(sourceName(law)))
+        append("</p><pre>")
+        append(escape(law.signature.source))
+        append("</pre>")
         if law.comments.nonEmpty then
-          html
-            .append("<p>")
-            .append(escape(law.comments).replace("\n", "<br/>"))
-            .append("</p>")
-        html.append(link("Declaration", law))
+          append("<p>")
+          append(escape(law.comments).replace("\n", "<br/>"))
+          append("</p>")
+        append(link("Declaration", law))
       }
-      if site.law.isEmpty then html.append(link("Declaration", symbol))
+      if site.law.isEmpty then append(link("Declaration", symbol))
       site.fills.foreach { fill =>
-        html
-          .append("<p>Implementation in ")
-          .append(escape(sourceName(fill)))
-          .append("</p><pre>")
-          .append(escape(fill.signature.source))
-          .append("</pre>")
+        append("<p>Implementation in ")
+        append(escape(sourceName(fill)))
+        append("</p><pre>")
+        append(escape(fill.signature.source))
+        append("</pre>")
         if fill.comments.nonEmpty then
-          html
-            .append("<p>")
-            .append(escape(fill.comments).replace("\n", "<br/>"))
-            .append("</p>")
-        html.append(link("Implementation", fill))
+          append("<p>")
+          append(escape(fill.comments).replace("\n", "<br/>"))
+          append("</p>")
+        append(link("Implementation", fill))
       }
       if site.law.nonEmpty then
-        html.append(" ").append(link("Implementation", symbol))
-      html.append("</div>").toString
+        append(" ")
+        append(link("Implementation", symbol))
+      append("</div>")
+      html.toString
     }.orNull
 
   override def getDocumentationElementForLink(

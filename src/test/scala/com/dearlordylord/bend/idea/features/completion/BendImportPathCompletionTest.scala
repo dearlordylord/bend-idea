@@ -33,7 +33,9 @@ final class BendImportPathCompletionTest extends BasePlatformTestCase:
       try
         walk
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(path => Files.deleteIfExists(path))
+          .forEach(path => {
+            val _ = Files.deleteIfExists(path)
+          })
       finally walk.close()
     finally super.tearDown()
 

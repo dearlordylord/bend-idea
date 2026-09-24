@@ -43,7 +43,9 @@ final class BendNavigationTest extends BasePlatformTestCase:
       try
         walk
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(path => Files.deleteIfExists(path))
+          .forEach(path => {
+            val _ = Files.deleteIfExists(path)
+          })
       finally walk.close()
     finally super.tearDown()
 
@@ -271,7 +273,8 @@ final class BendNavigationTest extends BasePlatformTestCase:
           myFixture.getCaretOffset
         )
       )
-    finally Files.setPosixFilePermissions(unreadable, permissions)
+    finally
+      val _ = Files.setPosixFilePermissions(unreadable, permissions)
 
   def testLocalShadowingAndForwardEligibility(): Unit =
     val local = reference(

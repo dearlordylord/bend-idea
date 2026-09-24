@@ -151,9 +151,9 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       var removed: Option[FileId] = None
       if !knownRoots.contains(root) && knownRoots.size >= 128 then
         val oldest = knownRoots.head._1
-        knownRoots.remove(oldest)
+        val _ = knownRoots.remove(oldest)
         queued.remove(oldest).foreach(_.cancel(false))
-        tickets.remove(oldest)
+        val _ = tickets.remove(oldest)
         removed = Some(oldest)
       knownRoots(root) = file
       val ticket = tickets.getOrElse(root, 0L) + 1
@@ -225,7 +225,7 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       settings.selection.configurationRevision == selection.configurationRevision &&
       synchronized { tickets.get(root).contains(ticket) }
     if !current then return
-    synchronized { runningRoots += root }
+    val _ = synchronized { runningRoots += root }
     if !service.begin(
         initial,
         callback => {
@@ -239,7 +239,7 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
         background = true
       )
     then
-      synchronized { runningRoots -= root }
+      val _ = synchronized { runningRoots -= root }
       // An explicit check has the slot. Retry after it finishes, without
       // occupying another worker or delaying that user action.
       retry(file, root, ticket, attempt)
@@ -277,7 +277,8 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
           if !project.isDisposed then
             DaemonCodeAnalyzer.getInstance(project).restart()
         })
-    finally synchronized { runningRoots -= root }
+    finally
+      val _ = synchronized { runningRoots -= root }
 
   override def dispose(): Unit =
     val roots = synchronized {

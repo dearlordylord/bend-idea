@@ -7,9 +7,9 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
 
 final class BendDelimiterTest extends BasePlatformTestCase:
-  private def editing(source: String): String =
+  private def editing(source: String): Unit =
     myFixture.configureByText("pairs.bend", source)
-    myFixture.getEditor.getDocument.getText
+    ()
 
   def testOrdinaryPairsOvertypingAndBackspace(): Unit =
     editing("def f(): <caret>")

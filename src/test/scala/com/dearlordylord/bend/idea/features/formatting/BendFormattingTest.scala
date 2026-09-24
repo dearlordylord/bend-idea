@@ -119,5 +119,7 @@ final class BendFormattingTest extends BasePlatformTestCase:
       try
         paths
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(p => Files.deleteIfExists(p))
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally paths.close()

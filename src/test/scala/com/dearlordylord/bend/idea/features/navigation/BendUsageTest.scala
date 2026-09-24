@@ -41,7 +41,9 @@ final class BendUsageTest extends BasePlatformTestCase:
       try
         walk
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(path => Files.deleteIfExists(path))
+          .forEach(path => {
+            val _ = Files.deleteIfExists(path)
+          })
       finally walk.close()
     finally super.tearDown()
 
@@ -153,7 +155,9 @@ final class BendUsageTest extends BasePlatformTestCase:
     assertEquals(1, usages(imported).size)
 
   def testStandardHighlightUsagesAction(): Unit =
-    target("def value():\n  0\ndef main():\n  <caret>value()\n  value()\n")
+    val _ = target(
+      "def value():\n  0\ndef main():\n  <caret>value()\n  value()\n"
+    )
     myFixture.performEditorAction("HighlightUsagesInFile")
     val highlights =
       myFixture.getEditor.getMarkupModel.getAllHighlighters.toList

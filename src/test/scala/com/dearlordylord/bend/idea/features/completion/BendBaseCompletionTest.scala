@@ -38,7 +38,9 @@ final class BendBaseCompletionTest extends BasePlatformTestCase:
         try
           files
             .sorted(java.util.Comparator.reverseOrder())
-            .forEach(path => Files.deleteIfExists(path))
+            .forEach(path => {
+              val _ = Files.deleteIfExists(path)
+            })
         finally files.close()
     finally super.tearDown()
 

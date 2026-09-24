@@ -100,7 +100,7 @@ final class BendDeclarationRenameProcessor extends RenamePsiElementProcessor:
               if selected.category == BendSymbolCategory.Definition &&
                 selected.name.endsWith("." + oldLawName)
               then
-                allRenames.put(
+                val _ = allRenames.put(
                   declaration,
                   selected.name.stripSuffix(oldLawName) + simpleNewName
                 )
@@ -110,7 +110,7 @@ final class BendDeclarationRenameProcessor extends RenamePsiElementProcessor:
                   else if symbol.name.endsWith("." + oldLawName) then
                     symbol.name.stripSuffix(oldLawName) + simpleNewName
                   else newName
-                  allRenames.put(symbol.declaration, spelling)
+                  val _ = allRenames.put(symbol.declaration, spelling)
               }
           }
       case _ => ()

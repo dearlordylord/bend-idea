@@ -64,7 +64,7 @@ object BendIndentPolicy:
             BendTokens.RightBrace =>
           val close = source.charAt(offset)
           if stack.lastOption.exists(_._1 == close) then
-            stack.remove(stack.size - 1)
+            val _ = stack.remove(stack.size - 1)
         case _ => ()
       lexer.advance()
     stack.lastOption.map(_._2)

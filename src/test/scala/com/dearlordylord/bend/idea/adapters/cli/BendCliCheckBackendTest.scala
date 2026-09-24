@@ -31,7 +31,9 @@ final class BendCliCheckBackendTest:
       try
         paths
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(p => Files.deleteIfExists(p))
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally paths.close()
 
   private def snapshot(
@@ -235,5 +237,7 @@ final class BendCliCheckBackendTest:
       try
         paths
           .sorted(java.util.Comparator.reverseOrder())
-          .forEach(p => Files.deleteIfExists(p))
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
       finally paths.close()

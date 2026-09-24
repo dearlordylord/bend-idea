@@ -70,7 +70,7 @@ final class BendLawProofScopeTest extends BasePlatformTestCase:
     )
 
   def testOpenLawStaysSourceOnly(): Unit =
-    candidates("law pending:\n  Type\ndef main():\n  pen<caret>")
+    val _ = candidates("law pending:\n  Type\ndef main():\n  pen<caret>")
     val link = BendSourceSymbols.logicalLaws(myFixture.getFile).head
     assertTrue(link.isOpen)
     assertTrue(link.fills.isEmpty)
@@ -163,7 +163,7 @@ final class BendLawProofScopeTest extends BasePlatformTestCase:
     )
 
   def testNamedAndTodoHolesAreNotDeclarations(): Unit =
-    candidates(
+    val _ = candidates(
       "law proof:\n  Type\ndef proof():\n  ?named\n  ?TODO\ndef main():\n  pro<caret>"
     )
     val names = BendSourceSymbols.declarations(myFixture.getFile).map(_.name)
@@ -213,7 +213,7 @@ final class BendLawProofScopeTest extends BasePlatformTestCase:
     assertTrue(presentation.getTailText.contains("Nat where IsEven(x) (law)"))
 
   def testTypedDefinitionAfterLawIsNotItsFill(): Unit =
-    candidates(
+    val _ = candidates(
       "law claim:\n  Type\ndef claim(f: Nat -> Nat) -> IO(Unit):\n  ?TODO\ndef main():\n  cla<caret>"
     )
     assertTrue(BendSourceSymbols.logicalLaws(myFixture.getFile).head.isOpen)
@@ -226,13 +226,13 @@ final class BendLawProofScopeTest extends BasePlatformTestCase:
         )
         .count(_.name == "claim")
     )
-    candidates(
+    val _ = candidates(
       "law claim:\n  Type\ndef claim(f: Nat -> Nat):\n  ?TODO\ndef main():\n  cla<caret>"
     )
     assertTrue(BendSourceSymbols.logicalLaws(myFixture.getFile).head.isOpen)
 
   def testProofFormsRemainDistinctThroughIncompleteEdit(): Unit =
-    candidates(
+    val _ = candidates(
       "law claim:\n  {0n == 0n : Nat}\ndef claim():\n  %e@{0n == 0n : Nat} : {_ == 0n : Nat};\n  (1 + 2 : U32)\n  ?named\n  ?TODO\n  ?\n  {==}\n  %incomplete : {"
     )
     val forms = BendSourceSymbols

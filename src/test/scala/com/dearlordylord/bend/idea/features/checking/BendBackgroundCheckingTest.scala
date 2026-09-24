@@ -59,7 +59,9 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
         try
           paths
             .sorted(java.util.Comparator.reverseOrder())
-            .forEach(p => Files.deleteIfExists(p))
+            .forEach(p => {
+              val _ = Files.deleteIfExists(p)
+            })
         finally paths.close()
     finally super.tearDown()
 
@@ -104,10 +106,10 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     val service = getProject.getService(classOf[BendCheckService])
     myFixture.openFileInEditor(first.getVirtualFile)
     myFixture.performEditorAction("Bend.CheckCurrentFile")
-    awaitResult(id(first.getVirtualFile), _.fresh)
+    val _ = awaitResult(id(first.getVirtualFile), _.fresh)
     myFixture.openFileInEditor(second.getVirtualFile)
     myFixture.performEditorAction("Bend.CheckCurrentFile")
-    awaitResult(id(second.getVirtualFile), _.fresh)
+    val _ = awaitResult(id(second.getVirtualFile), _.fresh)
     val dep = id(dependency.getVirtualFile)
     assertEquals(
       2,
@@ -135,7 +137,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
         )
     )
     myFixture.performEditorAction("Bend.CheckCurrentFile")
-    awaitResult(
+    val _ = awaitResult(
       id(first.getVirtualFile),
       r =>
         r.fresh &&
@@ -187,7 +189,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
             "import ./value.bend as V\ndef main() -> U32:\n  V.value()\n"
           )
     )
-    awaitResult(root, r => r.fresh && r.sources.exists(_.id == root))
+    val _ = awaitResult(root, r => r.fresh && r.sources.exists(_.id == root))
     myFixture.openFileInEditor(dep.getVirtualFile)
     WriteCommandAction.runWriteCommandAction(
       getProject,
@@ -446,7 +448,10 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     val transient = new BendCheckSession(getProject)
     assertTrue(transient.begin(snapshot, callback => () => (), () => true))
     val worker = new Thread(new Runnable:
-      override def run(): Unit = { transient.check(snapshot, () => false); () })
+      override def run(): Unit = {
+        val _ = transient.check(snapshot, () => false)
+        ()
+      })
     worker.start()
     try
       val started = System.nanoTime() + 10_000_000_000L

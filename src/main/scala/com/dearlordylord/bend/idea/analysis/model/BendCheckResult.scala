@@ -144,12 +144,9 @@ final case class BendSourceMapping(
       to: String,
       edits: List[EditRange]
   ): Boolean =
-    var fromCursor = 0
-    var toCursor = 0
-    var valid = true
-    edits.foreach { edit =>
-      if valid then
-        valid =
+    val cursors = edits.foldLeft(Option((0, 0))) {
+      case (Some((fromCursor, toCursor)), edit) =>
+        val valid =
           edit.fromStart >= fromCursor && edit.fromStart <= edit.fromEnd &&
             edit.fromEnd <= from.length && edit.toStart >= toCursor &&
             edit.toStart <= edit.toEnd && edit.toEnd <= to.length &&
@@ -160,11 +157,13 @@ final case class BendSourceMapping(
               toCursor,
               edit.fromStart - fromCursor
             )
-        fromCursor = edit.fromEnd
-        toCursor = edit.toEnd
+        Option.when(valid)((edit.fromEnd, edit.toEnd))
+      case (None, _) => None
     }
-    valid && from.length - fromCursor == to.length - toCursor &&
-    from.regionMatches(fromCursor, to, toCursor, from.length - fromCursor)
+    cursors.exists { case (fromCursor, toCursor) =>
+      from.length - fromCursor == to.length - toCursor &&
+      from.regionMatches(fromCursor, to, toCursor, from.length - fromCursor)
+    }
 
   private def validRewrites: Boolean =
     preservedGaps(originalText, copiedText, rewriteEdits)

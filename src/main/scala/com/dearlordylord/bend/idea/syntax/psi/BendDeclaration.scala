@@ -83,7 +83,7 @@ final class BendName(node: ASTNode)
       PsiTreeUtil.getParentOfType(this, classOf[BendDeclaration])
     if declaration == null then
       throw new IncorrectOperationException("Bend name has no declaration")
-    declaration.setName(newName)
+    val _ = declaration.setName(newName)
     declaration.getNameIdentifier
   override def getReferences: Array[com.intellij.psi.PsiReference] =
     ReferenceProvidersRegistry.getReferencesFromProviders(this)
@@ -176,7 +176,7 @@ object BendSourceParameter:
         parts += current.toString
         current.clear()
       else
-        c match
+        val _ = c match
           case '('                                => closes += ')'
           case '{'                                => closes += '}'
           case '['                                => closes += ']'

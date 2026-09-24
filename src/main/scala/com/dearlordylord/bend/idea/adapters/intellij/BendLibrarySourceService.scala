@@ -42,7 +42,7 @@ final class BendLibrarySourceService(project: Project)
           .take(limit)
           .foreach { file =>
             if entries.size < limit then
-              entries.getOrElseUpdate(
+              val _ = entries.getOrElseUpdate(
                 file.getName,
                 BendPathEntry(file.getName, false)
               )
@@ -54,7 +54,7 @@ final class BendLibrarySourceService(project: Project)
             while iterator.hasNext && entries.size < limit do
               val child = iterator.next()
               val name = child.getFileName.toString
-              entries.getOrElseUpdate(
+              val _ = entries.getOrElseUpdate(
                 name,
                 BendPathEntry(name, Files.isDirectory(child))
               )
@@ -81,7 +81,7 @@ final class BendLibrarySourceService(project: Project)
               virtualDirectory.getChildren.iterator.take(limit).foreach {
                 child =>
                   if entries.size < limit then
-                    entries.getOrElseUpdate(
+                    val _ = entries.getOrElseUpdate(
                       child.getName,
                       BendPathEntry(child.getName, child.isDirectory)
                     )
