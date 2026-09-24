@@ -28,7 +28,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     val selectedBase = directory.resolve("base.bend")
     Files.copy(pinned.resolveSibling("base.bend"), selectedBase)
     settings.update(BendToolchainChoices(executable = executable.toString,
-      baseSource = selectedBase.toString))
+      baseSource = selectedBase.toString, diagnosticsEnabled = false))
 
   override def tearDown(): Unit =
     try
@@ -158,6 +158,9 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     assertEquals(com.dearlordylord.bend.idea.analysis.model.BendLocation.SourceLine(depId, 2),
       result.diagnostics.head.location)
     myFixture.openFileInEditor(dep)
+    val importedResults = service.resultsFor(depId)
+    assertTrue("Published root diagnostics should stay current for the imported source",
+      importedResults.exists(r => r.fresh && r.diagnostics.exists(_.message.contains("unknown_value"))))
     assertTrue(myFixture.doHighlighting().toArray.exists(_.toString.contains("unknown_value")))
     WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
       override def run(): Unit = dependencyDocument.setText(
