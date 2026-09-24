@@ -28,7 +28,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     val selectedBase = directory.resolve("base.bend")
     Files.copy(pinned.resolveSibling("base.bend"), selectedBase)
     settings.update(BendToolchainChoices(executable = executable.toString,
-      baseSource = selectedBase.toString))
+      baseSource = selectedBase.toString, diagnosticsEnabled = false))
 
   override def tearDown(): Unit =
     try
@@ -40,6 +40,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     finally super.tearDown()
 
   def testExplicitActionUsesUnsavedDocumentAndProjectsCompilerError(): Unit =
+    val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
     myFixture.configureByText("editor.bend", "import Base\ndef main() -> U32:\n  0\n")
     WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
       override def run(): Unit =
@@ -75,8 +76,8 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     Files.writeString(compiler, Files.readString(compiler) + "\n# replaced compiler wrapper\n")
     assertFalse("Compiler replaced at same path must stale the recorded result",
       getProject.getService(classOf[BendCheckService]).result(id).get.fresh)
-    ApplicationManager.getApplication.getService(classOf[BendToolchainSettings]).update(
-      BendToolchainChoices(executable = directory.resolve("missing-bend").toString))
+    settings.update(settings.choices.copy(
+      executable = directory.resolve("missing-bend").toString))
     assertFalse(getProject.getService(classOf[BendCheckService]).result(id).get.fresh)
     assertFalse(myFixture.doHighlighting().toArray.exists(_.toString.contains("unknown_name")))
     WriteCommandAction.runWriteCommandAction(getProject, new Runnable:
@@ -91,7 +92,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     Files.writeString(executable,
       "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 10\n")
     executable.toFile.setExecutable(true)
-    settings.update(BendToolchainChoices(executable = executable.toString))
+    settings.update(settings.choices.copy(executable = executable.toString))
     myFixture.configureByText("slow.bend", "def main() -> Type:\n  Type\n")
     val file = myFixture.getFile.getVirtualFile
     val id = new FileId(Option(file.getCanonicalPath).getOrElse(file.getPath),

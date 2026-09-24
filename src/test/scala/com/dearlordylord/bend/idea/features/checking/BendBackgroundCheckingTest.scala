@@ -55,6 +55,20 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     found.getOrElse(throw new AssertionError("No matching result for " + root.value +
       "; last=" + service.result(root).map(r => (r.fresh, r.details.take(300)))))
 
+  private def slowCompiler(name: String, marker: Path, delaySeconds: Int): Path =
+    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
+    val selectedBase = directory.resolve("base.bend")
+    val executable = directory.resolve(name)
+    Files.writeString(executable,
+      "#!/bin/sh\n" +
+        "if [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\n" +
+        "if [ \"$1\" = \"base\" ]; then cat '" + selectedBase + "'; exit $?; fi\n" +
+        "printf x >> '" + marker + "'\n" +
+        "sleep " + delaySeconds + "\n" +
+        "exec npx --yes bun '" + pinned + "' \"$@\"\n")
+    executable.toFile.setExecutable(true)
+    executable
+
   def testTwoRootsKeepIndependentDiagnosticsOnOneDependency(): Unit =
     val dependency = myFixture.addFileToProject("shared.bend",
       "import Base\ndef value() -> U32:\n  unknown_shared\n")
@@ -126,12 +140,8 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
 
   def testCanceledBackgroundProcessCannotPublishAfterNewEdit(): Unit =
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
-    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
     val marker = directory.resolve("started")
-    val slow = directory.resolve("slow-bend")
-    Files.writeString(slow,
-      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 3\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-    slow.toFile.setExecutable(true)
+    val slow = slowCompiler("slow-bend", marker, 3)
     myFixture.configureByText("race.bend",
       "import Base\ndef main() -> U32:\n  unknown_old\n")
     val root = id(myFixture.getFile.getVirtualFile)
@@ -150,12 +160,8 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
 
   def testManualActionPreemptsRunningBackgroundProcess(): Unit =
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
-    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
     val marker = directory.resolve("manual-started")
-    val slow = directory.resolve("manual-slow-bend")
-    Files.writeString(slow,
-      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 3\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-    slow.toFile.setExecutable(true)
+    val slow = slowCompiler("manual-slow-bend", marker, 3)
     myFixture.configureByText("manual.bend",
       "import Base\ndef main() -> U32:\n  unknown_manual\n")
     val root = id(myFixture.getFile.getVirtualFile)
@@ -172,12 +178,8 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
 
   def testDependencyEditDuringFirstRootCheckSchedulesReplacement(): Unit =
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
-    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
     val marker = directory.resolve("dependency-started")
-    val slow = directory.resolve("dependency-slow-bend")
-    Files.writeString(slow,
-      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 3\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-    slow.toFile.setExecutable(true)
+    val slow = slowCompiler("dependency-slow-bend", marker, 3)
     val dep = myFixture.addFileToProject("early.bend",
       "import Base\ndef value() -> U32:\n  unknown_old_dependency\n")
     myFixture.openFileInEditor(dep.getVirtualFile)
@@ -206,12 +208,8 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
 
   def testCompilerReplacementDuringFirstCheckRetriesWithoutVfsEvent(): Unit =
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
-    val pinned = Path.of(".references/bend/bend2/main.ts").toAbsolutePath.normalize()
     val marker = directory.resolve("replacement-started")
-    val slow = directory.resolve("replacement-bend")
-    Files.writeString(slow,
-      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 2\nexec npx --yes bun '" + pinned + "' \"$@\"\n")
-    slow.toFile.setExecutable(true)
+    val slow = slowCompiler("replacement-bend", marker, 2)
     myFixture.configureByText("replacement.bend",
       "import Base\ndef main() -> U32:\n  unknown_replacement\n")
     val root = id(myFixture.getFile.getVirtualFile)
@@ -240,10 +238,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
   private def exerciseActiveDisposal(): Unit =
     val settings = ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
     val marker = directory.resolve("dispose-started")
-    val slow = directory.resolve("dispose-slow-bend")
-    Files.writeString(slow,
-      "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo 'bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nprintf x >> '" + marker + "'\nsleep 10\n")
-    slow.toFile.setExecutable(true)
+    val slow = slowCompiler("dispose-slow-bend", marker, 10)
     settings.update(settings.choices.copy(executable = slow.toString,
       diagnosticsEnabled = false))
     myFixture.configureByText("dispose.bend", "def main() -> Type:\n  Type\n")
