@@ -56,6 +56,8 @@ final class ArchitectureTest:
     assertTrue("Rewrite range must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.model.BendRewrittenRange"))
     assertTrue("Check policy must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.api.BendCheckPolicy$"))
     assertTrue("Check service contract must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.api.BendCheckService"))
+    assertTrue("Check reservation identity must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.model.BendCheckReservation"))
+    assertTrue("Check origin must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.model.BendCheckOrigin$"))
     assertTrue("Background scheduler control API must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.api.BendBackgroundCheckControl"))
     assertTrue("Background timer token must be inspected", classes.contain("com.dearlordylord.bend.idea.analysis.api.BendBackgroundCheckTicket"))
     assertTrue("CLI backend must be inspected", classes.contain("com.dearlordylord.bend.idea.adapters.cli.BendCliCheckBackend"))

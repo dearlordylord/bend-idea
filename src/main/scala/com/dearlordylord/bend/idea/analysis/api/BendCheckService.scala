@@ -1,6 +1,7 @@
 package com.dearlordylord.bend.idea.analysis.api
 
-import com.dearlordylord.bend.idea.analysis.model.{BendCheckResult, BendCheckSnapshot}
+import com.dearlordylord.bend.idea.analysis.model.{BendCheckReservation, BendCheckResult,
+  BendCheckSnapshot}
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.analysis.model.BendCheckingStatus
 
@@ -8,10 +9,11 @@ import com.dearlordylord.bend.idea.analysis.model.BendCheckingStatus
 trait BendCheckService:
   /** Reserve the project worker and observe later edits to this root document. */
   def begin(snapshot: BendCheckSnapshot,
-      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Boolean
+      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Option[BendCheckReservation]
   def cancel(root: FileId): Unit
   def configurationChanged(): Unit
-  def check(snapshot: BendCheckSnapshot, canceled: () => Boolean): Option[BendCheckResult]
+  def check(snapshot: BendCheckSnapshot, reservation: BendCheckReservation,
+      canceled: () => Boolean): Option[BendCheckResult]
   def result(root: FileId): Option[BendCheckResult]
   /** Current root-owned results whose diagnostics may project onto this file. */
   def resultsFor(source: FileId): List[BendCheckResult]
@@ -22,11 +24,11 @@ trait BendCheckService:
 final case class BendBackgroundCheckTicket(root: FileId, token: Long, attempt: Int)
 
 trait BendBackgroundCheckControl:
-  def requestBackground(root: FileId): Unit
+  def requestBackground(root: FileId): Option[BendBackgroundCheckTicket]
   def backgroundTimerFired(root: FileId, token: Long): Option[BendBackgroundCheckTicket]
   def backgroundCurrent(ticket: BendBackgroundCheckTicket): Boolean
   def beginBackground(ticket: BendBackgroundCheckTicket, snapshot: BendCheckSnapshot,
-      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Boolean
+      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Option[BendCheckReservation]
   def backgroundAttemptFailed(ticket: BendBackgroundCheckTicket): Unit
   def backgroundStaleObserved(root: FileId): Unit
   def backgroundConfigurationChanged(enabled: Boolean): Unit

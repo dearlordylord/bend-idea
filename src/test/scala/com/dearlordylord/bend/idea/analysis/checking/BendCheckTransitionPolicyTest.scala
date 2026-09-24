@@ -35,7 +35,7 @@ final class BendCheckTransitionPolicyTest:
       origin: BendCheckOrigin = BendCheckOrigin.Explicit): (BendCheckState, Long) =
     val requested = transition(state, BeginRequested(snapshot, origin))
     val generation = requested.decision match
-      case Started(value) => value
+      case Started(reservation) => reservation.generation
       case other => throw new AssertionError("Expected worker reservation, received " + other)
     (requested.state, generation)
 
@@ -48,13 +48,16 @@ final class BendCheckTransitionPolicyTest:
     val reserved = transition(due.state,
       BeginRequested(snapshot, BendCheckOrigin.Background, Some(token)))
     val generation = reserved.decision match
-      case Started(value) => value
+      case Started(reservation) => reservation.generation
       case other => throw new AssertionError("Expected background reservation, received " + other)
     (reserved.state, generation, token)
 
   private def running(state: BendCheckState, snapshot: BendCheckSnapshot,
       generation: Long): BendCheckState =
-    val started = transition(state, WorkerStarted(snapshot.root, generation, snapshot))
+    val active = state.active.filter(worker => worker.root == snapshot.root &&
+      worker.generation == generation).getOrElse(
+      throw new AssertionError("Expected reserved worker " + generation))
+    val started = transition(state, WorkerStarted(active.reservation, snapshot))
     assertEquals(Continue, started.decision)
     started.state
 
@@ -185,12 +188,13 @@ final class BendCheckTransitionPolicyTest:
     assertEquals(BackgroundReady(token, 0), firstReady.decision)
     val firstReservation = transition(firstReady.state,
       BeginRequested(captured, BendCheckOrigin.Background, Some(token)))
-    val firstGeneration = firstReservation.decision.asInstanceOf[Started].generation
+    val firstGeneration = firstReservation.decision.asInstanceOf[Started].reservation.generation
     val firstFailed = transition(running(firstReservation.state, captured, firstGeneration),
       BackgroundAttemptFailed(captured.root, token))
     assertEquals(1, firstFailed.state.roots(captured.root).background.get.attempt)
     val firstExit = transition(firstFailed.state,
-      WorkerExited(captured.root, firstGeneration))
+      WorkerExited(BendCheckReservation(captured.root, firstGeneration,
+        BendCheckOrigin.Background, Some(token))))
     assertTrue(firstExit.actions.contains(ScheduleBackground(captured.root, token,
       BendCheckTransitionPolicy.BackgroundDebounceMillis)))
 
@@ -198,22 +202,24 @@ final class BendCheckTransitionPolicyTest:
     assertEquals(BackgroundReady(token, 1), secondReady.decision)
     val secondReservation = transition(secondReady.state,
       BeginRequested(captured, BendCheckOrigin.Background, Some(token)))
-    val secondGeneration = secondReservation.decision.asInstanceOf[Started].generation
+    val secondGeneration = secondReservation.decision.asInstanceOf[Started].reservation.generation
     val secondFailed = transition(running(secondReservation.state, captured, secondGeneration),
       BackgroundAttemptFailed(captured.root, token))
     assertEquals(2, secondFailed.state.roots(captured.root).background.get.attempt)
     val secondExit = transition(secondFailed.state,
-      WorkerExited(captured.root, secondGeneration))
+      WorkerExited(BendCheckReservation(captured.root, secondGeneration,
+        BendCheckOrigin.Background, Some(token))))
 
     val thirdReady = transition(secondExit.state, BackgroundTimerFired(captured.root, token))
     assertEquals(BackgroundReady(token, 2), thirdReady.decision)
     val thirdReservation = transition(thirdReady.state,
       BeginRequested(captured, BendCheckOrigin.Background, Some(token)))
-    val thirdGeneration = thirdReservation.decision.asInstanceOf[Started].generation
+    val thirdGeneration = thirdReservation.decision.asInstanceOf[Started].reservation.generation
     val thirdFailed = transition(running(thirdReservation.state, captured, thirdGeneration),
       BackgroundAttemptFailed(captured.root, token))
     assertTrue(thirdFailed.state.roots(captured.root).background.isEmpty)
-    val thirdExit = transition(thirdFailed.state, WorkerExited(captured.root, thirdGeneration))
+    val thirdExit = transition(thirdFailed.state, WorkerExited(BendCheckReservation(captured.root,
+      thirdGeneration, BendCheckOrigin.Background, Some(token))))
     assertFalse(thirdExit.actions.exists(_.isInstanceOf[ScheduleBackground]))
 
   @Test def rootEvictionCancelsTimerAndDropsAdapterHandle(): Unit =
@@ -246,21 +252,64 @@ final class BendCheckTransitionPolicyTest:
     assertEquals(BendCheckWorkerPhase.Reserved, reserved.state.active.get.phase)
 
     val preempted = transition(reserved.state, BeginRequested(manual, BendCheckOrigin.Explicit))
-    val manualGeneration = preempted.decision.asInstanceOf[Started].generation
+    val manualGeneration = preempted.decision.asInstanceOf[Started].reservation.generation
     assertEquals(BendCheckOrigin.Explicit, preempted.state.active.get.origin)
     assertTrue(preempted.actions.contains(CancelWorker(backgroundGeneration)))
     assertTrue(preempted.actions.contains(SlotReleased(backgroundGeneration)))
     assertEquals(BendBackgroundPhase.Ready,
       preempted.state.roots(background.root).background.get.phase)
     assertEquals(Discarded,
-      transition(preempted.state, WorkerStarted(background.root, backgroundGeneration,
-        background)).decision)
+      transition(preempted.state, WorkerStarted(BendCheckReservation(background.root,
+        backgroundGeneration, BendCheckOrigin.Background, Some(token)), background)).decision)
     assertEquals(Some(manualGeneration), preempted.state.active.map(_.generation))
+
+  @Test def sameRootPreemptionRejectsCapturedBackgroundReservationAndKeepsManualSlot(): Unit =
+    val backgroundCapture = snapshot("same-root-preemption.bend")
+    val manualCapture = backgroundCapture.copy(text = "def main() -> Type:\n  Type\n",
+      sourceRevision = 2L)
+    val request = transition(BendCheckState(), BackgroundRequested(backgroundCapture.root))
+    val token = request.state.roots(backgroundCapture.root).background.get.token
+    val due = transition(request.state, BackgroundTimerFired(backgroundCapture.root, token))
+    val background = transition(due.state,
+      BeginRequested(backgroundCapture, BendCheckOrigin.Background, Some(token)))
+    val backgroundReservation = background.decision.asInstanceOf[Started].reservation
+
+    // The background adapter has captured its snapshot but has not dispatched the check.
+    val manual = transition(background.state, BeginRequested(manualCapture,
+      BendCheckOrigin.Explicit))
+    val manualReservation = manual.decision.asInstanceOf[Started].reservation
+    assertEquals(BendCheckOrigin.Explicit, manualReservation.origin)
+    assertNotEquals(backgroundReservation, manualReservation)
+
+    val staleDispatch = transition(manual.state,
+      WorkerStarted(backgroundReservation, backgroundCapture))
+    assertEquals(Discarded, staleDispatch.decision)
+    assertEquals(Some(manualReservation), staleDispatch.state.active.map(_.reservation))
+    assertEquals(Some(manualCapture), staleDispatch.state.roots(backgroundCapture.root)
+      .pending.map(_.snapshot))
+    val staleExit = transition(staleDispatch.state, WorkerExited(backgroundReservation))
+    assertEquals(Some(manualReservation), staleExit.state.active.map(_.reservation))
+    assertFalse(staleExit.actions.contains(SlotReleased(manualReservation.generation)))
+    val wrongIdentity = manualReservation.copy(origin = BendCheckOrigin.Background,
+      backgroundToken = Some(token))
+    val mismatchedExit = transition(staleExit.state, WorkerExited(wrongIdentity))
+    assertEquals(staleExit.state, mismatchedExit.state)
+    assertTrue(mismatchedExit.actions.isEmpty)
+
+    val manualStart = transition(staleExit.state, WorkerStarted(manualReservation, manualCapture))
+    assertEquals(Continue, manualStart.decision)
+    val manualResult = result(manualCapture, "manual snapshot completed")
+    val manualFinish = transition(manualStart.state, WorkerFinished(manualReservation,
+      manualCapture, manualResult, currentFacts))
+    assertEquals(Published(manualResult), manualFinish.decision)
+    val manualExit = transition(manualFinish.state, WorkerExited(manualReservation))
+    assertEquals(None, manualExit.state.active)
+    assertEquals(Some(manualResult), manualExit.state.roots(backgroundCapture.root).result)
 
   @Test def explicitRequestPreemptsBackgroundAndDisposalRejectsLatePublication(): Unit =
     val backgroundRoot = snapshot("background.bend")
     val manualRoot = snapshot("manual.bend")
-    val (backgroundReservation, backgroundGeneration, _) =
+    val (backgroundReservation, backgroundGeneration, backgroundToken) =
       beginBackground(BendCheckState(), backgroundRoot)
     val backgroundStarted = running(backgroundReservation, backgroundRoot, backgroundGeneration)
     val waiting = transition(backgroundStarted, BeginRequested(manualRoot,
@@ -268,7 +317,8 @@ final class BendCheckTransitionPolicyTest:
     assertEquals(WaitingForWorker(backgroundGeneration), waiting.decision)
     assertEquals(Vector(CancelWorker(backgroundGeneration)), waiting.actions)
     val released = transition(waiting.state,
-      WorkerExited(backgroundRoot.root, backgroundGeneration))
+      WorkerExited(BendCheckReservation(backgroundRoot.root, backgroundGeneration,
+        BendCheckOrigin.Background, Some(backgroundToken))))
     val (manualReservation, manualGeneration) = begin(released.state, manualRoot)
     val manualStarted = running(manualReservation, manualRoot, manualGeneration)
 

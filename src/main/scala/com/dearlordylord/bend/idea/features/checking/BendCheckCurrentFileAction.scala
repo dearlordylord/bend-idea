@@ -38,13 +38,13 @@ final class BendCheckCurrentFileAction extends AnAction("Check Current Bend File
     ProgressManager.getInstance().run(new Task.Backgroundable(project, "Checking Bend", true):
       override def onCancel(): Unit = service.cancel(id)
       override def run(indicator: ProgressIndicator): Unit =
-        val started = service.begin(initial, callback => {
+        val reservation = service.begin(initial, callback => {
           val listener = new DocumentListener:
             override def documentChanged(event: DocumentEvent): Unit = callback()
           document.addDocumentListener(listener)
           () => document.removeDocumentListener(listener)
         }, () => document.getModificationStamp == initial.sourceRevision)
-        if !started then
+        if reservation.isEmpty then
           ApplicationManager.getApplication.invokeLater(() => {
             if !project.isDisposed then
               HintManager.getInstance().showInformationHint(editor, "A Bend check is already running")
@@ -59,7 +59,8 @@ final class BendCheckCurrentFileAction extends AnAction("Check Current Bend File
           project.getService(classOf[BendWorkspaceGraph]).siblingLaws(path)
         else None
         val snapshot = BendGraphSnapshot.attach(initial, graph, siblingLaws)
-        val checked = service.check(snapshot, () => indicator.isCanceled || project.isDisposed)
+        val checked = service.check(snapshot, reservation.get,
+          () => indicator.isCanceled || project.isDisposed)
         ApplicationManager.getApplication.invokeLater(() => {
           if !project.isDisposed && document.getModificationStamp == initial.sourceRevision then
             checked.foreach { result =>

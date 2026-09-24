@@ -154,28 +154,28 @@ final class BendCheckSession(project: Project) extends BendCheckService, BendBac
         changed(Path.of(snapshot.path).resolveSibling("LAWS.bend").toString))
 
   override def begin(snapshot: BendCheckSnapshot,
-      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Boolean =
+      subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean): Option[BendCheckReservation] =
     beginWithOrigin(snapshot, subscribe, isCurrent, BendCheckOrigin.Explicit, None)
 
   private def beginWithOrigin(snapshot: BendCheckSnapshot,
       subscribe: (() => Unit) => (() => Unit), isCurrent: () => Boolean,
-      origin: BendCheckOrigin, backgroundToken: Option[Long]): Boolean =
+      origin: BendCheckOrigin, backgroundToken: Option[Long]): Option[BendCheckReservation] =
     val deadline = System.nanoTime() + 5_000_000_000L
     var finished = false
     while !finished do
       val transition = applyEvent(BeginRequested(snapshot, origin, backgroundToken))
       transition.decision match
-        case Started(generation) =>
+        case Started(reservation) =>
           val reserved = synchronized {
             val stillReserved = !policyState.disposed && policyState.active.exists(worker =>
-              worker.root == snapshot.root && worker.generation == generation &&
+              worker.reservation == reservation &&
                 worker.phase == BendCheckWorkerPhase.Reserved)
-            if stillReserved then currentChecks(generation) = isCurrent
+            if stillReserved then currentChecks(reservation.generation) = isCurrent
             stillReserved
           }
           perform(transition.actions,
             if reserved then Some((snapshot.root, subscribe)) else None)
-          return reserved
+          return Option.when(reserved)(reservation)
         case WaitingForWorker(generation) =>
           perform(transition.actions)
           val released = synchronized {
@@ -190,11 +190,13 @@ final class BendCheckSession(project: Project) extends BendCheckService, BendBac
           // Once the obsolete worker exits, repeat the request so the policy
           // grants the manual action the sole slot before background work.
         case _ => finished = true
-    false
+    None
 
-  override def requestBackground(root: FileId): Unit =
+  override def requestBackground(root: FileId): Option[BendBackgroundCheckTicket] =
     val transition = applyEvent(BackgroundRequested(root))
     perform(transition.actions)
+    transition.state.roots.get(root).flatMap(_.background).map(intent =>
+      BendBackgroundCheckTicket(root, intent.token, intent.attempt))
 
   override def backgroundTimerFired(root: FileId,
       token: Long): Option[BendBackgroundCheckTicket] =
@@ -214,7 +216,7 @@ final class BendCheckSession(project: Project) extends BendCheckService, BendBac
 
   override def beginBackground(ticket: BendBackgroundCheckTicket,
       snapshot: BendCheckSnapshot, subscribe: (() => Unit) => (() => Unit),
-      isCurrent: () => Boolean): Boolean =
+      isCurrent: () => Boolean): Option[BendCheckReservation] =
     beginWithOrigin(snapshot, subscribe, () => backgroundCurrent(ticket) && isCurrent(),
       BendCheckOrigin.Background, Some(ticket.token))
 
@@ -248,58 +250,51 @@ final class BendCheckSession(project: Project) extends BendCheckService, BendBac
     val result = applyEvent(ConfigurationInvalidated)
     perform(result.actions)
 
-  private def workerCurrent(root: FileId, generation: Long): Boolean = synchronized {
-    !policyState.disposed && !canceledWorkers.contains(generation) &&
-      policyState.active.exists(worker => worker.root == root &&
-        worker.generation == generation && worker.phase == BendCheckWorkerPhase.Running) &&
-      policyState.roots.get(root).exists(_.generation == generation)
+  private def workerCurrent(reservation: BendCheckReservation): Boolean = synchronized {
+    !policyState.disposed && !canceledWorkers.contains(reservation.generation) &&
+      policyState.active.exists(worker => worker.reservation == reservation &&
+        worker.phase == BendCheckWorkerPhase.Running) &&
+      policyState.roots.get(reservation.root).exists(_.generation == reservation.generation)
   }
 
   override def check(snapshot: BendCheckSnapshot,
-      canceled: () => Boolean): Option[BendCheckResult] =
-    val root = snapshot.root
-    val start = synchronized {
-      val worker = policyState.active.filter(active => active.root == root &&
-        active.phase == BendCheckWorkerPhase.Reserved)
-      worker.map(active => (active.generation,
-        applyEvent(WorkerStarted(root, active.generation, snapshot))))
-    }
-    start match
-      case None => None
-      case Some((generation, started)) =>
-        if started.decision == Discarded then None
+      reservation: BendCheckReservation, canceled: () => Boolean): Option[BendCheckResult] =
+    val root = reservation.root
+    val started = applyEvent(WorkerStarted(reservation, snapshot))
+    if started.decision != Continue then None
+    else
+      val generation = reservation.generation
+      val isCurrent = synchronized { currentChecks.get(generation) }
+      def noLongerCurrent: Boolean = canceled() || !workerCurrent(reservation) ||
+        isCurrent.forall(check => !check())
+      try
+        if noLongerCurrent then None
         else
-          val isCurrent = synchronized { currentChecks.get(generation) }
-          def noLongerCurrent: Boolean = canceled() || !workerCurrent(root, generation) ||
-            isCurrent.forall(check => !check())
-          try
-            if noLongerCurrent then None
-            else
-              val checked = backend.check(snapshot, () => noLongerCurrent)
-              val inputsCurrent = graphCurrent(snapshot)
-              val sourceCurrent = isCurrent.exists(_())
-              val workerCanceled = canceled() || !workerCurrent(root, generation)
-              val selection = ApplicationManager.getApplication
-                .getService(classOf[BendToolchainSettings]).selection
-              val externalCurrent = checked.key.externalStamp == BendExternalInputs.stamp(
-                checked.key.executable, checked.key.basePath)
-              val facts = BendCheckFinishFacts(sourceCurrent, inputsCurrent,
-                selection.configurationRevision == snapshot.toolchain.configurationRevision &&
-                selection.executable == snapshot.toolchain.executable,
-                externalCurrent, workerCanceled)
-              val result = applyEvent(WorkerFinished(root, generation, snapshot, checked, facts))
-              val retry = if result.decision == Discarded && sourceCurrent && !workerCanceled then
-                synchronized { policyState.active.filter(_.generation == generation)
-                  .flatMap(_.backgroundToken) }
-                  .map(token => applyEvent(BackgroundAttemptFailed(root, token)))
-              else None
-              perform(result.actions ++ retry.toVector.flatMap(_.actions))
-              result.decision match
-                case Published(value) => Some(value)
-                case _ => None
-          finally
-            val exited = applyEvent(WorkerExited(root, generation))
-            perform(exited.actions)
+          val checked = backend.check(snapshot, () => noLongerCurrent)
+          val inputsCurrent = graphCurrent(snapshot)
+          val sourceCurrent = isCurrent.exists(_())
+          val workerCanceled = canceled() || !workerCurrent(reservation)
+          val selection = ApplicationManager.getApplication
+            .getService(classOf[BendToolchainSettings]).selection
+          val externalCurrent = checked.key.externalStamp == BendExternalInputs.stamp(
+            checked.key.executable, checked.key.basePath)
+          val facts = BendCheckFinishFacts(sourceCurrent, inputsCurrent,
+            selection.configurationRevision == snapshot.toolchain.configurationRevision &&
+            selection.executable == snapshot.toolchain.executable,
+            externalCurrent, workerCanceled)
+          val result = applyEvent(WorkerFinished(reservation, snapshot, checked, facts))
+          val retry = if result.decision == Discarded && sourceCurrent && !workerCanceled then
+            synchronized { policyState.active.filter(_.reservation == reservation)
+              .flatMap(_.backgroundToken) }
+              .map(token => applyEvent(BackgroundAttemptFailed(root, token)))
+          else None
+          perform(result.actions ++ retry.toVector.flatMap(_.actions))
+          result.decision match
+            case Published(value) => Some(value)
+            case _ => None
+      finally
+        val exited = applyEvent(WorkerExited(reservation))
+        perform(exited.actions)
 
   override def result(root: FileId): Option[BendCheckResult] =
     val (stored, captured, generation) = synchronized {

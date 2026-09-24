@@ -3,14 +3,13 @@ package com.dearlordylord.bend.idea.analysis.checking
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
 
-enum BendCheckOrigin:
-  case Explicit, Background
-
 enum BendCheckWorkerPhase:
   case Reserved, Running
 
 final case class BendCheckWorker(root: FileId, generation: Long, origin: BendCheckOrigin,
-    phase: BendCheckWorkerPhase, backgroundToken: Option[Long] = None)
+    phase: BendCheckWorkerPhase, backgroundToken: Option[Long] = None):
+  def reservation: BendCheckReservation =
+    BendCheckReservation(root, generation, origin, backgroundToken)
 
 enum BendBackgroundPhase:
   case Scheduled, Preparing, Ready, InFlight
@@ -54,17 +53,31 @@ object BendCheckEvent:
   final case class BackgroundStaleObserved(root: FileId) extends BendCheckEvent
   final case class BackgroundConfigurationChanged(enabled: Boolean) extends BendCheckEvent
   case object BackgroundSchedulerDisposed extends BendCheckEvent
-  final case class WorkerStarted(root: FileId, generation: Long, snapshot: BendCheckSnapshot)
+  final case class WorkerStarted(reservation: BendCheckReservation,
+      snapshot: BendCheckSnapshot)
       extends BendCheckEvent
+  object WorkerStarted:
+    def apply(root: FileId, generation: Long, snapshot: BendCheckSnapshot): WorkerStarted =
+      WorkerStarted(BendCheckReservation(root, generation, BendCheckOrigin.Explicit, None),
+        snapshot)
   final case class InputsInvalidated(roots: Set[FileId], reason: BendCheckInvalidationReason)
       extends BendCheckEvent
   final case class SnapshotInvalidated(root: FileId, generation: Long,
       snapshot: BendCheckSnapshot, reason: BendCheckInvalidationReason) extends BendCheckEvent
   final case class CancelRequested(root: FileId) extends BendCheckEvent
   case object ConfigurationInvalidated extends BendCheckEvent
-  final case class WorkerFinished(root: FileId, generation: Long, snapshot: BendCheckSnapshot,
-      result: BendCheckResult, facts: BendCheckFinishFacts) extends BendCheckEvent
-  final case class WorkerExited(root: FileId, generation: Long) extends BendCheckEvent
+  final case class WorkerFinished(reservation: BendCheckReservation,
+      snapshot: BendCheckSnapshot, result: BendCheckResult,
+      facts: BendCheckFinishFacts) extends BendCheckEvent
+  object WorkerFinished:
+    def apply(root: FileId, generation: Long, snapshot: BendCheckSnapshot,
+        result: BendCheckResult, facts: BendCheckFinishFacts): WorkerFinished =
+      WorkerFinished(BendCheckReservation(root, generation, BendCheckOrigin.Explicit, None),
+        snapshot, result, facts)
+  final case class WorkerExited(reservation: BendCheckReservation) extends BendCheckEvent
+  object WorkerExited:
+    def apply(root: FileId, generation: Long): WorkerExited =
+      WorkerExited(BendCheckReservation(root, generation, BendCheckOrigin.Explicit, None))
   case object ExplicitWaitAbandoned extends BendCheckEvent
   case object Disposed extends BendCheckEvent
 
@@ -81,7 +94,7 @@ object BendCheckAction:
   case object RefreshUi extends BendCheckAction
 
 enum BendCheckDecision:
-  case Started(generation: Long)
+  case Started(reservation: BendCheckReservation)
   case WaitingForWorker(generation: Long)
   case RejectedBusy, RejectedDisposed, Continue, Discarded
   case Published(result: BendCheckResult)
@@ -207,7 +220,7 @@ object BendCheckTransitionPolicy:
       .map(intent => CancelBackgroundTimer(root, intent.token)) else Vector.empty
     done(advanced.copy(roots = advanced.roots.updated(root, updated), active = Some(active),
       explicitWaiting = false), actions ++ cancelCurrent ++
-      Vector(ReplaceRootSubscription(root), RefreshUi), Started(generation))
+      Vector(ReplaceRootSubscription(root), RefreshUi), Started(active.reservation))
 
   def transition(state: BendCheckState, event: BendCheckEvent): BendCheckTransition =
     import event.*
@@ -344,9 +357,11 @@ object BendCheckTransitionPolicy:
           case Some(_) => done(state, decision = RejectedBusy)
           case None => reserve(state, snapshot, BendCheckOrigin.Explicit)
 
-      case WorkerStarted(root, generation, snapshot) =>
-        val accepted = state.active.exists(worker => worker.root == root &&
-          worker.generation == generation && worker.phase == BendCheckWorkerPhase.Reserved) &&
+      case WorkerStarted(reservation, snapshot) =>
+        val root = reservation.root
+        val generation = reservation.generation
+        val accepted = state.active.exists(worker => worker.reservation == reservation &&
+          worker.phase == BendCheckWorkerPhase.Reserved) &&
           state.roots.get(root).exists(_.generation == generation) && snapshot.root == root
         if !accepted then done(state, decision = Discarded)
         else
@@ -390,11 +405,13 @@ object BendCheckTransitionPolicy:
         }
         done(next, actions :+ RefreshUi)
 
-      case WorkerFinished(root, generation, snapshot, result, facts) =>
+      case WorkerFinished(reservation, snapshot, result, facts) =>
+        val root = reservation.root
+        val generation = reservation.generation
         val current = state.roots.get(root)
         val pending = current.flatMap(_.pending).filter(_.generation == generation)
-        val workerMatches = state.active.exists(worker => worker.root == root &&
-          worker.generation == generation && worker.phase == BendCheckWorkerPhase.Running)
+        val workerMatches = state.active.exists(worker => worker.reservation == reservation &&
+          worker.phase == BendCheckWorkerPhase.Running)
         val accepted = !state.disposed && workerMatches &&
           current.exists(_.generation == generation) && pending.exists(p =>
             p.snapshot == snapshot && snapshot.root == root && keyMatches(snapshot, result)) &&
@@ -410,26 +427,25 @@ object BendCheckTransitionPolicy:
           done(state.copy(roots = state.roots.updated(root, published)),
             Vector(RefreshUi), Published(result))
 
-      case WorkerExited(root, generation) =>
-        val worker = state.active.filter(current => current.root == root &&
-          current.generation == generation)
-        val roots = state.roots.get(root) match
-          case Some(current) if current.pending.exists(_.generation == generation) =>
-            state.roots.updated(root, current.copy(pending = None))
-          case _ => state.roots
-        if worker.nonEmpty then
-          val exited = worker.get
-          val withoutAbandonedIntent = roots.get(root).map { current =>
-            if exited.backgroundToken.exists(token => current.background.exists(intent =>
-                intent.token == token && intent.phase == BendBackgroundPhase.InFlight)) then
-              roots.updated(root, current.copy(background = None))
-            else roots
-          }.getOrElse(roots)
-          val (scheduled, actions) = scheduleReady(state.copy(active = None,
-            roots = withoutAbandonedIntent), Vector(SlotReleased(generation)))
-          done(scheduled, actions)
-        else if roots != state.roots then done(state.copy(roots = roots))
-        else done(state)
+      case WorkerExited(reservation) =>
+        state.active.filter(current => current.reservation == reservation) match
+          case None => done(state)
+          case Some(exited) =>
+            val root = reservation.root
+            val generation = reservation.generation
+            val roots = state.roots.get(root) match
+              case Some(current) if current.pending.exists(_.generation == generation) =>
+                state.roots.updated(root, current.copy(pending = None))
+              case _ => state.roots
+            val withoutAbandonedIntent = roots.get(root).map { current =>
+              if exited.backgroundToken.exists(token => current.background.exists(intent =>
+                  intent.token == token && intent.phase == BendBackgroundPhase.InFlight)) then
+                roots.updated(root, current.copy(background = None))
+              else roots
+            }.getOrElse(roots)
+            val (scheduled, actions) = scheduleReady(state.copy(active = None,
+              roots = withoutAbandonedIntent), Vector(SlotReleased(generation)))
+            done(scheduled, actions)
 
       case ExplicitWaitAbandoned =>
         val (scheduled, actions) = scheduleReady(state.copy(explicitWaiting = false), Vector.empty)

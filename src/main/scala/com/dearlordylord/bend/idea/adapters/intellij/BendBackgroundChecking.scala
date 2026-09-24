@@ -150,13 +150,13 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       if control.backgroundCurrent(ticket) then control.backgroundAttemptFailed(ticket)
       return
 
-    val begun = control.beginBackground(ticket, initial, callback => {
+    val reservation = control.beginBackground(ticket, initial, callback => {
       val listener = new DocumentListener:
         override def documentChanged(event: DocumentEvent): Unit = callback()
       document.addDocumentListener(listener)
       () => document.removeDocumentListener(listener)
     }, () => current)
-    if !begun then return
+    if reservation.isEmpty then return
     var enteredCheck = false
     try
       val source = BendSourceRecord(ticket.root, initial.path, initial.text,
@@ -168,7 +168,7 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       else None
       val snapshot = BendGraphSnapshot.attach(initial, graph, laws)
       enteredCheck = true
-      val checked = service.check(snapshot, () => !current)
+      val checked = service.check(snapshot, reservation.get, () => !current)
       if checked.isEmpty && current then control.backgroundAttemptFailed(ticket)
     catch
       case NonFatal(_) => control.backgroundAttemptFailed(ticket)
