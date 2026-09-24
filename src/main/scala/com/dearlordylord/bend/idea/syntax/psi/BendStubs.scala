@@ -3,7 +3,7 @@ package com.dearlordylord.bend.idea.syntax.psi
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.intellij.psi.PsiElement
 import com.intellij.psi.stubs.*
-import com.intellij.psi.tree.{IElementType, IStubFileElementType}
+import com.intellij.psi.tree.IStubFileElementType
 import scala.annotation.static
 
 /** Stable keys emitted from file-local declaration syntax; query policy lives

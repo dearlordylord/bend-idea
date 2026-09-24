@@ -87,7 +87,7 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
     then return
     val root = ReadAction.compute(() => id(file))
     synchronized { rootFiles(root) = file }
-    control.requestBackground(root)
+    val _ = control.requestBackground(root)
 
   EditorFactory
     .getInstance()

@@ -6,7 +6,6 @@ import com.intellij.extapi.psi.ASTWrapperPsiElement
 import com.intellij.lang.ASTNode
 import com.intellij.psi.{PsiElement, PsiNameIdentifierOwner}
 import com.intellij.psi.StubBasedPsiElement
-import com.intellij.psi.stubs.StubElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.tree.IElementType
 import com.intellij.util.IncorrectOperationException

@@ -387,7 +387,6 @@ object BendCheckTransitionPolicy:
       state: BendCheckState,
       event: BendCheckEvent
   ): BendCheckTransition =
-    import event.*
     if state.disposed then
       event match
         case Disposed => done(state)
