@@ -2,9 +2,9 @@ package com.dearlordylord.bend.idea.workspace
 
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.workspace.api.BendImportLines
+import com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog
 import com.dearlordylord.bend.idea.workspace.loading.BendGraphLoader
 import com.dearlordylord.bend.idea.workspace.model.*
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.file.{Files, Path}

@@ -45,6 +45,28 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Foreign paths must share syntax, navigation and completion owners",
+      classes.contain(
+        "com.dearlordylord.bend.idea.syntax.psi.BendForeignPaths$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.symbols.references.BendForeignPathReference"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.completion.BendForeignPathCompletion$"
+      )
+    )
+    assertTrue(
+      "File path refactoring must use the workspace path policy",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.rename.BendMoveFileHandler"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.rename.BendSourceFileRenameProcessor"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.workspace.api.BendSourcePathEdits$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.workspace.api.BendImportPaths$"
+      )
+    )
+    assertTrue(
       "Find Usages provider must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.features.navigation.BendFindUsagesProvider"
@@ -57,9 +79,133 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Parameter information handler must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.signatures.BendParameterInfoHandler"
+      )
+    )
+    assertTrue(
+      "Parameter name hints provider must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.signatures.BendParameterNameHintsProvider"
+      )
+    )
+    assertTrue(
+      "Selected proof roots must use the shared explicit check boundary",
+      classes.contain(
+        "com.dearlordylord.bend.idea.analysis.api.BendExplicitCheckRunner"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.intellij.BendExplicitCheckRunnerService"
+      )
+    )
+    assertTrue(
+      "Explicit Run must use a separate request and streaming process adapter",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.execution.BendRunConfiguration"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.execution.api.BendExecutionRequest"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.process.BendExecutionProcessService"
+      )
+    )
+    assertTrue(
+      "Build and native Run must retain separate process requests and adapters",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.execution.BendBuildConfiguration"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.execution.BendNativeRunConfiguration"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.execution.api.BendBuildRequest"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.execution.api.BendNativeRunRequest"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.process.BendBuildProcessService"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.process.BendNativeProcessService"
+      )
+    )
+    assertTrue(
+      "Proof-root selection must remain in its feature owner",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendCheckProofRootAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofRootStore"
+      )
+    )
+    assertTrue(
+      "Law/fill links and hole navigation must use the proof feature owner",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofLineMarkerProvider"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofNavigation$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendHoleNavigation$"
+      )
+    )
+    assertTrue(
+      "Proof progress must remain a root-owned feature that reads shared results",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofProgressToolWindowFactory"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofProgressReader"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofProgressModel$"
+      )
+    )
+    assertTrue(
+      "Law-fill skeleton planning must use the proof owner and shared template renderer",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendGenerateLawFillAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofFillGenerator$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.templates.api.BendSnippets$"
+      )
+    )
+    assertTrue(
+      "Semantic color annotator must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.editing.BendSemanticAnnotator"
+      )
+    )
+    assertTrue(
+      "Match skeleton planning must stay in editing and use the shared template renderer",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.editing.BendGenerateMatchCasesAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.editing.BendMatchSkeletonGenerator$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.templates.api.BendSnippets$"
+      )
+    )
+    assertTrue(
+      "Breadcrumb provider must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.editing.BendBreadcrumbsProvider"
+      )
+    )
+    assertTrue(
+      "Selection handler must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.editing.BendSelectionHandler"
+      )
+    )
+    assertTrue(
       "Source documentation projection must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.symbols.api.BendSourceDocumentation$"
+      )
+    )
+    assertTrue(
+      "Source call application model must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendSourceApplications$"
+      )
+    )
+    assertTrue(
+      "Shared call signature alignment must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendSourceCallSignatures$"
       )
     )
     assertTrue(
@@ -149,7 +295,7 @@ final class ArchitectureTest:
     assertTrue(
       "Source catalog port must be inspected",
       classes.contain(
-        "com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog"
+        "com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog"
       )
     )
     assertTrue(
@@ -173,7 +319,7 @@ final class ArchitectureTest:
     assertTrue(
       "Physical reference targets must be inspected",
       classes.contain(
-        "com.dearlordylord.bend.idea.symbols.references.BendPhysicalTargets$"
+        "com.dearlordylord.bend.idea.symbols.api.BendPhysicalTargets$"
       )
     )
     assertTrue(
@@ -402,6 +548,46 @@ final class ArchitectureTest:
       "Problem projection must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.features.checking.BendCheckAnnotator"
+      )
+    )
+    assertTrue(
+      "Explicit imports must use the public symbol search boundary",
+      classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendWorkspaceSymbolSearch$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.symbols.index.BendWorkspaceSymbolIndexSearch$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.completion.BendExplicitImportPlanner$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.completion.BendExplicitImportAction"
+      )
+    )
+    assertTrue(
+      "Static dependency inspection must consume shared lexical applications",
+      classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendSourceApplications$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.navigation.BendStaticDependencies$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.navigation.BendInspectDependenciesAction"
+      )
+    )
+    assertTrue(
+      "File creation must use the shared editable template owner",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.templates.BendFileTemplates$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.templates.BendCreateModuleAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.templates.BendCreateLawProofPairAction"
+      )
+    )
+    assertTrue(
+      "Spellchecking must use the token-aware spelling feature",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.spelling.BendSpellcheckingStrategy"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.syntax.lexer.BendTokens$"
       )
     )
     ArchitectureRules.check(classes, "com.dearlordylord.bend.idea")

@@ -117,6 +117,13 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     assertTrue(datatype.contains("Datatype"))
     assertTrue(constructor.contains("Constructor"))
 
+  def testForeignDefinitionKeepsItsSourceSignatureInDocumentation(): Unit =
+    val html = docs(
+      "def foreign(value: U32) -> U32:\n  import \"foreign.c\"\ndef main() -> U32:\n  <caret>foreign(1)\n"
+    )
+    assertNotNull(html)
+    assertTrue(html.contains("def foreign(value: U32) -&gt; U32"))
+
   def testLawFillShowsSpecificationAndImplementationNames(): Unit =
     val html = docs(
       "# Statement\nlaw claim:\n  for -n: Nat\n  {n == n : Nat}\n# Proof\ndef claim(value):\n  value\ndef main():\n  <caret>claim(1)\n"

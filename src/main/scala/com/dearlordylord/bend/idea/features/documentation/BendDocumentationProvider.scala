@@ -116,7 +116,7 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
           val file = if BendSourceSymbols.fileId(current).value == path then
             Some(current)
           else
-            com.dearlordylord.bend.idea.symbols.references.BendPhysicalTargets
+            com.dearlordylord.bend.idea.symbols.api.BendPhysicalTargets
               .file(
                 context.getProject,
                 new com.dearlordylord.bend.idea.model.FileId(path, true)

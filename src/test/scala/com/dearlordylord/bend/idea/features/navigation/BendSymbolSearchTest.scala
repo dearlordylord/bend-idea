@@ -1,5 +1,6 @@
 package com.dearlordylord.bend.idea.features.navigation
 
+import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
   BendToolchainSettings
@@ -15,6 +16,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -42,6 +44,14 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
+    val temporaryRoot = System.getProperty("java.io.tmpdir")
+    val vfsTemporaryRoot = temporaryRoot.stripPrefix("/private")
+    VfsRootAccess.allowRootAccess(
+      getTestRootDisposable,
+      temporaryRoot,
+      vfsTemporaryRoot,
+      RealBendCompilerFixture.inputs.compilerDirectory.toString
+    )
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )

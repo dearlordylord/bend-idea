@@ -16,8 +16,8 @@ import com.dearlordylord.bend.idea.analysis.checking.BendCheckEvent.*
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
+import com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
@@ -33,6 +33,7 @@ import com.intellij.util.Alarm
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import java.nio.file.Path
+import scala.util.control.NonFatal
 
 /** One project worker; the transition policy owns root acceptance and scheduler
   * state.
@@ -47,7 +48,27 @@ final class BendCheckSession(project: Project)
   private val subscriptions = mutable.Map.empty[FileId, () => Unit]
   private val currentChecks = mutable.Map.empty[Long, () => Boolean]
   private val canceledWorkers = mutable.Set.empty[Long]
+  private val statusListeners = mutable.LinkedHashSet.empty[FileId => Unit]
   private val uiRefreshAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
+
+  private def notifyStatusChanged(roots: Set[FileId]): Unit =
+    if roots.nonEmpty then
+      val listeners = synchronized { statusListeners.toList }
+      roots.foreach(root =>
+        listeners.foreach(listener =>
+          try listener(root)
+          catch case NonFatal(_) => ()
+        )
+      )
+
+  override def addStatusListener(listener: FileId => Unit): () => Unit =
+    synchronized {
+      val _ = statusListeners += listener
+    }
+    () =>
+      synchronized {
+        val _ = statusListeners -= listener
+      }
 
   private def applyEvent(event: BendCheckEvent): BendCheckTransition =
     synchronized {
@@ -129,6 +150,7 @@ final class BendCheckSession(project: Project)
       InputsInvalidated(Set(root), BendCheckInvalidationReason.SourceChanged)
     )
     perform(result.actions)
+    notifyStatusChanged(Set(root))
 
   EditorFactory
     .getInstance()
@@ -144,9 +166,7 @@ final class BendCheckSession(project: Project)
               new FileId(canonical.getOrElse(file.getPath), canonical.isDefined)
             val roots = synchronized {
               policyState.roots.toList.collect {
-                case (root, rootState)
-                    if root != identity &&
-                      rootDependsOn(rootState, identity) =>
+                case (root, rootState) if rootDependsOn(rootState, identity) =>
                   root
               }.toSet
             }
@@ -158,6 +178,7 @@ final class BendCheckSession(project: Project)
                 )
               )
               perform(result.actions)
+              notifyStatusChanged(roots)
       ,
       this
     )
@@ -190,15 +211,15 @@ final class BendCheckSession(project: Project)
               )
             )
             perform(result.actions :+ RefreshUi)
+            notifyStatusChanged(affected)
     )
 
   private def rootDependsOn(root: BendRootCheckState, source: FileId): Boolean =
     (root.snapshot.toList ++ root.pending.toList.map(_.snapshot)).exists {
       snapshot =>
-        snapshot.root != source && (snapshot.graph.exists(
-          _.files.exists(_.source.id == source)
-        ) ||
-          snapshot.siblingLaws.exists(_.id == source))
+        snapshot.root == source ||
+        snapshot.graph.exists(_.files.exists(_.source.id == source)) ||
+        snapshot.siblingLaws.exists(_.id == source)
     }
 
   private def snapshotAffectedBy(
@@ -256,6 +277,7 @@ final class BendCheckSession(project: Project)
             transition.actions,
             if reserved then Some((snapshot.root, subscribe)) else None
           )
+          if reserved then notifyStatusChanged(Set(snapshot.root))
           return Option.when(reserved)(reservation)
         case WaitingForWorker(generation) =>
           perform(transition.actions)
@@ -347,14 +369,18 @@ final class BendCheckSession(project: Project)
       BackgroundAttemptFailed(ticket.root, ticket.token)
     )
     perform(transition.actions)
+    notifyStatusChanged(Set(ticket.root))
 
   override def backgroundStaleObserved(root: FileId): Unit =
     val transition = applyEvent(BackgroundStaleObserved(root))
     perform(transition.actions)
+    notifyStatusChanged(Set(root))
 
   override def backgroundConfigurationChanged(enabled: Boolean): Unit =
+    val roots = synchronized { policyState.roots.keySet.toSet }
     val transition = applyEvent(BackgroundConfigurationChanged(enabled))
     perform(transition.actions)
+    notifyStatusChanged(roots)
 
   override def backgroundSchedulerDisposed(): Unit =
     val transition = applyEvent(BackgroundSchedulerDisposed)
@@ -373,10 +399,13 @@ final class BendCheckSession(project: Project)
   override def cancel(root: FileId): Unit =
     val result = applyEvent(CancelRequested(root))
     perform(result.actions)
+    notifyStatusChanged(Set(root))
 
   override def configurationChanged(): Unit =
+    val roots = synchronized { policyState.roots.keySet.toSet }
     val result = applyEvent(ConfigurationInvalidated)
     perform(result.actions)
+    notifyStatusChanged(roots)
 
   private def workerCurrent(reservation: BendCheckReservation): Boolean =
     synchronized {
@@ -440,12 +469,14 @@ final class BendCheckSession(project: Project)
                 .map(token => applyEvent(BackgroundAttemptFailed(root, token)))
             else None
           perform(result.actions ++ retry.toVector.flatMap(_.actions))
+          if result.decision == Published then notifyStatusChanged(Set(root))
           result.decision match
             case Published(value) => Some(value)
             case _                => None
       finally
         val exited = applyEvent(WorkerExited(reservation))
         perform(exited.actions)
+        notifyStatusChanged(Set(root))
 
   override def result(root: FileId): Option[BendCheckResult] =
     val (stored, captured, generation) = synchronized {
@@ -474,8 +505,16 @@ final class BendCheckSession(project: Project)
         .getOrElse(InputsInvalidated(Set(root), reason))
       val transition = applyEvent(invalidated)
       perform(transition.actions.filterNot(_ == RefreshUi))
+      notifyStatusChanged(Set(root))
       if transition.actions.contains(RefreshUi) then refreshUiBeforeReturning()
     synchronized { policyState.roots.get(root).flatMap(_.result) }
+
+  override def isCurrent(result: BendCheckResult): Boolean = synchronized {
+    policyState.roots
+      .get(result.key.root)
+      .flatMap(_.result)
+      .contains(result) && result.fresh
+  }
 
   override def resultsFor(source: FileId): List[BendCheckResult] =
     // External annotators run under an IDE read action. Do not traverse disk here;
@@ -530,5 +569,8 @@ final class BendCheckSession(project: Project)
     BendCheckingStatus.of(enabled, running, checked)
 
   override def dispose(): Unit =
+    val roots = synchronized { policyState.roots.keySet.toSet }
     val result = applyEvent(Disposed)
     perform(result.actions)
+    notifyStatusChanged(roots)
+    synchronized { statusListeners.clear() }

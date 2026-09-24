@@ -6,10 +6,10 @@ import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSelection
 import com.dearlordylord.bend.idea.workspace.api.{
   BendImportLines,
+  BendSourceCatalog,
   BendWorkspaceGraph
 }
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 import java.nio.file.{Files, Path}
 import org.junit.Assert.*
 import org.junit.Test

@@ -14,6 +14,8 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 - Keyword completion and editable snippets for `def`, `type`, `law`, `match`, `do`, and `import`.
 - Source-aware completion for declarations, constructors, parameters, local bindings, match cases, do blocks, and proof binders. Suggestions can show source signatures and nearby comments.
 - Completion from the selected Base source and direct imports, including qualified names and unsaved changes in open files. Import paths complete from local files, directories, and cached packages without downloading them.
+- Parameter information, parameter-name hints, source semantic highlights, constructor-case generation, and an explicit import action for unresolved names.
+- Token-aware spelling for comments and supported string text, using the IDE's spellchecker dictionaries and fixes.
 
 ### Structure and refactoring
 
@@ -25,8 +27,16 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 
 - Go to Declaration for resolved local, imported, and Base names, including import aliases and literal dotted names.
 - Find Usages and Highlight Usages for resolved source references across the project.
-- Go to Symbol searches workspace declarations, including declarations in open files.
 - Quick Documentation for source declarations, signatures, comments, and law/fill relationships. It shows source information, not inferred expression types.
+- Go to Symbol across project sources and configured Base, plus navigable direct call and module-import relationships. Dependency inspection reports unresolved named calls and explains that it is not a complete runtime call graph.
+- Previewable file moves and renames update relative Bend module and foreign C/JavaScript paths.
+
+### Proof and project workflows
+
+- Select and check separate proof roots, navigate law/fill links and holes, and inspect source proof progress alongside the root-owned compiler result.
+- Generate law fills and constructor matches with explicit unfinished `?TODO` bodies.
+- Run Bend programs, build emitted code, and run native artifacts through separate configurations.
+- Create a Bend module or a linked `LAWS.bend`/`PROOF.bend` pair from editable file templates.
 
 ### Compiler checking
 
@@ -37,8 +47,9 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 ## Getting started
 
 1. Install the plugin in IntelliJ IDEA Community Edition 2025.1 and open a `.bend` file. Editing features work immediately.
-2. To use compiler checking or Base completion, search for **Bend** in IDE Settings and select your Bend executable and Base source. The settings also include the package cache and a background diagnostics toggle.
-3. Use **Tools → Check Current Bend File** for an immediate check, or enable background diagnostics for checks after edits. Use **Tools → Bend Check Status** to inspect the current result.
+2. Open **Settings → Languages & Frameworks → Bend** to select your Bend executable and Base source. The settings also include the package cache and a background diagnostics toggle.
+3. Open **Tools → Bend** to check a file, inspect check status, choose proof roots, navigate proof relationships, and access the other Bend workflows. **Generate Bend Law Fill** is available there and becomes enabled when the caret is on a law.
+4. Create **Bend Run**, **Bend Build**, or **Bend Native** configurations as needed. Select the `.bend` root with the file chooser; the root path is not a free-form text field.
 
 Checking requires a Bend executable with documented `--check-only` support. If the executable, Base, or another required capability is unavailable, the plugin reports that state instead of treating the file as successfully checked.
 
@@ -52,9 +63,7 @@ BEND_TEST_BUN=/absolute/path/to/bun \
 
 ## Planned
 
-- **Additional editor assistance:** parameter information and richer context-sensitive actions.
-- **Bend workflows:** proof-root selection, dedicated law and hole navigation, proof progress, proof-skeleton generation, explicit Run and Build actions, and import/file-management actions beyond current import-path completion.
-- **Compiler-backed assistance:** structured diagnostics beyond current CLI attribution, goals and context, actual expression types, expected-type completion, resource feedback, validated proof edits, and explicit normalization. These depend on compatible compiler capabilities.
+- **Compiler-backed assistance:** structured diagnostics, goals and context, actual expression types, expected-type completion, resource feedback, validated proof edits, and explicit normalization. These depend on compatible compiler capabilities.
 
 The [implementation specification](https://github.com/dearlordylord/bend-idea/issues/1) and [feature issues](https://github.com/dearlordylord/bend-idea/issues) track the full roadmap.
 

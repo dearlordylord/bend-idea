@@ -4,6 +4,7 @@ import com.dearlordylord.bend.idea.symbols.api.*
 import com.dearlordylord.bend.idea.syntax.psi.{
   BendAlias,
   BendDeclaration,
+  BendForeignPaths,
   BendName,
   BendReferenceElement
 }
@@ -30,20 +31,26 @@ final class BendReferenceContributor extends PsiReferenceContributor:
         ): Array[PsiReference] =
           val file = element.asInstanceOf[PsiFile]
           val source = file.getText
-          com.dearlordylord.bend.idea.workspace.api.BendImportLines
-            .parse(source)
-            .flatMap { imp =>
-              com.dearlordylord.bend.idea.workspace.api.BendImportLines
-                .pathRange(source, imp)
-                .map { case (start, end) =>
-                  new BendModulePathReference(
-                    file,
-                    new TextRange(start, end),
-                    imp.offset
-                  ): PsiReference
-                }
-            }
-            .toArray
+          val modulePaths =
+            com.dearlordylord.bend.idea.workspace.api.BendImportLines
+              .parse(source)
+              .flatMap { imp =>
+                com.dearlordylord.bend.idea.workspace.api.BendImportLines
+                  .pathRange(source, imp)
+                  .map { case (start, end) =>
+                    new BendModulePathReference(
+                      file,
+                      new TextRange(start, end),
+                      imp.offset
+                    ): PsiReference
+                  }
+              }
+          val foreignPaths = BendForeignPaths
+            .in(file)
+            .map(path => new BendForeignPathReference(file, path): PsiReference)
+          (modulePaths.map(reference =>
+            reference: PsiReference
+          ) ++ foreignPaths).toArray
     )
     val provider = new PsiReferenceProvider:
       override def getReferencesByElement(

@@ -27,6 +27,16 @@ trait BendCheckService:
   ): Option[BendCheckResult]
   def result(root: FileId): Option[BendCheckResult]
 
+  /** Subscribe to root-owned status/result transitions. Callbacks receive only
+    * the root identity and must unsubscribe when their UI owner is disposed.
+    */
+  def addStatusListener(listener: FileId => Unit): () => Unit
+
+  /** In-memory publication guard for UI callbacks. This must not traverse
+    * sources or the filesystem.
+    */
+  def isCurrent(result: BendCheckResult): Boolean
+
   /** Current root-owned results whose diagnostics may project onto this file.
     */
   def resultsFor(source: FileId): List[BendCheckResult]

@@ -78,6 +78,16 @@ final class BendImportedSymbolCatalog(project: Project):
         )
       )
 
+  /** Last valid direct alias that points at one canonical loaded source. */
+  def aliasForTarget(
+      graph: BendLoadedGraph,
+      target: FileId
+  ): Option[String] =
+    effectiveDirectEdges(graph)
+      .filter(_.target.contains(target))
+      .flatMap(_.importLine.alias)
+      .lastOption
+
   private def baseDeclarations(
       graph: BendLoadedGraph
   ): List[(String, BendSourceSymbol)] =

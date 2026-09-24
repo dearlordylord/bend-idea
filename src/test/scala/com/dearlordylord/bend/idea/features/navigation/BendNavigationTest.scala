@@ -1,7 +1,7 @@
 package com.dearlordylord.bend.idea.features.navigation
 
 import com.dearlordylord.bend.idea.symbols.references.BendNameReference
-import com.dearlordylord.bend.idea.symbols.references.BendPhysicalTargets
+import com.dearlordylord.bend.idea.symbols.api.BendPhysicalTargets
 import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.syntax.BendLanguage

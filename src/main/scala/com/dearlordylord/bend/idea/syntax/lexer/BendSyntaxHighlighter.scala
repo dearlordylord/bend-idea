@@ -39,6 +39,13 @@ object BendColors:
   val Bracket = key("BRACKET", Colors.BRACES)
   val Separator = key("SEPARATOR", Colors.COMMA)
   val Bad = key("BAD", HighlighterColors.BAD_CHARACTER)
+  val SemanticLocal = key("SEMANTIC_LOCAL", Colors.LOCAL_VARIABLE)
+  val SemanticParameter = key("SEMANTIC_PARAMETER", Colors.PARAMETER)
+  val SemanticConstructor = key("SEMANTIC_CONSTRUCTOR", Colors.FUNCTION_CALL)
+  val SemanticDatatype = key("SEMANTIC_DATATYPE", Colors.CLASS_NAME)
+  val SemanticLaw = key("SEMANTIC_LAW", Colors.CONSTANT)
+  val SemanticDefinition = key("SEMANTIC_DEFINITION", Colors.FUNCTION_CALL)
+  val SemanticAlias = key("SEMANTIC_ALIAS", Colors.CLASS_NAME)
 
 final class BendSyntaxHighlighter extends SyntaxHighlighterBase:
   override def getHighlightingLexer: Lexer = new BendLexer()

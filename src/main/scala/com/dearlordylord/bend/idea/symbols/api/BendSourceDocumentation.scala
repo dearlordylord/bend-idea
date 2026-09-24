@@ -2,6 +2,7 @@ package com.dearlordylord.bend.idea.symbols.api
 
 import com.dearlordylord.bend.idea.symbols.declarations.BendLawDeclarations
 import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
+import com.dearlordylord.bend.idea.workspace.model.BendLoadedGraph
 import com.intellij.psi.PsiFile
 
 /** Root-relative source facts; law and fill retain separate source handles. */
@@ -26,6 +27,17 @@ object BendSourceDocumentation:
     val graph = project
       .getService(classOf[BendImportedSymbolCatalog])
       .loaded(requestFile, basePath, packageCache)
+    site(requestFile, symbol, graph)
+
+  /** Join source declarations against an already loaded root graph. Callers
+    * that captured the graph off the read thread avoid repeating I/O here.
+    */
+  def site(
+      requestFile: PsiFile,
+      symbol: BendSourceSymbol,
+      graph: BendLoadedGraph
+  ): BendDocumentationSite =
+    val project = requestFile.getProject
     val rootDeclarations = BendSourceSymbols.declarations(requestFile)
     val aliases = project
       .getService(classOf[BendImportedSymbolCatalog])

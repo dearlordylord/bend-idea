@@ -19,7 +19,7 @@ import com.dearlordylord.bend.idea.symbols.declarations.{
   BendLawDeclarations,
   BendLogicalLaw
 }
-import com.intellij.psi.PsiFile
+import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.PsiFileFactory
 import com.intellij.openapi.project.Project
 import com.intellij.psi.TokenType
@@ -50,6 +50,11 @@ final case class BendSourceSymbol(
     signature: BendSourceSignature,
     comments: String,
     declaration: BendDeclaration
+)
+
+final case class BendBoundedDeclarations(
+    symbols: List[BendSourceSymbol],
+    truncated: Boolean
 )
 
 /** Source-local identity and region. The clause specification is source text,
@@ -120,23 +125,69 @@ object BendSourceSymbols:
       .asScala
       .toList
       .sortBy(_.getTextRange.getStartOffset)
-      .flatMap { declaration =>
-        Option(declaration.getNameIdentifier).map { name =>
-          val category = declaration match
-            case _: BendDefinition  => BendSymbolCategory.Definition
-            case _: BendDatatype    => BendSymbolCategory.Datatype
-            case _: BendLaw         => BendSymbolCategory.Law
-            case _: BendConstructor => BendSymbolCategory.Constructor
-          BendSourceSymbol(
-            BendSourceHandle(id, category, name.getTextOffset),
-            name.getText,
-            category,
-            BendSourceSignature(declaration.headerText, declaration.parameters),
-            declaration.sourceComments,
-            declaration
-          )
-        }
-      }
+      .flatMap(declaration => declarationSymbol(id, declaration))
+
+  /** Bounded declaration projection for background inventories. The visitor
+    * stops at the result limit and checks cancellation during PSI traversal.
+    */
+  def sourceDeclarationsBounded(
+      project: Project,
+      identity: FileId,
+      text: String,
+      limit: Int,
+      maxCharacters: Int,
+      accepted: Set[BendSymbolCategory],
+      canceled: () => Boolean
+  ): Option[BendBoundedDeclarations] =
+    if canceled() then return None
+    val source = text.take(maxCharacters.max(0))
+    val inputTruncated = source.length < text.length
+    val file = PsiFileFactory
+      .getInstance(project)
+      .createFileFromText("loaded.bend", BendLanguage.instance, source)
+    val result = scala.collection.mutable.ListBuffer.empty[BendSourceSymbol]
+    val collectLimit = limit.max(0) + 1
+    def visit(element: PsiElement): Unit =
+      if canceled() || result.size >= collectLimit then return
+      element match
+        case declaration: BendDeclaration =>
+          declarationSymbol(identity, declaration).foreach { symbol =>
+            if accepted.contains(symbol.category) then result += symbol
+          }
+        case _ => ()
+      var child = element.getFirstChild
+      while child != null && result.size < collectLimit && !canceled() do
+        visit(child)
+        child = child.getNextSibling
+    visit(file)
+    if canceled() then None
+    else
+      Some(
+        BendBoundedDeclarations(
+          result.take(limit.max(0)).toList,
+          inputTruncated || result.size > limit.max(0)
+        )
+      )
+
+  private def declarationSymbol(
+      id: FileId,
+      declaration: BendDeclaration
+  ): Option[BendSourceSymbol] =
+    Option(declaration.getNameIdentifier).map { name =>
+      val category = declaration match
+        case _: BendDefinition  => BendSymbolCategory.Definition
+        case _: BendDatatype    => BendSymbolCategory.Datatype
+        case _: BendLaw         => BendSymbolCategory.Law
+        case _: BendConstructor => BendSymbolCategory.Constructor
+      BendSourceSymbol(
+        BendSourceHandle(id, category, name.getTextOffset),
+        name.getText,
+        category,
+        BendSourceSignature(declaration.headerText, declaration.parameters),
+        declaration.sourceComments,
+        declaration
+      )
+    }
 
   /** Parse captured Base text with the same tolerant declaration model as
     * editor files.
