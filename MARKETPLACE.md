@@ -21,11 +21,11 @@ The vendor page also showed versions 0.1.0 and 0.1.1 as **Under review** on that
 
 This package restores the source baseline from commit `2df22df`, bumps the version, and uses the Marketplace listing name `Bend2`. Its signed archive is in the rollback worktree at `build/distributions/bend-idea-0.1.3-signed.zip` (SHA-256: `80c25586c0e909b39c78521fc377b0f995212ed5dd78935e6bf665130ce12fdc`). Marketplace accepted it as Stable update **1178310** on 2026-09-24. It remains under review and is not public. Its verifier report has two Internal API usages in `BendSettingsConfigurable`.
 
-## 0.1.4 fixed candidate — not submitted
+## 0.1.4 fixed submission
 
-The fix is pushed as `codex/fix-internal-api` at commit `e3fcf3d`. The file element type is now a single instance of a concrete class, so Scala no longer emits a top-level object wrapper that calls IntelliJ's Internal API `IElementType.getDebugName()`. The current source also uses `BaseConfigurable` for settings. Plugin Verifier reports no Internal API usages and compatibility with Community 2025.1 and Ultimate 2026.1.
+The fix is pushed as `codex/fix-internal-api` at commit `6e91d38`. The file element type is now a single instance of a concrete class, so Scala no longer emits a top-level object wrapper that calls IntelliJ's Internal API `IElementType.getDebugName()`. The current source also uses `BaseConfigurable` for settings. Plugin Verifier reports no Internal API usages and compatibility with Community 2025.1 and Ultimate 2026.1.
 
-The signed candidate is `build/distributions/bend-idea-0.1.4-signed.zip` (SHA-256: `cae3f67755d5c7780c315472ed269e8cb6ada1111eaacb96f3b9a75beb44f5e4`). On 2026-09-24, JDK 21.0.10 release checks passed: 270 tests, 0 failures, 0 errors, 0 skipped; architecture, packaging, project configuration, Plugin Verifier, and signature verification passed. This candidate has **not** been uploaded; wait for explicit approval before submitting it.
+The signed archive is `build/distributions/bend-idea-0.1.4-signed.zip` (SHA-256: `cae3f67755d5c7780c315472ed269e8cb6ada1111eaacb96f3b9a75beb44f5e4`). On 2026-09-24, JDK 21.0.10 release checks passed: 270 tests, 0 failures, 0 errors, 0 skipped; architecture, packaging, project configuration, Plugin Verifier, and signature verification passed. Marketplace accepted it as Stable update **1178547** on 2026-09-24. It is **Under review** while Support conducts additional checks and is not public yet.
 
 ## Future updates
 
