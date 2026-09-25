@@ -3,13 +3,13 @@ package com.dearlordylord.bend.idea.features.templates
 import com.intellij.ide.fileTemplates.FileTemplateManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.psi.{
   PsiDirectory,
   PsiDocumentManager,
   PsiFile,
   PsiFileFactory
 }
-import com.intellij.util.ThrowableRunnable
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.lexer.BendWords
 import scala.util.control.NonFatal
@@ -32,19 +32,17 @@ object BendFileTemplates:
     if exists(directory, fileName) then
       return Left(s"$fileName already exists in ${directory.getName}.")
     templateText(directory, ModuleTemplate, "NAME", moduleName).map { text =>
-      var created: PsiFile = null
       WriteCommandAction
         .writeCommandAction(directory.getProject)
         .withName("Create Bend Module")
-        .run(
-          new ThrowableRunnable[RuntimeException]:
-            override def run(): Unit =
+        .compute(
+          new ThrowableComputable[PsiFile, RuntimeException]:
+            override def compute(): PsiFile =
               val source = PsiFileFactory
                 .getInstance(directory.getProject)
                 .createFileFromText(fileName, BendLanguage.instance, text)
-              created = directory.add(source).asInstanceOf[PsiFile]
+              addFile(directory, source)
         )
-      created
     }
 
   def createLawProofPair(
@@ -59,36 +57,31 @@ object BendFileTemplates:
     for
       lawText <- templateText(directory, LawsTemplate, "NAME", "claim")
       proofText <- templateText(directory, ProofTemplate, "NAME", "claim")
-    yield
-      var createdLaws: PsiFile = null
-      var createdProof: PsiFile = null
-      WriteCommandAction
-        .writeCommandAction(directory.getProject)
-        .withName("Create Bend Law and Proof Pair")
-        .run(
-          new ThrowableRunnable[RuntimeException]:
-            override def run(): Unit =
-              val factory = PsiFileFactory.getInstance(directory.getProject)
-              createdLaws = directory
-                .add(
-                  factory.createFileFromText(
-                    lawsName,
-                    BendLanguage.instance,
-                    lawText
-                  )
-                )
-                .asInstanceOf[PsiFile]
-              createdProof = directory
-                .add(
-                  factory.createFileFromText(
-                    proofName,
-                    BendLanguage.instance,
-                    proofText
-                  )
-                )
-                .asInstanceOf[PsiFile]
-        )
-      (createdLaws, createdProof)
+    yield WriteCommandAction
+      .writeCommandAction(directory.getProject)
+      .withName("Create Bend Law and Proof Pair")
+      .compute(
+        new ThrowableComputable[(PsiFile, PsiFile), RuntimeException]:
+          override def compute(): (PsiFile, PsiFile) =
+            val factory = PsiFileFactory.getInstance(directory.getProject)
+            val createdLaws = addFile(
+              directory,
+              factory.createFileFromText(
+                lawsName,
+                BendLanguage.instance,
+                lawText
+              )
+            )
+            val createdProof = addFile(
+              directory,
+              factory.createFileFromText(
+                proofName,
+                BendLanguage.instance,
+                proofText
+              )
+            )
+            (createdLaws, createdProof)
+      )
 
   def openAt(file: PsiFile, offset: Int): Unit =
     PsiDocumentManager.getInstance(file.getProject).commitAllDocuments()
@@ -103,6 +96,15 @@ object BendFileTemplates:
   private def exists(directory: PsiDirectory, fileName: String): Boolean =
     directory.findFile(fileName) != null ||
       directory.findSubdirectory(fileName) != null
+
+  private def addFile(directory: PsiDirectory, source: PsiFile): PsiFile =
+    directory.add(source) match
+      case file: PsiFile => file
+      case other         =>
+        val actual = Option(other).fold("null")(_.getClass.getName)
+        throw new IllegalStateException(
+          s"Adding a Bend template returned $actual instead of a PsiFile."
+        )
 
   private def templateText(
       directory: PsiDirectory,
