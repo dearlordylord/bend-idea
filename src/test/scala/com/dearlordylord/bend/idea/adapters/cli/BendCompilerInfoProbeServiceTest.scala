@@ -1,7 +1,6 @@
 package com.dearlordylord.bend.idea.adapters.cli
 
 import com.dearlordylord.bend.idea.toolchain.api.{
-  BendCheckOnlySupport,
   BendCompilerInfo,
   BendCompilerInfoResult
 }
@@ -30,7 +29,7 @@ final class BendCompilerInfoProbeServiceTest:
 
       assertEquals(
         BendCompilerInfoResult.Detected(
-          BendCompilerInfo(Some("2.0.16"), BendCheckOnlySupport.Unsupported)
+          BendCompilerInfo(Some("2.0.16"))
         ),
         result
       )

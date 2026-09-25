@@ -1,4 +1,4 @@
-# Manual test guide: issues #28–#40
+# Manual test guide: issues #29–#40
 
 This guide covers the features in [PR #60](https://github.com/dearlordylord/bend-idea/pull/60).
 
@@ -14,15 +14,14 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 
 1. Check out the branch above and launch the plugin sandbox with `./gradlew runIde` using JDK 21.
 2. In the sandbox, open a project containing `.bend` files. Editing features work without a Bend installation.
-3. For checking, running, and building, open **Settings → Languages & Frameworks → Bend** and configure the Bend executable and Base source. The page detects the compiler version and `--check-only` support in the background; use **Detect** after changing the executable. Proof-root checks require a compiler that supports `--check-only`.
+3. For checking, running, and building, open **Settings → Languages & Frameworks → Bend** and configure the Bend executable and Base source. The page detects the compiler version in the background; use **Detect** after changing the executable. Proof-root checks require a compiler that supports `--check-only`.
 4. For spelling, enable the IDE's optional **Spellchecker** plugin. For native output, the Bend compiler's native backend and `clang` are needed; C and JavaScript source emission do not require that backend.
 
 ## Feature checklist
 
 | Issue                                                       | Feature | Files to open/check | Manual test | Feedback |
 |-------------------------------------------------------------|---|---|---|---|
-| [#28](https://github.com/dearlordylord/bend-idea/issues/28) | Select and check proof roots | `PROOF.bend` (full read-only root); `bend-idea/proofs/PROOF.bend` (small writable root); `bend-idea/proofs/LAWS.bend` | In Settings → Languages & Frameworks → Bend, confirm the compiler version and `--check-only` status appear and **Detect** refreshes them for the selected executable. Run **Tools → Bend → Check Bend Proof Root** and select each root in turn. Check the root in the notification/status. With the compiler unconfigured or lacking `--check-only`, confirm the notification explains why checking is unavailable and no source-error warning is painted on every file. |
-| [#29](https://github.com/dearlordylord/bend-idea/issues/29) | Navigate laws, proofs, and holes | `LAWS.bend` → `laws/core.bend`; `PROOF.bend` → `proofs/core.bend` → `laws/core.bend`; hole fixture: `bend-idea/proofs/holes.bend` (imported by fixture `PROOF.bend`) | Select only the full-project `PROOF.bend` root. Click the gutter links for `d20_all_to_nat` from both `laws/core.bend` and `proofs/core.bend` (`L.d20_all_to_nat`). Confirm the nested aliases resolve promptly in both directions. Use **Next/Previous Bend Proof Hole** in `holes.bend`; it has named and TODO holes plus comment/string lookalikes that should be skipped. |
+| [#29](https://github.com/dearlordylord/bend-idea/issues/29) | Navigate laws, proofs, and holes | `LAWS.bend` → `laws/core.bend`; `PROOF.bend` → `proofs/core.bend` → `laws/core.bend`; hole fixture: `bend-idea/proofs/holes.bend` (imported by fixture `PROOF.bend`) | Select only the full-project `PROOF.bend` root. Click the gutter links for `d20_all_to_nat` from both `laws/core.bend` and `proofs/core.bend` (`L.d20_all_to_nat`). Confirm the nested aliases resolve promptly in both directions. Use **Next/Previous Bend Proof Hole** in `holes.bend`; it has named and TODO holes plus comment/string lookalikes that should be skipped. | `?evidence` is red with an expected-Nat/observed-?evidence diagnostic; `?TODO` is not. The compiler intentionally treats `?name` as a failed check and `?TODO` as an incomplete book. The red span includes indentation; review whether the highlight should narrow to the hole. |
 | [#30](https://github.com/dearlordylord/bend-idea/issues/30) | Generate a law implementation skeleton | `bend-idea/proofs/LAWS.bend` (`self_equal`, with no fill); destination/root: `bend-idea/proofs/PROOF.bend` | Open **Tools → Bend** with no law selected; **Generate Bend Law Fill** should remain visible but disabled with a usage hint. Put the caret on `self_equal`, choose the action and fixture root, then check the generated parameters and explicit `?TODO` in the writable proof fixture. |
 | [#31](https://github.com/dearlordylord/bend-idea/issues/31) | Generate match cases | `bend-idea/match/Maybe.bend`; `bend-idea/match/main.bend` (currently missing the `Some` branch) | Put the caret in `inspect`'s match and choose **Tools → Generate Match Cases**. Check that the missing constructor is added without duplicating `None`, with an unfinished body marked `?TODO`. |
 | [#32](https://github.com/dearlordylord/bend-idea/issues/32) | Browse proof progress | `bend-idea/proofs/PROOF.bend`, `bend-idea/proofs/LAWS.bend`, and imported `bend-idea/proofs/holes.bend`; full-project alternative: `PROOF.bend` and `proofs/core.bend` | Select the small root with **Check Bend Proof Root**, then open **View → Tool Windows → Bend Proof Progress**. Check that the panel lists its law, missing fill, and holes from `holes.bend`; click entries to navigate to their source. Use the full root for a larger progress view. |
@@ -38,6 +37,6 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 ## Follow-up UI regression checks
 
 - [ ] Confirm the Bend settings page appears under **Settings → Languages & Frameworks → Bend**.
-- [ ] Confirm the settings page detects and displays the Bend compiler version and `--check-only` support without blocking the UI; **Detect** refreshes the result after changing the executable.
+- [ ] Confirm the settings page detects and displays the Bend compiler version without blocking the UI; **Detect** refreshes the result after changing the executable.
 - [ ] Confirm Bend actions appear under **Tools → Bend**. Open Tools with `bend-idea/signatures.bend` active and from a tool window; opening **New → Bend Module** on `bend-idea/templates-output/` should not produce `virtualFile`/`psi.File` EDT access errors.
 - [ ] Confirm the Run configuration choices are clearly named **Bend Run**, **Bend Build**, and **Bend Native**, and that Run/Build roots are selected with the `.bend` file chooser using `bend-idea/run/main.bend`.

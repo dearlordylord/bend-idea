@@ -3,7 +3,6 @@ package com.dearlordylord.bend.idea.adapters.cli
 import com.dearlordylord.bend.idea.adapters.process.BendProcessOutcome
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.toolchain.api.{
-  BendCheckOnlySupport,
   BendCompilerInfo,
   BendCompilerInfoResult
 }
@@ -80,10 +79,7 @@ private[cli] object BendCliVerdictDecoder:
           .split("\\n", -1)
           .iterator
           .collectFirst { case VersionHelpLine(value) => value }
-        val checkOnly =
-          if supportsCheckOnly(help) then BendCheckOnlySupport.Supported
-          else BendCheckOnlySupport.Unsupported
-        BendCompilerInfoResult.Detected(BendCompilerInfo(version, checkOnly))
+        BendCompilerInfoResult.Detected(BendCompilerInfo(version))
       case BendProcessOutcome.Exited(code, _) =>
         BendCompilerInfoResult.Unavailable(
           s"Bend --help exited with code $code."

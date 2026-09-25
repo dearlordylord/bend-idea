@@ -1,7 +1,6 @@
 package com.dearlordylord.bend.idea.features.settings
 
 import com.dearlordylord.bend.idea.toolchain.api.{
-  BendCheckOnlySupport,
   BendCompilerInfoResult,
   BendCompilerInfoProbe,
   BendToolchainChoices,
@@ -149,12 +148,7 @@ final class BendSettingsConfigurable extends BaseConfigurable:
     if generation == probeGeneration.get() && compilerInfo != null then
       val text = result match
         case BendCompilerInfoResult.Detected(info) =>
-          val version =
-            info.version.fold("Version not reported")(v => s"Bend $v")
-          val capability = info.checkOnly match
-            case BendCheckOnlySupport.Supported   => "check-only supported"
-            case BendCheckOnlySupport.Unsupported => "check-only unavailable"
-          s"$version — $capability"
+          info.version.fold("Version not reported")(v => s"Bend $v")
         case BendCompilerInfoResult.Unavailable(details) =>
           s"Compiler unavailable — $details"
         case BendCompilerInfoResult.TimedOut => "Compiler probe timed out"

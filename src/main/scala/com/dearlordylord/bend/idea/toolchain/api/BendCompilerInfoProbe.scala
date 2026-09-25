@@ -1,13 +1,6 @@
 package com.dearlordylord.bend.idea.toolchain.api
 
-enum BendCheckOnlySupport:
-  case Supported
-  case Unsupported
-
-final case class BendCompilerInfo(
-    version: Option[String],
-    checkOnly: BendCheckOnlySupport
-)
+final case class BendCompilerInfo(version: Option[String])
 
 enum BendCompilerInfoResult:
   case Detected(info: BendCompilerInfo)
@@ -15,7 +8,7 @@ enum BendCompilerInfoResult:
   case TimedOut
   case Canceled
 
-/** Reads bounded compiler identity/capability facts at the adapter boundary. */
+/** Reads bounded compiler identity at the adapter boundary. */
 trait BendCompilerInfoProbe:
   def inspect(
       executable: String,

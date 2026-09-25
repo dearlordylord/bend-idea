@@ -3,7 +3,6 @@ package com.dearlordylord.bend.idea.adapters.cli
 import com.dearlordylord.bend.idea.adapters.process.BendProcessOutcome
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.toolchain.api.{
-  BendCheckOnlySupport,
   BendCompilerInfo,
   BendCompilerInfoResult
 }
@@ -37,7 +36,7 @@ final class BendCliVerdictDecoderTest:
       unsupported.isInstanceOf[BendCliVerdictDecoder.Capability.Unavailable]
     )
 
-  @Test def compilerInfoExtractsVersionAndCheckOnlyCapability(): Unit =
+  @Test def compilerInfoExtractsVersionOnly(): Unit =
     val oldCompiler = BendCliVerdictDecoder.compilerInfo(
       BendProcessOutcome.Exited(
         0,
@@ -46,7 +45,7 @@ final class BendCliVerdictDecoderTest:
     )
     assertEquals(
       BendCompilerInfoResult.Detected(
-        BendCompilerInfo(Some("2.0.16"), BendCheckOnlySupport.Unsupported)
+        BendCompilerInfo(Some("2.0.16"))
       ),
       oldCompiler
     )
@@ -59,7 +58,7 @@ final class BendCliVerdictDecoderTest:
     )
     assertEquals(
       BendCompilerInfoResult.Detected(
-        BendCompilerInfo(Some("2.0.27"), BendCheckOnlySupport.Supported)
+        BendCompilerInfo(Some("2.0.27"))
       ),
       currentCompiler
     )
