@@ -13,15 +13,16 @@ object VfsTestRoots:
       .of(System.getProperty("java.io.tmpdir"))
       .toAbsolutePath
       .normalize()
-    val realRoot =
-      if Files.exists(temporaryRoot) then
-        List(temporaryRoot.toRealPath().toString)
-      else Nil
+    val temporaryRoots = List(temporaryRoot, Path.of("/tmp")).distinct
+    val realRoots = temporaryRoots.flatMap { root =>
+      if Files.exists(root) then List(root.toRealPath().toString) else Nil
+    }
+    val temporaryRootPaths = temporaryRoots.map(_.toString)
     val extraRoots = additionalRoots.toList.flatMap { path =>
       val absolute = path.toAbsolutePath.normalize()
       absolute.toString ::
         (if Files.exists(absolute) then List(absolute.toRealPath().toString)
          else Nil)
     }
-    val roots = ((temporaryRoot.toString :: realRoot) ++ extraRoots).distinct
+    val roots = (temporaryRootPaths ++ realRoots ++ extraRoots).distinct
     VfsRootAccess.allowRootAccess(disposable, roots*)

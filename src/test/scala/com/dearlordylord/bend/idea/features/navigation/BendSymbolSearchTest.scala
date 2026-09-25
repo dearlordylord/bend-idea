@@ -192,6 +192,10 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
   def testOpenFilesOutsideTheSearchScopeDoNotContributeNames(): Unit =
     val included =
       myFixture.addFileToProject("included.bend", "def inScopeName():\n  0\n")
+    myFixture.addFileToProject(
+      "closed-excluded.bend",
+      "def indexedOutOfScopeName():\n  0\n"
+    )
     val excluded = myFixture.addFileToProject(
       "excluded.bend",
       "def outOfScopeName():\n  0\n"
@@ -208,6 +212,10 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
     assertFalse(
       "Leaked names: " + scopedNames,
       scopedNames.contains("outOfScopeName")
+    )
+    assertFalse(
+      "Leaked names: " + scopedNames,
+      scopedNames.contains("indexedOutOfScopeName")
     )
     assertFalse(
       "Leaked names: " + scopedNames,
