@@ -173,6 +173,8 @@ final class ArchitectureTest:
       classes.contain(
         "com.dearlordylord.bend.idea.features.editing.BendGenerateMatchCasesAction"
       ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.editing.BendGenerateMatchCasesIntention"
+      ) && classes.contain(
         "com.dearlordylord.bend.idea.features.editing.BendMatchSkeletonGenerator$"
       ) && classes.contain(
         "com.dearlordylord.bend.idea.features.templates.api.BendSnippets$"

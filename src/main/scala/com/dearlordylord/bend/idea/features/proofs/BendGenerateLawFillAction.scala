@@ -1,7 +1,9 @@
 package com.dearlordylord.bend.idea.features.proofs
 
 import com.dearlordylord.bend.idea.workspace.api.BendPathInventoryStatus
+import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.intellij.notification.{NotificationGroupManager, NotificationType}
+import com.intellij.codeInsight.intention.IntentionAction
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
@@ -21,7 +23,8 @@ import scala.jdk.CollectionConverters.*
 
 /** Explicitly generates a source-level implementation skeleton for a law. */
 final class BendGenerateLawFillAction
-    extends AnAction("Generate Bend Law Fill"):
+    extends AnAction("Generate Bend Law Fill")
+    with IntentionAction:
   private final case class Discovery(
       roots: BendProofRootInventory,
       fillSearch: BendProofFillSearch
@@ -29,6 +32,23 @@ final class BendGenerateLawFillAction
 
   override def getActionUpdateThread: ActionUpdateThread =
     ActionUpdateThread.BGT
+
+  override def getText: String = "Generate Bend Law Fill"
+  override def getFamilyName: String = "Bend proof fills"
+
+  override def isAvailable(
+      project: Project,
+      editor: Editor,
+      file: PsiFile
+  ): Boolean =
+    project != null && editor != null && file != null &&
+      file.getLanguage == BendLanguage.instance &&
+      currentLaw(file, editor.getCaretModel.getOffset).nonEmpty
+
+  override def invoke(project: Project, editor: Editor, file: PsiFile): Unit =
+    perform(project, editor, file)
+
+  override def startInWriteAction: Boolean = false
 
   override def update(event: AnActionEvent): Unit =
     val editor = event.getData(CommonDataKeys.EDITOR)
@@ -44,11 +64,21 @@ final class BendGenerateLawFillAction
     )
 
   override def actionPerformed(event: AnActionEvent): Unit =
-    val project = event.getProject
     val editor = event.getData(CommonDataKeys.EDITOR)
+    perform(
+      event.getProject,
+      editor,
+      event.getData(CommonDataKeys.PSI_FILE)
+    )
+
+  private def perform(
+      project: Project,
+      editor: Editor,
+      file: PsiFile
+  ): Unit =
     if project == null || editor == null then return
     val lawPointer = ReadAction.compute(() =>
-      Option(event.getData(CommonDataKeys.PSI_FILE)).flatMap(file =>
+      Option(file).flatMap(file =>
         currentLaw(file, editor.getCaretModel.getOffset).map(law =>
           SmartPointerManager
             .getInstance(project)

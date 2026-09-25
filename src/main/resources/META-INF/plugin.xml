@@ -75,6 +75,18 @@ Editing works without a Bend installation. Checking requires a configured Bend c
                   implementationClass="com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"/>
         <lang.documentationProvider language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.documentation.BendDocumentationProvider"/>
+        <intentionAction>
+            <className>com.dearlordylord.bend.idea.features.editing.BendGenerateMatchCasesIntention</className>
+            <bundleName>messages.LangBundle</bundleName>
+            <categoryKey>intention.category.other</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <className>com.dearlordylord.bend.idea.features.proofs.BendGenerateLawFillAction</className>
+            <bundleName>messages.LangBundle</bundleName>
+            <categoryKey>intention.category.other</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
         <codeInsight.parameterInfo language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.signatures.BendParameterInfoHandler"/>
         <codeInsight.parameterNameHints language="Bend"
@@ -130,10 +142,14 @@ Editing works without a Bend installation. Checking requires a configured Bend c
         <group id="Bend.Tools" text="Bend" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </group>
+        <group id="Bend.EditorPopup" text="Bend" popup="true" icon="/icons/bend.svg">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </group>
         <action id="Bend.CheckCurrentFile"
                 class="com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction"
                 text="Check Current Bend File" description="Check the current Bend document without running main">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
         </action>
         <action id="Bend.CheckProofRoot"
                 class="com.dearlordylord.bend.idea.features.proofs.BendCheckProofRootAction"
@@ -144,11 +160,13 @@ Editing works without a Bend installation. Checking requires a configured Bend c
                 class="com.dearlordylord.bend.idea.features.proofs.BendNextHoleAction"
                 text="Next Bend Proof Hole" description="Navigate to the next named or TODO hole">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
         </action>
         <action id="Bend.PreviousProofHole"
                 class="com.dearlordylord.bend.idea.features.proofs.BendPreviousHoleAction"
                 text="Previous Bend Proof Hole" description="Navigate to the previous named or TODO hole">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
         </action>
         <action id="Bend.GenerateMatchCases"
                 class="com.dearlordylord.bend.idea.features.editing.BendGenerateMatchCasesAction"

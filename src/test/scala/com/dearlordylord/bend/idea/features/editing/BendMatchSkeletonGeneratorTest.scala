@@ -14,6 +14,7 @@ import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainSettings
 }
 import com.dearlordylord.bend.idea.features.templates.api.BendSnippets
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.actionSystem.IdeActions
@@ -21,6 +22,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.nio.file.{Files, Path}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
+import scala.jdk.CollectionConverters.*
 import org.junit.Assert.*
 
 final class BendMatchSkeletonGeneratorTest extends BasePlatformTestCase:
@@ -39,6 +41,10 @@ final class BendMatchSkeletonGeneratorTest extends BasePlatformTestCase:
     val _ = compiler.writeLauncher(executable)
     val selectedBase = directory.resolve("base.bend")
     Files.copy(compiler.base, selectedBase)
+    VfsTestRoots.allowSystemTemporaryDirectory(
+      getTestRootDisposable,
+      selectedBase
+    )
     settings.update(
       BendToolchainChoices(
         executable = executable.toString,
@@ -116,6 +122,51 @@ final class BendMatchSkeletonGeneratorTest extends BasePlatformTestCase:
     assertEquals(
       "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.Maybe) -> Nat:\n  match value:\n    case Option.None{}:\n      0n\n",
       myFixture.getEditor.getDocument.getText
+    )
+
+  def testContextActionGeneratesMissingCasesForSupportedMatch(): Unit =
+    myFixture.addFileToProject(
+      "types/Maybe.bend",
+      "import Base\ntype Maybe is Data:\n  None{}\n  Some{value: Nat}\n"
+    )
+    val file = myFixture.configureByText(
+      "main.bend",
+      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.Maybe) -> Nat:\n  <caret>match value:\n    case Option.None{}:\n      0n\n"
+    )
+    val action = myFixture.getAvailableIntentions.asScala
+      .find(_.getText == "Generate Match Cases")
+      .getOrElse(
+        throw new AssertionError("Match generation context action was missing")
+      )
+    assertTrue(
+      "Match generation intention should stay available through invocation",
+      action.isAvailable(getProject, myFixture.getEditor, file)
+    )
+
+    action.invoke(getProject, myFixture.getEditor, file)
+
+    assertEquals(
+      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.Maybe) -> Nat:\n  match value:\n    case Option.None{}:\n      0n\n    case Option.Some{value2}:\n      ?TODO\n",
+      file.getText
+    )
+    assertEquals(
+      "?TODO",
+      myFixture.getEditor.getDocument.getText.substring(
+        myFixture.getEditor.getSelectionModel.getSelectionStart,
+        myFixture.getEditor.getSelectionModel.getSelectionEnd
+      )
+    )
+  def testContextActionIsAbsentForUnsupportedComputedMatch(): Unit =
+    myFixture.configureByText(
+      "computed.bend",
+      "import Base\ntype Maybe is Data:\n  None{}\n  Some{}\ndef inspect(value: Maybe):\n  <caret>match identity(value):\n    ?TODO\n"
+    )
+
+    assertFalse(
+      "Computed scrutinees must not offer generated match cases",
+      myFixture.getAvailableIntentions.asScala.exists(
+        _.getText == "Generate Match Cases"
+      )
     )
 
   def testDirectlyTypedPatternFieldIsMatchable(): Unit =

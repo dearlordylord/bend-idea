@@ -6,6 +6,7 @@ import com.dearlordylord.bend.idea.analysis.api.BendExplicitCheckRunner
 import com.dearlordylord.bend.idea.analysis.model.BendCompleteness
 import com.dearlordylord.bend.idea.features.templates.api.BendSnippets
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.dearlordylord.bend.idea.symbols.api.{
   BendSourceDocumentation,
   BendSourceSymbols,
@@ -32,6 +33,7 @@ import com.intellij.openapi.actionSystem.IdeActions
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import scala.jdk.CollectionConverters.*
 import org.junit.Assert.*
 
 final class BendProofFillGeneratorTest extends BasePlatformTestCase:
@@ -50,6 +52,10 @@ final class BendProofFillGeneratorTest extends BasePlatformTestCase:
     val _ = compiler.writeLauncher(executable)
     val selectedBase = directory.resolve("base.bend")
     Files.copy(compiler.base, selectedBase)
+    VfsTestRoots.allowSystemTemporaryDirectory(
+      getTestRootDisposable,
+      selectedBase
+    )
     settings.update(
       BendToolchainChoices(
         executable = executable.toString,
@@ -73,6 +79,21 @@ final class BendProofFillGeneratorTest extends BasePlatformTestCase:
             })
         finally paths.close()
     finally super.tearDown()
+
+  def testLawFillIsOfferedAsContextActionAtLawDeclaration(): Unit =
+    val file = myFixture.configureByText(
+      "LAWS.bend",
+      "<caret>law claim:\n  for n: Nat\n  {n == n : Nat}\n"
+    )
+    val action = myFixture.getAvailableIntentions.asScala
+      .find(_.getText == "Generate Bend Law Fill")
+      .getOrElse(
+        throw new AssertionError("Law-fill context action was missing")
+      )
+    assertTrue(
+      "The law-fill action should stay available at a law declaration",
+      action.isAvailable(getProject, myFixture.getEditor, file)
+    )
 
   def testGeneratedFillUsesVisibleRootTelescopeAndRemainsIncomplete(): Unit =
     val lawFile = myFixture.addFileToProject(

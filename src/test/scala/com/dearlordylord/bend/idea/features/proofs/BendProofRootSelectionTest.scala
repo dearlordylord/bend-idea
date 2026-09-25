@@ -134,6 +134,20 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
   def testBendToolsGroupAndPsiVfsActionsUseBackgroundUpdates(): Unit =
     val manager = ActionManager.getInstance()
     assertTrue(manager.getAction("Bend.Tools").isInstanceOf[ActionGroup])
+    val editorPopup = manager.getAction("Bend.EditorPopup")
+    assertTrue(editorPopup.isInstanceOf[ActionGroup])
+    val editorPopupIds = editorPopup
+      .asInstanceOf[ActionGroup]
+      .getChildren(null)
+      .flatMap(action => Option(manager.getId(action)))
+      .toSet
+    assertTrue(
+      List(
+        "Bend.CheckCurrentFile",
+        "Bend.NextProofHole",
+        "Bend.PreviousProofHole"
+      ).forall(editorPopupIds)
+    )
     val ids = List(
       "Bend.CreateModule",
       "Bend.CreateLawProofPair",
