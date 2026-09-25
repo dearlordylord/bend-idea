@@ -16,13 +16,22 @@ import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
   BendToolchainSettings
 }
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendPathInventoryStatus,
+  BendSourceCatalog,
+  BendWorkspaceGraph
+}
+import com.dearlordylord.bend.idea.workspace.loading.BendGraphLoader
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.psi.PsiDocumentManager
+import com.intellij.openapi.application.ReadAction
+import com.intellij.psi.{PsiDocumentManager, SmartPointerManager}
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.testFramework.ServiceContainerUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.actionSystem.IdeActions
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.*
 
 final class BendProofFillGeneratorTest extends BasePlatformTestCase:
@@ -79,6 +88,8 @@ final class BendProofFillGeneratorTest extends BasePlatformTestCase:
     assertNotNull(law)
     val target = BendProofFillGenerator
       .candidates(law, List(root.getVirtualFile.getPath))
+      .get
+      .targets
       .find(_.name == "Laws.claim")
       .getOrElse(throw new AssertionError("Imported law was not a fill target"))
 
@@ -166,6 +177,8 @@ final class BendProofFillGeneratorTest extends BasePlatformTestCase:
           law,
           List(root.getVirtualFile.getPath)
         )
+        .get
+        .targets
         .isEmpty
     )
 
@@ -180,8 +193,15 @@ final class BendProofFillGeneratorTest extends BasePlatformTestCase:
     )
     val root = myFixture.getFile
     val law = PsiTreeUtil.findChildOfType(lawFile, classOf[BendLaw])
+    val lawPointer = ReadAction.compute(() =>
+      SmartPointerManager
+        .getInstance(getProject)
+        .createSmartPsiElementPointer(law)
+    )
     val target = BendProofFillGenerator
       .candidates(law, List(root.getVirtualFile.getPath))
+      .get
+      .targets
       .find(_.name == "Laws.claim")
       .get
     com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(
@@ -194,6 +214,193 @@ final class BendProofFillGeneratorTest extends BasePlatformTestCase:
     )
     PsiDocumentManager.getInstance(getProject).commitAllDocuments()
     val before = myFixture.getEditor.getDocument.getText
+    assertTrue(
+      "Background revalidation must resolve the renamed import alias again",
+      BendProofFillGenerator
+        .refreshCandidate(lawPointer, target, () => false)
+        .isEmpty
+    )
     val result = BendProofFillGenerator.insert(getProject, target)
     assertTrue("A stale alias must reject insertion", result.isLeft)
     assertEquals(before, myFixture.getEditor.getDocument.getText)
+
+  def testCandidateDiscoveryHonorsCancellation(): Unit =
+    val lawFile = myFixture.addFileToProject(
+      "LAWS.bend",
+      "law claim:\n  Type\n"
+    )
+    val root = myFixture.addFileToProject(
+      "PROOF.bend",
+      "import ./LAWS.bend as Laws\n"
+    )
+    val law = PsiTreeUtil.findChildOfType(lawFile, classOf[BendLaw])
+    assertNotNull(law)
+    assertTrue(
+      "Candidate discovery must not publish partial work after cancellation",
+      BendProofFillGenerator
+        .candidates(law, List(root.getVirtualFile.getPath), () => true)
+        .isEmpty
+    )
+
+  def testCappedGraphIsCarriedIntoDiscoveryAndDisablesAutoInsertion(): Unit =
+    val lawFile = myFixture.addFileToProject(
+      "LAWS.bend",
+      "law claim:\n  for n: Nat\n  {n == n : Nat}\n"
+    )
+    val root = myFixture.addFileToProject(
+      "PROOF.bend",
+      "import ./LAWS.bend as Laws\nimport ./tail.bend as Tail\n"
+    )
+    val _ = myFixture.addFileToProject(
+      "tail.bend",
+      "def tail():\n  0\n"
+    )
+    val catalog = getProject.getService(classOf[BendSourceCatalog])
+    val graph = new BendWorkspaceGraph:
+      override def load(
+          source: com.dearlordylord.bend.idea.workspace.model.BendSourceRecord,
+          basePath: String,
+          packageCache: String,
+          canceled: () => Boolean
+      ) =
+        BendGraphLoader.load(
+          source,
+          BendGraphLoader.Config(basePath, packageCache),
+          catalog,
+          maxFiles = 2,
+          canceled = canceled
+        )
+
+      override def siblingLaws(proofPath: String) = None
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[BendWorkspaceGraph],
+      graph,
+      getTestRootDisposable
+    )
+    val law = PsiTreeUtil.findChildOfType(lawFile, classOf[BendLaw])
+    assertNotNull(law)
+    val search = BendProofFillGenerator
+      .candidates(law, List(root.getVirtualFile.getPath), () => false)
+      .get
+
+    assertEquals(List("Laws.claim"), search.targets.map(_.name))
+    assertEquals(List(root.getVirtualFile.getPath), search.cappedRootPaths)
+    assertFalse(
+      "One visible target from a capped graph must not be auto-inserted",
+      new BendGenerateLawFillAction().shouldAutoInsert(
+        BendPathInventoryStatus.Complete,
+        search
+      )
+    )
+
+  def testRefreshCapPreventsPreviouslyAutomaticInsertion(): Unit =
+    val lawFile = myFixture.addFileToProject(
+      "LAWS.bend",
+      "law claim:\n  for n: Nat\n  {n == n : Nat}\n"
+    )
+    val root = myFixture.addFileToProject(
+      "PROOF.bend",
+      "import ./LAWS.bend as Laws\nimport ./tail.bend as Tail\n"
+    )
+    val _ = myFixture.addFileToProject(
+      "tail.bend",
+      "def tail():\n  0\n"
+    )
+    val catalog = getProject.getService(classOf[BendSourceCatalog])
+    val loads = new AtomicInteger(0)
+    val graph = new BendWorkspaceGraph:
+      override def load(
+          source: com.dearlordylord.bend.idea.workspace.model.BendSourceRecord,
+          basePath: String,
+          packageCache: String,
+          canceled: () => Boolean
+      ) =
+        val maxFiles = if loads.getAndIncrement() == 0 then 256 else 2
+        BendGraphLoader.load(
+          source,
+          BendGraphLoader.Config(basePath, packageCache),
+          catalog,
+          maxFiles = maxFiles,
+          canceled = canceled
+        )
+
+      override def siblingLaws(proofPath: String) = None
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[BendWorkspaceGraph],
+      graph,
+      getTestRootDisposable
+    )
+    val law = PsiTreeUtil.findChildOfType(lawFile, classOf[BendLaw])
+    assertNotNull(law)
+    val lawPointer = ReadAction.compute(() =>
+      SmartPointerManager
+        .getInstance(getProject)
+        .createSmartPsiElementPointer(law)
+    )
+    val rootPath = root.getVirtualFile.getPath
+    val initial = BendProofFillGenerator.candidates(law, List(rootPath)).get
+    assertFalse(initial.sourceInventoryCapped)
+    assertTrue(
+      new BendGenerateLawFillAction().shouldAutoInsert(
+        BendPathInventoryStatus.Complete,
+        initial
+      )
+    )
+    val refreshed = BendProofFillGenerator
+      .refreshCandidate(lawPointer, initial.targets.head, () => false)
+      .get
+    assertTrue(refreshed.sourceInventoryCapped)
+    assertFalse(
+      "A cap that appears during refresh must stop automatic insertion",
+      new BendGenerateLawFillAction().mayInsertAfterRefresh(
+        automaticSelection = true,
+        refreshed = refreshed
+      )
+    )
+    assertTrue(
+      "A target deliberately chosen from the displayed chooser remains explicit",
+      new BendGenerateLawFillAction().mayInsertAfterRefresh(
+        automaticSelection = false,
+        refreshed = refreshed
+      )
+    )
+
+  def testRefreshRejectsNewProofRootAfterSingleCandidateDiscovery(): Unit =
+    val lawFile = myFixture.addFileToProject(
+      "LAWS.bend",
+      "law claim:\n  for n: Nat\n  {n == n : Nat}\n"
+    )
+    val root = myFixture.addFileToProject(
+      "PROOF.bend",
+      "import ./LAWS.bend as Laws\n"
+    )
+    val law = PsiTreeUtil.findChildOfType(lawFile, classOf[BendLaw])
+    assertNotNull(law)
+    val lawPointer = ReadAction.compute(() =>
+      SmartPointerManager
+        .getInstance(getProject)
+        .createSmartPsiElementPointer(law)
+    )
+    val initial = BendProofFillGenerator
+      .candidates(law, List(root.getVirtualFile.getPath))
+      .get
+    assertEquals(1, initial.targets.size)
+    assertTrue(
+      new BendGenerateLawFillAction().shouldAutoInsert(
+        BendPathInventoryStatus.Complete,
+        initial
+      )
+    )
+
+    val _ = myFixture.addFileToProject(
+      "second/PROOF.bend",
+      "import ../LAWS.bend as Laws\n"
+    )
+    assertTrue(
+      "A new possible root invalidates automatic selection before refresh",
+      BendProofFillGenerator
+        .refreshCandidate(lawPointer, initial.targets.head, () => false)
+        .isEmpty
+    )

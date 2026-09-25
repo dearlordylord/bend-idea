@@ -19,8 +19,7 @@ final class BendParameterInfoHandler
   ): PsiElement =
     resolved(context.getFile, context.getOffset).map { signature =>
       val owner = ownerAt(context.getFile, signature.application.calleeFrom)
-      if owner != null then
-        context.setItemsToShow(Array(signature.asInstanceOf[Object]))
+      if owner != null then context.setItemsToShow(Array[Object](signature))
       owner
     }.orNull
 
@@ -29,7 +28,7 @@ final class BendParameterInfoHandler
       context: CreateParameterInfoContext
   ): Unit =
     resolved(context.getFile, context.getOffset).foreach { signature =>
-      context.setItemsToShow(Array(signature.asInstanceOf[Object]))
+      context.setItemsToShow(Array[Object](signature))
       context.showHint(element, signature.application.openFrom, this)
     }
 
@@ -52,7 +51,7 @@ final class BendParameterInfoHandler
           items.indices.foreach { index =>
             items(index) match
               case _: BendRenderedCallSignature =>
-                items(index) = signature.asInstanceOf[Object]
+                items(index) = signature
               case _ => ()
           }
         }

@@ -83,20 +83,21 @@ sealed abstract class BendDeclaration(
         .substring(lineStart, start)
         .takeWhile(c => c == ' ' || c == '\t')
         .length
-      val lines = source
-        .substring(0, start)
-        .split("\\r?\\n", -1)
-        .toList
-        .dropRight(1)
-        .reverse
-      lines
-        .takeWhile { line =>
+      @scala.annotation.tailrec
+      def adjacentComments(lineEnd: Int, lines: List[String]): List[String] =
+        if lineEnd < 0 then lines
+        else
+          val previousStart = source.lastIndexOf('\n', lineEnd) + 1
+          val line =
+            source.substring(previousStart, lineEnd + 1).stripSuffix("\r")
           val spaces = line.takeWhile(c => c == ' ' || c == '\t').length
-          spaces == indent && line.drop(spaces).startsWith("#")
-        }
-        .reverse
-        .map(_.trim.stripPrefix("#").stripPrefix(" "))
-        .mkString("\n")
+          if spaces == indent && line.drop(spaces).startsWith("#") then
+            adjacentComments(
+              previousStart - 2,
+              line.trim.stripPrefix("#").stripPrefix(" ") :: lines
+            )
+          else lines
+      adjacentComments(lineStart - 2, Nil).mkString("\n")
 
   def parameters: List[BendSourceParameter] =
     BendSourceParameter.fromHeader(headerText, this.isInstanceOf[BendDatatype])

@@ -169,7 +169,12 @@ final class BendRunConfiguration(
     val _ = element.setAttribute("environmentLines", environmentLines)
 
   override def clone(): BendRunConfiguration =
-    val copied = super.clone().asInstanceOf[BendRunConfiguration]
+    val copied = super.clone() match
+      case configuration: BendRunConfiguration => configuration
+      case _                                   =>
+        throw new IllegalStateException(
+          "Unexpected run configuration clone type"
+        )
     copied.rootPath = rootPath
     copied.executablePath = executablePath
     copied.workingDirectory = workingDirectory

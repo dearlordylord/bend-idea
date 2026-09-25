@@ -128,7 +128,12 @@ final class BendNativeRunConfiguration(
     val _ = element.setAttribute("environmentLines", environmentLines)
 
   override def clone(): BendNativeRunConfiguration =
-    val copied = super.clone().asInstanceOf[BendNativeRunConfiguration]
+    val copied = super.clone() match
+      case configuration: BendNativeRunConfiguration => configuration
+      case _                                         =>
+        throw new IllegalStateException(
+          "Unexpected native run configuration clone type"
+        )
     copied.executablePath = executablePath
     copied.workingDirectory = workingDirectory
     copied.threads = threads

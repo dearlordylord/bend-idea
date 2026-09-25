@@ -311,6 +311,16 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Snapshot-aware native reference factory must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendSnapshotAwareReferenceFactory"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.symbols.references.BendSnapshotAwareReferenceFactoryService"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendSnapshotAwareReference"
+      )
+    )
+    assertTrue(
       "Module file references must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.symbols.references.BendModulePathReference"

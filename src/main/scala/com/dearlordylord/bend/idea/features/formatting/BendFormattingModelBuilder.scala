@@ -72,8 +72,10 @@ private final class BendFormatBlock(
     if before > after || before < 0 || after > source.length then
       return Spacing.getReadOnlySpacing()
     val gap = source.substring(before, after)
-    val leftNode = left.asInstanceOf[BendFormatBlock].getNode
-    val rightNode = right.asInstanceOf[BendFormatBlock].getNode
+    val (leftNode, rightNode) = (left, right) match
+      case (leftBlock: BendFormatBlock, rightBlock: BendFormatBlock) =>
+        (leftBlock.getNode, rightBlock.getNode)
+      case _ => return Spacing.getReadOnlySpacing()
     if gap.exists(c => c == '\n' || c == '\r') then
       if simpleBody && leftNode.getElementType == BendElements.Header then
         return Spacing.createSpacing(0, 0, 1, true, 0)

@@ -28,7 +28,7 @@ Editing works without a Bend installation. Checking requires a configured Bend c
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
-    <depends optional="true" config-file="com.dearlordylord.bend.idea-spellchecker.xml">tanvd.grazi</depends>
+    <depends optional="true" config-file="com.dearlordylord.bend.idea-spellchecker.xml">com.intellij.modules.spellchecker</depends>
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckingStartup"/>
         <toolWindow id="Bend Proof Progress"
@@ -118,6 +118,8 @@ Editing works without a Bend installation. Checking requires a configured Bend c
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendLoadingConfigurationService"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendBaseSymbolCatalog"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendImportedSymbolCatalog"/>
+        <projectService serviceInterface="com.dearlordylord.bend.idea.symbols.api.BendSnapshotAwareReferenceFactory"
+                        serviceImplementation="com.dearlordylord.bend.idea.symbols.references.BendSnapshotAwareReferenceFactoryService"/>
         <applicationConfigurable instance="com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"
                                  id="com.dearlordylord.bend.idea.settings" displayName="Bend" parentId="language"/>
         <notificationGroup id="Bend" displayType="BALLOON"/>

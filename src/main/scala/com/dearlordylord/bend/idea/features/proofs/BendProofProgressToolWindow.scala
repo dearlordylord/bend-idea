@@ -9,15 +9,15 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.{ApplicationManager, ModalityState}
 import com.intellij.openapi.editor.{EditorFactory, event}
 import com.intellij.openapi.fileEditor.{FileDocumentManager, OpenFileDescriptor}
+import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.LocalFileSystem
+import com.dearlordylord.bend.idea.workspace.api.BendPathInventoryStatus
 import com.intellij.openapi.wm.{ToolWindow, ToolWindowFactory}
 import com.intellij.ui.components.{JBLabel, JBList, JBTextField}
 import com.intellij.util.Alarm
 import com.intellij.ui.content.ContentFactory
 import java.awt.{BorderLayout, Component, FlowLayout}
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
-import java.nio.file.Path
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import javax.swing.event.{
   DocumentEvent as SwingDocumentEvent,
@@ -66,6 +66,7 @@ final class BendProofProgressPanel(
   )
   private var allEntries = List.empty[BendProofInventoryEntry]
   @volatile private var latestSnapshot: Option[BendProofProgressSnapshot] = None
+  private var rootInventoryStatus = BendPathInventoryStatus.Complete
   private var updatingRoots = false
 
   private val connection = project.getMessageBus.connect(this)
@@ -117,11 +118,12 @@ final class BendProofProgressPanel(
         selected,
         focused
       )
-      rendered
-        .asInstanceOf[JComponent]
-        .setToolTipText(value match
-          case entry: BendProofInventoryEntry => entry.path
-          case _                              => null)
+      rendered match
+        case component: JComponent =>
+          component.setToolTipText(value match
+            case entry: BendProofInventoryEntry => entry.path
+            case _                              => null)
+        case _ => ()
       rendered)
   list.addMouseListener(new MouseAdapter:
     override def mouseClicked(event: MouseEvent): Unit =
@@ -145,19 +147,20 @@ final class BendProofProgressPanel(
     alarm.addRequest(
       new Runnable:
         override def run(): Unit =
-          val available = reader.roots()
+          val inventory = reader.roots()
           if current(ticket) then
             ApplicationManager.getApplication.invokeLater(
               new Runnable:
                 override def run(): Unit =
                   if !current(ticket) then return
                   val previous = selectedRoot
+                  rootInventoryStatus = inventory.status
                   val next = previous
-                    .filter(available.contains)
-                    .orElse(available.headOption)
+                    .filter(inventory.paths.contains)
+                    .orElse(inventory.paths.headOption)
                   updatingRoots = true
                   roots.setModel(
-                    new DefaultComboBoxModel[String](available.toArray)
+                    new DefaultComboBoxModel[String](inventory.paths.toArray)
                   )
                   next.foreach(roots.setSelectedItem)
                   updatingRoots = false
@@ -168,7 +171,9 @@ final class BendProofProgressPanel(
                       allEntries = Nil
                       renderEntries()
                       summary.setText(
-                        "No Bend proof roots found. Use Check root to select one."
+                        withRootInventoryNotice(
+                          "No Bend proof roots found. Use Check root to select one."
+                        )
                       )
               ,
               ModalityState.any()
@@ -197,7 +202,9 @@ final class BendProofProgressPanel(
                       latestSnapshot = Some(value)
                       renderEntries()
                       summary.setText(
-                        s"${value.rootPath} — ${value.checkedStatus}"
+                        withRootInventoryNotice(
+                          s"${value.rootPath} — ${value.checkedStatus}"
+                        )
                       )
                 ,
                 ModalityState.any()
@@ -224,6 +231,11 @@ final class BendProofProgressPanel(
   private def current(ticket: Long): Boolean =
     !disposed.get() && !project.isDisposed && generation.get() == ticket
 
+  private def withRootInventoryNotice(summaryText: String): String =
+    BendPathInventoryStatus
+      .notice(rootInventoryStatus)
+      .fold(summaryText)(notice => s"$summaryText; $notice")
+
   private def applyFilter(): Unit = renderEntries()
 
   private def renderEntries(): Unit =
@@ -235,12 +247,34 @@ final class BendProofProgressPanel(
       }
 
   private def open(entry: BendProofInventoryEntry): Unit =
-    try
-      val path = Path.of(entry.path).toAbsolutePath.normalize().toString
-      Option(LocalFileSystem.getInstance().findFileByPath(path)).foreach(file =>
-        new OpenFileDescriptor(project, file, entry.offset).navigate(true)
+    val ticket = generation.get()
+    ProgressManager
+      .getInstance()
+      .run(
+        new Task.Backgroundable(project, "Opening Bend proof item", true):
+          override def run(indicator: ProgressIndicator): Unit =
+            if !indicator.isCanceled then
+              val target = reader.navigationTarget(entry)
+              if !indicator.isCanceled then
+                ApplicationManager.getApplication.invokeLater(
+                  new Runnable:
+                    override def run(): Unit =
+                      if current(ticket) then
+                        target match
+                          case Some(value) =>
+                            new OpenFileDescriptor(
+                              project,
+                              value.file,
+                              value.offset
+                            ).navigate(true)
+                          case None =>
+                            summary.setText(
+                              "Source changed; refresh proof progress before opening this row."
+                            )
+                  ,
+                  ModalityState.any()
+                )
       )
-    catch case _: java.nio.file.InvalidPathException => ()
 
   private[proofs] def openEntry(entry: BendProofInventoryEntry): Unit = open(
     entry

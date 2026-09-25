@@ -2,6 +2,7 @@ package com.dearlordylord.bend.idea.features.navigation
 
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.psi.BendDeclaration
+import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
@@ -16,6 +17,7 @@ import com.intellij.openapi.project.{DumbAware, Project}
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.{PsiDocumentManager, PsiFile}
+import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.util.PsiTreeUtil
 import scala.jdk.CollectionConverters.*
@@ -35,8 +37,7 @@ final class BendInspectDependenciesAction extends AnAction with DumbAware:
     if file == null || file.getLanguage != BendLanguage.instance then return
     val project = file.getProject
     val editor = event.getData(CommonDataKeys.EDITOR)
-    if editor != null then
-      PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument)
+    commitOpenDocuments(project)
     val pointer = ReadAction.compute(() =>
       val selected =
         if editor == null then file
@@ -66,21 +67,38 @@ final class BendInspectDependenciesAction extends AnAction with DumbAware:
 
           override def run(indicator: ProgressIndicator): Unit =
             indicator.setText("Scanning Bend sources and references")
+            val selected = ReadAction.compute(() =>
+              ProgressManager.checkCanceled()
+              Option(pointer.getElement)
+            )
             report = Some(
-              ReadAction.compute(() =>
-                ProgressManager.checkCanceled()
-                Option(pointer.getElement)
-                  .map(BendStaticDependencies.inspect)
-                  .getOrElse(
-                    Left("The selected Bend source is no longer available.")
-                  )
-              )
+              selected
+                .map(BendStaticDependencies.inspect)
+                .getOrElse(
+                  Left("The selected Bend source is no longer available.")
+                )
             )
 
           override def onSuccess(): Unit =
             if !project.isDisposed then
-              report.foreach(result => showReport(project, editor, result))
+              report.foreach { result =>
+                val current = result match
+                  case Right(value) => reportIsCurrent(project, value)
+                  case Left(_)      => true
+                showReport(
+                  project,
+                  editor,
+                  if current then result
+                  else
+                    Left(
+                      "Bend sources or loading settings changed during inspection. Please retry."
+                    )
+                )
+              }
       )
+
+  private[navigation] def commitOpenDocuments(project: Project): Unit =
+    PsiDocumentManager.getInstance(project).commitAllDocuments()
 
   private def showReport(
       project: Project,
@@ -104,7 +122,9 @@ final class BendInspectDependenciesAction extends AnAction with DumbAware:
         val popup = chooser
           .setTitle("Bend Static Dependencies")
           .setAdText(report.coverage)
-          .setItemChosenCallback(dependency => navigate(project, dependency))
+          .setItemChosenCallback(dependency =>
+            navigate(project, dependency, report)
+          )
           .createPopup()
         if editor == null || editor.isDisposed then
           popup.showCenteredInCurrentWindow(project)
@@ -112,14 +132,46 @@ final class BendInspectDependenciesAction extends AnAction with DumbAware:
 
   private def navigate(
       project: com.intellij.openapi.project.Project,
-      dependency: BendStaticDependency
+      dependency: BendStaticDependency,
+      report: BendStaticDependencyReport
   ): Unit =
-    val file: PsiFile = dependency.navigation match
-      case source: PsiFile => source
-      case element         => element.getContainingFile
-    Option(file)
-      .flatMap(value => Option(value.getVirtualFile))
-      .foreach(virtual =>
-        new OpenFileDescriptor(project, virtual, dependency.offset)
-          .navigate(true)
-      )
+    val target = ReadAction.compute(() => {
+      if !reportIsCurrent(project, report) then None
+      else
+        Option(dependency.navigation.getElement)
+          .filter(_.isValid)
+          .flatMap { element =>
+            val file: PsiFile = element match
+              case source: PsiFile => source
+              case other           => other.getContainingFile
+            Option(file)
+              .filter(_.isValid)
+              .flatMap(value =>
+                Option(value.getVirtualFile)
+                  .map(virtual => (virtual, element.getTextOffset))
+              )
+          }
+    })
+    target match
+      case Some((virtual, offset)) =>
+        new OpenFileDescriptor(project, virtual, offset).navigate(true)
+      case None if !project.isDisposed =>
+        Messages.showInfoMessage(
+          project,
+          "Bend sources or loading settings changed. Inspect dependencies again.",
+          "Bend Dependencies"
+        )
+      case _ => ()
+
+  private[navigation] def reportIsCurrent(
+      project: Project,
+      report: BendStaticDependencyReport
+  ): Boolean = ReadAction.compute(() =>
+    !PsiDocumentManager.getInstance(project).hasUncommitedDocuments &&
+      PsiModificationTracker
+        .getInstance(project)
+        .getModificationCount == report.sourceModificationCount &&
+      project
+        .getService(classOf[BendLoadingConfiguration])
+        .configurationRevision == report.loadingConfigurationRevision
+  )

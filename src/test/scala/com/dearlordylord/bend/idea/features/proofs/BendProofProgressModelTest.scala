@@ -22,13 +22,19 @@ final class BendProofProgressModelTest:
         BendProofInventoryKind.Law,
         "claim",
         "/laws/LAWS.bend",
-        4
+        4,
+        new FileId("/laws/LAWS.bend", canonical = true),
+        1L,
+        1L
       ),
       BendProofInventoryEntry(
         BendProofInventoryKind.Hole,
         "?TODO",
         "/proof/PROOF.bend",
-        40
+        40,
+        new FileId("/proof/PROOF.bend", canonical = true),
+        2L,
+        1L
       )
     )
     assertEquals(

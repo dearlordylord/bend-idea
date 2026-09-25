@@ -26,16 +26,25 @@ final class BendSettingsStorage
   private var data = new BendSettingsState
   private var revision = 0L
 
-  override def getState: BendSettingsState = data
+  override def getState: BendSettingsState = synchronized { copyState(data) }
   override def loadState(state: BendSettingsState): Unit =
+    val loaded = copyState(state)
     val rootsChanged = synchronized {
-      val changed =
-        data.baseSource != state.baseSource || data.packageCache != state.packageCache
-      data = state
+      val changed = data.baseSource != loaded.baseSource ||
+        data.packageCache != loaded.packageCache
+      data = loaded
       revision += 1
       changed
     }
     notifyChanged(rootsChanged)
+
+  private def copyState(source: BendSettingsState): BendSettingsState =
+    val copied = new BendSettingsState
+    copied.executable = source.executable
+    copied.baseSource = source.baseSource
+    copied.packageCache = source.packageCache
+    copied.diagnosticsEnabled = source.diagnosticsEnabled
+    copied
 
   override def choices: BendToolchainChoices = synchronized {
     BendToolchainChoices(

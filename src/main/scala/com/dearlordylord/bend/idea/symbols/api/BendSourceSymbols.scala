@@ -46,10 +46,17 @@ final case class BendSourceSignature(
 final case class BendSourceSymbol(
     handle: BendSourceHandle,
     name: String,
-    category: BendSymbolCategory,
     signature: BendSourceSignature,
     comments: String,
     declaration: BendDeclaration
+):
+  def category: BendSymbolCategory = handle.category
+
+final case class BendSourceDeclarationFact(
+    handle: BendSourceHandle,
+    name: String,
+    category: BendSymbolCategory,
+    site: BendDeclarationSite
 )
 
 final case class BendBoundedDeclarations(
@@ -182,7 +189,6 @@ object BendSourceSymbols:
       BendSourceSymbol(
         BendSourceHandle(id, category, name.getTextOffset),
         name.getText,
-        category,
         BendSourceSignature(declaration.headerText, declaration.parameters),
         declaration.sourceComments,
         declaration
@@ -228,7 +234,12 @@ object BendSourceSymbols:
   /** Same-file source links only; a fill never implies a checked or proved law.
     */
   def logicalLaws(file: PsiFile): List[BendLogicalLaw[BendSourceSymbol]] =
-    BendLawDeclarations.relationships(declarations(file))(site)
+    logicalLaws(declarations(file))
+
+  private[api] def logicalLaws(
+      sourceDeclarations: List[BendSourceSymbol]
+  ): List[BendLogicalLaw[BendSourceSymbol]] =
+    BendLawDeclarations.relationships(sourceDeclarations)(site)
 
   /** Whether this declaration fills a law in its own source. */
   def isLocalLawFill(file: PsiFile, symbol: BendSourceSymbol): Boolean =
@@ -311,7 +322,15 @@ object BendSourceSymbols:
       .map(_.law.handle)
       .getOrElse(symbol.handle)
 
-  private[api] def site(symbol: BendSourceSymbol): BendDeclarationSite =
+  def declarationFact(symbol: BendSourceSymbol): BendSourceDeclarationFact =
+    BendSourceDeclarationFact(
+      symbol.handle,
+      symbol.name,
+      symbol.category,
+      site(symbol)
+    )
+
+  private def site(symbol: BendSourceSymbol): BendDeclarationSite =
     val signature = symbol.signature.source
     val open = signature.indexOf('(')
     var close = -1
@@ -338,21 +357,55 @@ object BendSourceSymbols:
     * identities.
     */
   def visibleCandidates(file: PsiFile, offset: Int): List[BendSourceSymbol] =
-    BendLawDeclarations.completionCandidates(
-      declarations(file).filter(_.handle.nameOffset < offset)
-    )(site)
+    val sourceDeclarations = declarations(file)
+    visibleCandidates(
+      sourceDeclarations,
+      offset,
+      logicalLaws(sourceDeclarations)
+    )
+
+  /** Reuse one declaration projection when several lookups share a captured
+    * source view, such as dependency inspection.
+    */
+  private[api] def visibleCandidates(
+      sourceDeclarations: List[BendSourceSymbol],
+      offset: Int,
+      lawRelationships: List[BendLogicalLaw[BendSourceSymbol]]
+  ): List[BendSourceSymbol] =
+    val earlier = sourceDeclarations.filter(_.handle.nameOffset < offset)
+    val earlierOffsets = earlier.map(_.handle.nameOffset).toSet
+    val fills = lawRelationships
+      .filter(link => earlierOffsets.contains(link.law.handle.nameOffset))
+      .flatMap(_.fills)
+      .filter(symbol => earlierOffsets.contains(symbol.handle.nameOffset))
+      .map(_.handle)
+      .toSet
+    earlier.filterNot(symbol => fills.contains(symbol.handle))
 
   /** Lexical binders from the current declaration, in nearest-first order. */
   def visibleBindings(file: PsiFile, offset: Int): List[BendSourceBinding] =
-    val owner = PsiTreeUtil
-      .findChildrenOfType(file, classOf[BendDeclaration])
-      .asScala
-      .filter(d =>
-        d.getTextRange.getStartOffset <= offset && offset <= d.getTextRange.getEndOffset
-      )
-      .toList
-      .sortBy(_.getTextLength)
+    val sourceDeclarations = declarations(file)
+    visibleBindings(
+      file,
+      offset,
+      sourceDeclarations,
+      logicalLaws(sourceDeclarations)
+    )
+
+  private[api] def visibleBindings(
+      file: PsiFile,
+      offset: Int,
+      sourceDeclarations: List[BendSourceSymbol],
+      lawRelationships: List[BendLogicalLaw[BendSourceSymbol]]
+  ): List[BendSourceBinding] =
+    val owner = sourceDeclarations
+      .filter { symbol =>
+        val range = symbol.declaration.getTextRange
+        range.getStartOffset <= offset && offset <= range.getEndOffset
+      }
+      .sortBy(_.declaration.getTextLength)
       .headOption
+      .map(_.declaration)
     owner.toList.flatMap { declaration =>
       val range = declaration.getTextRange
       val source = file.getText
@@ -401,8 +454,9 @@ object BendSourceSymbols:
         )
       else if !declaration.isInstanceOf[BendDefinition] then scoped
       else
-        val link =
-          logicalLaws(file).find(_.fills.exists(_.declaration eq declaration))
+        val link = lawRelationships.find(
+          _.fills.exists(_.declaration eq declaration)
+        )
         link match
           case None               => scoped
           case Some(relationship) =>
@@ -552,13 +606,35 @@ object BendSourceSymbols:
       offset: Int,
       spelling: String
   ): Option[BendSymbolCategory] =
+    val sourceDeclarations = declarations(file)
+    referenceCategory(
+      file,
+      offset,
+      spelling,
+      sourceDeclarations,
+      logicalLaws(sourceDeclarations)
+    )
+
+  def referenceCategory(
+      file: PsiFile,
+      offset: Int,
+      spelling: String,
+      sourceDeclarations: List[BendSourceSymbol],
+      lawRelationships: List[BendLogicalLaw[BendSourceSymbol]]
+  ): Option[BendSymbolCategory] =
     val source = file.getText
     if offset < 0 || offset + spelling.length > source.length then None
     else
       val after =
         source.substring(offset + spelling.length).dropWhile(_.isWhitespace)
       if after.startsWith("{") then Some(BendSymbolCategory.Constructor)
-      else if visibleBindings(file, offset).exists(_.name == spelling) then None
+      else if visibleBindings(
+          file,
+          offset,
+          sourceDeclarations,
+          lawRelationships
+        ).exists(_.name == spelling)
+      then None
       else
         val header = Option(file.findElementAt(offset))
           .flatMap(element =>

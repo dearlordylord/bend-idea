@@ -13,6 +13,7 @@ import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.awt.{Component, Container}
@@ -25,6 +26,7 @@ final class BendRunConfigurationTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
+    VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable)
     processDir = Files.createTempDirectory("bend-run-configuration-")
 
   override def tearDown(): Unit =

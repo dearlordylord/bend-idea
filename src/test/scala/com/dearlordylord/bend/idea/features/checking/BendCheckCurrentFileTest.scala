@@ -22,6 +22,7 @@ import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
   BendToolchainSettings
 }
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -37,6 +38,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
+    VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable)
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )

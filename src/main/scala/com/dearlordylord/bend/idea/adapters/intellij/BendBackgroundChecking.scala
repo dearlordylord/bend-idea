@@ -316,4 +316,6 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
         true
     }
     if shouldNotify && !project.isDisposed then
-      control.backgroundSchedulerDisposed()
+      Option(project.getService(classOf[BendCheckService])).foreach(
+        _.backgroundSchedulerDisposed()
+      )

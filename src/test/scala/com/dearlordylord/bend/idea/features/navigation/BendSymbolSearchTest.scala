@@ -16,7 +16,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -44,13 +44,11 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
-    val temporaryRoot = System.getProperty("java.io.tmpdir")
-    val vfsTemporaryRoot = temporaryRoot.stripPrefix("/private")
-    VfsRootAccess.allowRootAccess(
+    val compilerDirectory = RealBendCompilerFixture.inputs.compilerDirectory
+    VfsTestRoots.allowSystemTemporaryDirectory(
       getTestRootDisposable,
-      temporaryRoot,
-      vfsTemporaryRoot,
-      RealBendCompilerFixture.inputs.compilerDirectory.toString
+      compilerDirectory,
+      compilerDirectory.getParent
     )
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]

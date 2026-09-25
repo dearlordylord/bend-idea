@@ -301,22 +301,24 @@ object BendMatchSkeletonGenerator:
       datatype: BendSourceSymbol,
       visible: List[(String, BendSourceSymbol)]
   ): List[(String, BendSourceSymbol)] =
-    val declaration = datatype.declaration.asInstanceOf[BendDatatype]
-    PsiTreeUtil
-      .getChildrenOfTypeAsList(declaration, classOf[BendConstructor])
-      .asScala
-      .toList
-      .flatMap { constructor =>
-        val offset = constructor.getNameIdentifier.getTextOffset
-        val choices = visible.collect {
-          case (name, symbol)
-              if symbol.category == BendSymbolCategory.Constructor &&
-                symbol.handle.file == datatype.handle.file &&
-                symbol.handle.nameOffset == offset =>
-            name -> symbol
-        }
-        Option.when(choices.size == 1)(choices.head)
-      }
+    datatype.declaration match
+      case declaration: BendDatatype =>
+        PsiTreeUtil
+          .getChildrenOfTypeAsList(declaration, classOf[BendConstructor])
+          .asScala
+          .toList
+          .flatMap { constructor =>
+            val offset = constructor.getNameIdentifier.getTextOffset
+            val choices = visible.collect {
+              case (name, symbol)
+                  if symbol.category == BendSymbolCategory.Constructor &&
+                    symbol.handle.file == datatype.handle.file &&
+                    symbol.handle.nameOffset == offset =>
+                name -> symbol
+            }
+            Option.when(choices.size == 1)(choices.head)
+          }
+      case _ => Nil
 
   private def unique(
       visible: List[(String, BendSourceSymbol)],

@@ -5,6 +5,8 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.util.ProgressIndicatorBase
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.dearlordylord.bend.idea.symbols.api.BendImportedSymbolCatalog
+import com.dearlordylord.bend.idea.workspace.api.{BendLoadingConfiguration}
 import org.junit.Assert.*
 
 final class BendStaticDependenciesCancellationTest extends BasePlatformTestCase:
@@ -24,3 +26,24 @@ final class BendStaticDependenciesCancellationTest extends BasePlatformTestCase:
       () => ProgressManager.getInstance().runProcess(operation, indicator)
     )
     assertNotNull(error)
+
+  def testCancellationIsForwardedIntoSourceGraphLoading(): Unit =
+    val root = myFixture.addFileToProject(
+      "main.bend",
+      "import ./dep.bend as Dep\ndef main():\n  Dep.value()\n"
+    )
+    val configuration = getProject
+      .getService(classOf[BendLoadingConfiguration])
+      .snapshot
+    val snapshot = getProject
+      .getService(classOf[BendImportedSymbolCatalog])
+      .navigationSnapshot(
+        root,
+        configuration.baseSource,
+        configuration.packageCache,
+        () => true
+      )
+    assertTrue(
+      "A canceled graph load should not visit the root",
+      snapshot.graph.files.isEmpty
+    )

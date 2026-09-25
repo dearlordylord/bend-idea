@@ -5,6 +5,12 @@ import com.dearlordylord.bend.idea.symbols.api.{
   BendSymbolCategory
 }
 import com.dearlordylord.bend.idea.analysis.model.BendCheckingStatus
+import com.dearlordylord.bend.idea.toolchain.api.{
+  BendToolchainChoices,
+  BendToolchainSettings
+}
+import com.dearlordylord.bend.idea.workspace.api.BendPathInventoryStatus
+import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.dearlordylord.bend.idea.syntax.psi.{
   BendLaw,
   BendProofForm,
@@ -12,6 +18,7 @@ import com.dearlordylord.bend.idea.syntax.psi.{
 }
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
@@ -146,15 +153,156 @@ final class BendProofNavigationTest extends BasePlatformTestCase:
     val destination = BendProofDestination(
       root.getVirtualFile.getPath,
       BendSourceSymbols.fileId(root),
-      fill,
+      BendSourceSymbols.declarationFact(fill),
       fill.declaration,
       BendCheckingStatus.Stale
     )
+    myFixture.openFileInEditor(root.getVirtualFile)
+    val sourceModificationCount =
+      PsiModificationTracker.getInstance(getProject).getModificationCount
+    val configurationRevision = getProject
+      .getService(classOf[BendLoadingConfiguration])
+      .configurationRevision
+    assertEquals(
+      Some(
+        BendNavigationTarget(
+          root.getVirtualFile,
+          fill.declaration.getTextOffset
+        )
+      ),
+      BendProofNavigation.navigationTarget(
+        getProject,
+        destination,
+        sourceModificationCount,
+        configurationRevision
+      )
+    )
+
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          myFixture.getEditor.getDocument.setText(
+            "import ../shared/LAWS.bend as Laws\ndef Laws.claim():\n  ?TODO\n# edited\n"
+          )
+    )
+    PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    assertTrue(
+      "An edit invalidates the PSI target captured before the chooser",
+      BendProofNavigation
+        .navigationTarget(
+          getProject,
+          destination,
+          sourceModificationCount,
+          configurationRevision
+        )
+        .isEmpty
+    )
+
     assertTrue(
       "A single stale candidate must show its root/status in the chooser",
       BendProofNavigation.requiresStatusChoice(List(destination))
     )
+    assertTrue(
+      "A single result from an incomplete root inventory must not auto-navigate",
+      BendProofNavigation.requiresStatusChoice(
+        List(destination),
+        BendPathInventoryStatus.IndexUnavailable
+      )
+    )
+    assertTrue(
+      BendProofNavigation.requiresStatusChoice(
+        List(destination),
+        BendPathInventoryStatus.Capped
+      )
+    )
+    assertTrue(
+      "A capped source declaration inventory must show its limit in the chooser",
+      BendProofNavigation.requiresStatusChoice(
+        List(destination),
+        BendPathInventoryStatus.Complete,
+        sourceInventoryCapped = true
+      )
+    )
+    val currentDestination = destination.copy(
+      status = BendCheckingStatus.Unchecked
+    )
+    assertFalse(
+      BendProofNavigation.requiresStatusChoice(
+        List(currentDestination),
+        BendPathInventoryStatus.Complete
+      )
+    )
+    assertTrue(
+      BendProofNavigation
+        .candidateChooserTitle(BendPathInventoryStatus.IndexUnavailable)
+        .contains("Project indexing is unavailable")
+    )
+    assertTrue(
+      BendProofNavigation
+        .candidateChooserTitle(
+          BendPathInventoryStatus.Complete,
+          sourceInventoryCapped = true
+        )
+        .contains("source inventory cap")
+    )
     assertTrue(destination.toString.contains("Check stale"))
+
+  def testLoadingConfigurationChangeInvalidatesCapturedProofTarget(): Unit =
+    val _ = myFixture.addFileToProject(
+      "shared/LAWS.bend",
+      "law claim:\n  Type\n"
+    )
+    val root = myFixture.addFileToProject(
+      "proof/PROOF.bend",
+      "import ../shared/LAWS.bend as Laws\ndef Laws.claim():\n  ?TODO\n"
+    )
+    val fill = BendSourceSymbols
+      .declarations(root)
+      .find(_.name == "Laws.claim")
+      .get
+    val destination = BendProofDestination(
+      root.getVirtualFile.getPath,
+      BendSourceSymbols.fileId(root),
+      BendSourceSymbols.declarationFact(fill),
+      fill.declaration,
+      BendCheckingStatus.Unchecked
+    )
+    val settings =
+      com.intellij.openapi.application.ApplicationManager.getApplication
+        .getService(classOf[BendToolchainSettings])
+    val original: BendToolchainChoices = settings.choices
+    val sourceModificationCount =
+      PsiModificationTracker.getInstance(getProject).getModificationCount
+    val configurationRevision = getProject
+      .getService(classOf[BendLoadingConfiguration])
+      .configurationRevision
+    try
+      assertTrue(
+        BendProofNavigation
+          .navigationTarget(
+            getProject,
+            destination,
+            sourceModificationCount,
+            configurationRevision
+          )
+          .nonEmpty
+      )
+      settings.update(
+        original.copy(packageCache = original.packageCache + "/changed")
+      )
+      assertTrue(
+        "A proof chooser target must not survive a loading configuration change",
+        BendProofNavigation
+          .navigationTarget(
+            getProject,
+            destination,
+            sourceModificationCount,
+            configurationRevision
+          )
+          .isEmpty
+      )
+    finally settings.update(original)
 
   def testLawAndCandidateFillDeclarationsHaveGutterLinks(): Unit =
     val lawFile = myFixture.addFileToProject(

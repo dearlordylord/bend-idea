@@ -11,7 +11,15 @@ import com.dearlordylord.bend.idea.syntax.psi.{
   BendProofForm,
   BendProofSurface
 }
-import com.dearlordylord.bend.idea.workspace.api.BendWorkspacePaths
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendLoadingConfiguration,
+  BendLoadingConfigurationSnapshot,
+  BendNamedPathInventory,
+  BendPathInventoryStatus,
+  BendSourceCatalog,
+  BendWorkspaceGraph,
+  BendWorkspacePaths
+}
 import com.intellij.notification.{NotificationGroupManager, NotificationType}
 import com.intellij.openapi.actionSystem.{
   AnAction,
@@ -25,15 +33,15 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.{ProgressIndicator, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.{PsiModificationTracker, PsiTreeUtil}
 import scala.jdk.CollectionConverters.*
-import scala.util.control.NonFatal
 
 final case class BendProofDestination(
     rootPath: String,
     rootId: FileId,
-    symbol: BendSourceSymbol,
+    symbol: BendSourceDeclarationFact,
     target: PsiElement,
     status: BendCheckingStatus
 ):
@@ -41,25 +49,61 @@ final case class BendProofDestination(
     val source = symbol.handle.file.value
     s"${symbol.name} — $rootPath — ${BendCheckingStatus.label(status)} — $source"
 
+private[proofs] final case class BendNavigationTarget(
+    file: VirtualFile,
+    offset: Int
+)
+
 /** Root-relative source links. These destinations do not assert compiler
   * success; the attached state is only the selected root's latest check status.
   */
 object BendProofNavigation:
   private val RootLimit = 32
+  private val GraphFileLimit = 256
+  private val SourceCharacterLimit = 250000
+  private val SourceDeclarationLimit = 1024
+  private val RootDeclarationLimit = 4096
+  private val RootDestinationLimit = 128
 
-  def roots(origin: PsiFile): List[String] =
+  private final case class SearchSnapshot(
+      sourceModificationCount: Long,
+      loadingConfigurationRevision: Long,
+      roots: BendProofRootInventory,
+      symbol: Option[SelectedSymbol],
+      rootStatuses: List[RootStatus],
+      destinations: List[BendProofDestination]
+  )
+  private final case class SelectedSymbol(
+      handle: BendSourceHandle,
+      name: String,
+      category: BendSymbolCategory
+  )
+  private final case class RootStatus(
+      path: String,
+      status: BendCheckingStatus,
+      sourceInventoryCapped: Boolean = false
+  )
+  private final case class SearchCapture(
+      sourceModificationCount: Long,
+      roots: BendProofRootInventory,
+      symbol: Option[SelectedSymbol],
+      loadingConfiguration: BendLoadingConfigurationSnapshot
+  )
+
+  def roots(origin: PsiFile): BendProofRootInventory =
     val project = origin.getProject
     val currentPath = Option(origin.getVirtualFile).map(_.getPath)
     val saved = project.getService(classOf[BendProofRootStore]).selectedPaths
     val lawIndex = currentPath.exists(path =>
       java.nio.file.Path.of(path).getFileName.toString == "LAWS.bend"
     )
-    val conventional =
+    val discovered =
       if saved.isEmpty || lawIndex then
         project
           .getService(classOf[BendWorkspacePaths])
           .filesNamed("PROOF.bend", RootLimit)
-      else Nil
+      else BendNamedPathInventory(Nil, BendPathInventoryStatus.Complete)
+    val conventional = discovered.paths
     val suggestions =
       if saved.isEmpty then conventional
       else
@@ -75,7 +119,10 @@ object BendProofNavigation:
           )
           .filter(conventional.contains)
           .toList
-    BendProofRootSelection.candidates(currentPath, saved, suggestions)
+    BendProofRootInventory(
+      BendProofRootSelection.candidates(currentPath, saved, suggestions),
+      discovered.status
+    )
 
   def destinations(
       origin: PsiFile,
@@ -83,38 +130,177 @@ object BendProofNavigation:
       rootPaths: List[String]
   ): List[BendProofDestination] =
     val project = origin.getProject
-    rootPaths
-      .flatMap { path =>
-        rootFile(origin, path).toList.flatMap { requestRoot =>
-          try
-            val site = BendSourceDocumentation.site(requestRoot, selected)
-            val related = selected.category match
-              case BendSymbolCategory.Law        => site.fills
-              case BendSymbolCategory.Definition => site.law.toList
-              case _                             => Nil
-            related.flatMap { symbol =>
-              BendPhysicalTargets
-                .file(project, symbol.handle.file)
-                .flatMap(BendPhysicalTargets.declaration(_, symbol))
-                .map { target =>
-                  val rootId = BendSourceSymbols.fileId(requestRoot)
-                  BendProofDestination(
-                    path,
-                    rootId,
-                    symbol,
-                    target,
-                    currentStatus(project, rootId)
-                  )
-                }
-            }
-          catch case NonFatal(_) => Nil
-        }
-      }
-      .distinctBy(destination =>
+    val (sourceModificationCount, loadingConfiguration) =
+      ReadAction.compute(() =>
         (
-          destination.rootId,
-          destination.symbol.handle,
-          destination.target.getTextOffset
+          PsiModificationTracker.getInstance(project).getModificationCount,
+          project.getService(classOf[BendLoadingConfiguration]).snapshot
+        )
+      )
+    destinationsForRoots(
+      origin,
+      SelectedSymbol(selected.handle, selected.name, selected.category),
+      rootPaths,
+      sourceModificationCount,
+      loadingConfiguration,
+      () => false
+    ).fold(Nil)(_._2)
+
+  private def destinationsForRoots(
+      origin: PsiFile,
+      selected: SelectedSymbol,
+      rootPaths: List[String],
+      expectedModificationCount: Long,
+      loadingConfiguration: BendLoadingConfigurationSnapshot,
+      canceled: () => Boolean
+  ): Option[(List[RootStatus], List[BendProofDestination])] =
+    val project = origin.getProject
+    val statuses = scala.collection.mutable.ListBuffer.empty[RootStatus]
+    val destinations = scala.collection.mutable.ListBuffer.empty[
+      BendProofDestination
+    ]
+    val sourceCatalog = project.getService(classOf[BendSourceCatalog])
+    val graphService = project.getService(classOf[BendWorkspaceGraph])
+    val accepted = Set(BendSymbolCategory.Law, BendSymbolCategory.Definition)
+    val iterator = rootPaths.iterator
+    while iterator.hasNext && !canceled() do
+      val path = iterator.next()
+      sourceCatalog.source(path) match
+        case None =>
+          statuses += RootStatus(path, BendCheckingStatus.Unavailable)
+        case Some(root) =>
+          val graph = graphService.load(
+            root,
+            loadingConfiguration.baseSource,
+            loadingConfiguration.packageCache,
+            canceled
+          )
+          if canceled() then return None
+          def inputsCurrent: Boolean =
+            project
+              .getService(classOf[BendLoadingConfiguration])
+              .configurationRevision == loadingConfiguration.configurationRevision &&
+              PsiModificationTracker
+                .getInstance(project)
+                .getModificationCount == expectedModificationCount &&
+              origin.isValid
+
+          val relevantIds = BendSourceDocumentation.relevantSourceIds(graph)
+          val relevantFiles =
+            graph.files.filter(file => relevantIds.contains(file.source.id))
+          var inventoryCapped =
+            graph.sourceInventoryCapped || relevantFiles.size > GraphFileLimit
+          val facts = scala.collection.mutable.ListBuffer.empty[
+            BendSourceDeclarationFact
+          ]
+          val sourceIterator = relevantFiles.take(GraphFileLimit).iterator
+          while sourceIterator.hasNext && facts.size < RootDeclarationLimit &&
+            !canceled()
+          do
+            val loaded = sourceIterator.next()
+            val remaining = math.min(
+              SourceDeclarationLimit,
+              RootDeclarationLimit - facts.size
+            )
+            val scan = ReadAction.compute(() =>
+              if !inputsCurrent then None
+              else
+                BendSourceSymbols
+                  .sourceDeclarationsBounded(
+                    project,
+                    loaded.source.id,
+                    loaded.source.text,
+                    remaining,
+                    SourceCharacterLimit,
+                    accepted,
+                    canceled
+                  )
+                  .map(result =>
+                    (
+                      result.symbols.map(BendSourceSymbols.declarationFact),
+                      result.truncated
+                    )
+                  )
+            )
+            scan match
+              case None                           => return None
+              case Some((sourceFacts, truncated)) =>
+                facts ++= sourceFacts
+                if truncated then inventoryCapped = true
+          if facts.size == RootDeclarationLimit then inventoryCapped = true
+          if canceled() then return None
+
+          val sourceFacts = facts.toList
+          val related = sourceFacts
+            .find(_.handle == selected.handle)
+            .map(
+              BendSourceDocumentation.relatedDeclarations(graph, _, sourceFacts)
+            )
+            .toList
+            .flatMap { links =>
+              selected.category match
+                case BendSymbolCategory.Law        => links.fills
+                case BendSymbolCategory.Definition => links.law.toList
+                case _                             => Nil
+            }
+          if related.size > RootDestinationLimit then inventoryCapped = true
+          val boundedRelated = related.take(RootDestinationLimit)
+          val sourceById =
+            graph.files.map(file => file.source.id -> file.source).toMap
+          val targetGroups = boundedRelated.groupBy(_.handle.file).toList
+          val status = currentStatus(project, root.id)
+          val rootDestinations = scala.collection.mutable.ListBuffer.empty[
+            BendProofDestination
+          ]
+          val targetIterator = targetGroups.iterator
+          while targetIterator.hasNext && !canceled() do
+            val (sourceId, targetFacts) = targetIterator.next()
+            val sourceIsLarge = sourceById
+              .get(sourceId)
+              .exists(_.text.length > SourceCharacterLimit)
+            if sourceIsLarge then inventoryCapped = true
+            else
+              val resolved = ReadAction.compute(() =>
+                if !inputsCurrent then None
+                else
+                  val values = BendPhysicalTargets
+                    .file(project, sourceId)
+                    .filter(_.getTextLength <= SourceCharacterLimit)
+                    .toList
+                    .flatMap(file =>
+                      targetFacts.flatMap(fact =>
+                        BendPhysicalTargets
+                          .declaration(file, fact)
+                          .map(target =>
+                            BendProofDestination(
+                              path,
+                              root.id,
+                              fact,
+                              target,
+                              status
+                            )
+                          )
+                      )
+                    )
+                  Some(values)
+              )
+              resolved match
+                case None         => return None
+                case Some(values) => rootDestinations ++= values
+          statuses += RootStatus(path, status, inventoryCapped)
+          destinations ++= rootDestinations
+    if canceled() then None
+    else
+      Some(
+        (
+          statuses.toList,
+          destinations.toList.distinctBy(destination =>
+            (
+              destination.rootId,
+              destination.symbol.handle,
+              destination.symbol.handle.nameOffset
+            )
+          )
         )
       )
 
@@ -145,82 +331,158 @@ object BendProofNavigation:
   ): Unit =
     val project = file.getProject
     new Task.Backgroundable(project, "Finding Bend laws and proofs", true):
-      private var selectedRoots = List.empty[String]
-      private var currentSymbol: Option[BendSourceSymbol] = None
-      private var found = List.empty[BendProofDestination]
-      private var sourceModificationCount = 0L
+      private var snapshot: Option[Either[String, SearchSnapshot]] = None
 
       override def run(indicator: ProgressIndicator): Unit =
-        val captured = ReadAction.compute(() => {
-          val rootPaths = roots(file)
+        val captured = ReadAction.compute(() =>
+          val rootInventory = roots(file)
           val refreshed = BendSourceSymbols
             .declarations(file)
             .find(_.handle == selected.handle)
-          val destinations =
-            if indicator.isCanceled then Nil
-            else
-              refreshed.toList.flatMap(symbol =>
-                BendProofNavigation.destinations(file, symbol, rootPaths)
+          SearchCapture(
+            PsiModificationTracker.getInstance(project).getModificationCount,
+            rootInventory,
+            refreshed.map(symbol =>
+              SelectedSymbol(symbol.handle, symbol.name, symbol.category)
+            ),
+            project.getService(classOf[BendLoadingConfiguration]).snapshot
+          )
+        )
+        if indicator.isCanceled then return
+        val result = captured.symbol match
+          case None =>
+            Some(
+              SearchSnapshot(
+                captured.sourceModificationCount,
+                captured.loadingConfiguration.configurationRevision,
+                captured.roots,
+                None,
+                Nil,
+                Nil
               )
-          val modificationCount =
-            PsiModificationTracker.getInstance(project).getModificationCount
-          (modificationCount, rootPaths, refreshed, destinations)
-        })
-        sourceModificationCount = captured._1
-        selectedRoots = captured._2
-        currentSymbol = captured._3
-        found = captured._4
+            )
+          case Some(symbol) =>
+            destinationsForRoots(
+              file,
+              symbol,
+              captured.roots.paths,
+              captured.sourceModificationCount,
+              captured.loadingConfiguration,
+              () => indicator.isCanceled
+            ).map { case (rootStatuses, destinations) =>
+              SearchSnapshot(
+                captured.sourceModificationCount,
+                captured.loadingConfiguration.configurationRevision,
+                captured.roots,
+                Some(symbol),
+                rootStatuses,
+                destinations
+              )
+            }
+        if !indicator.isCanceled then
+          snapshot = Some(
+            result.toRight(
+              "Bend sources or loading settings changed while finding proof links; click again"
+            )
+          )
 
       override def onSuccess(): Unit =
         if project.isDisposed || !file.isValid then return
-        if PsiModificationTracker
-            .getInstance(project)
-            .getModificationCount != sourceModificationCount
-        then
-          BendProofNavigation.notify(
-            project,
-            "Bend sources changed while finding proof links; click again"
-          )
-          return
-        currentSymbol match
+        snapshot match
           case None =>
             BendProofNavigation.notify(
               project,
-              "The declaration changed; reload its proof link"
+              "Could not capture Bend proof links; click again"
             )
-          case Some(symbol) if found.isEmpty =>
-            notifyNoCandidates(file, symbol, selectedRoots)
-          case Some(_) if found.size == 1 && !requiresStatusChoice(found) =>
-            navigate(project, found.head)
-          case Some(_) =>
-            JBPopupFactory
-              .getInstance()
-              .createPopupChooserBuilder(found.asJava)
-              .setTitle("Candidate law or proof declarations")
-              .setItemChosenCallback(destination =>
-                navigate(project, destination)
-              )
-              .createPopup()
-              .showCenteredInCurrentWindow(project)
+          case Some(Left(message)) =>
+            BendProofNavigation.notify(project, message)
+          case Some(Right(result)) if !isCurrent(project, result) =>
+            BendProofNavigation.notify(
+              project,
+              "Bend sources or loading settings changed while finding proof links; click again"
+            )
+          case Some(Right(result)) =>
+            result.symbol match
+              case None =>
+                BendProofNavigation.notify(
+                  project,
+                  "The declaration changed; reload its proof link"
+                )
+              case Some(symbol) if result.destinations.isEmpty =>
+                notifyNoCandidates(
+                  project,
+                  symbol,
+                  result.rootStatuses,
+                  result.roots.status
+                )
+              case Some(_)
+                  if !requiresStatusChoice(
+                    result.destinations,
+                    result.roots.status,
+                    result.rootStatuses.exists(_.sourceInventoryCapped)
+                  ) =>
+                navigate(
+                  project,
+                  result.destinations.head,
+                  result.sourceModificationCount,
+                  result.loadingConfigurationRevision
+                )
+              case Some(_) =>
+                JBPopupFactory
+                  .getInstance()
+                  .createPopupChooserBuilder(result.destinations.asJava)
+                  .setTitle(
+                    candidateChooserTitle(
+                      result.roots.status,
+                      result.rootStatuses.exists(_.sourceInventoryCapped)
+                    )
+                  )
+                  .setItemChosenCallback(destination =>
+                    navigate(
+                      project,
+                      destination,
+                      result.sourceModificationCount,
+                      result.loadingConfigurationRevision
+                    )
+                  )
+                  .createPopup()
+                  .showCenteredInCurrentWindow(project)
     .queue()
 
   private[proofs] def requiresStatusChoice(
-      candidates: List[BendProofDestination]
+      candidates: List[BendProofDestination],
+      inventoryStatus: BendPathInventoryStatus =
+        BendPathInventoryStatus.Complete,
+      sourceInventoryCapped: Boolean = false
   ): Boolean =
-    candidates.size > 1 || candidates.exists(
-      _.status == BendCheckingStatus.Stale
-    )
+    inventoryStatus != BendPathInventoryStatus.Complete ||
+      sourceInventoryCapped ||
+      candidates.size > 1 ||
+      candidates.exists(_.status == BendCheckingStatus.Stale)
+
+  private[proofs] def candidateChooserTitle(
+      inventoryStatus: BendPathInventoryStatus,
+      sourceInventoryCapped: Boolean = false
+  ): String =
+    val base = "Candidate law or proof declarations"
+    val statusNotice = BendPathInventoryStatus
+      .notice(inventoryStatus)
+      .fold(base)(message => s"$base — $message")
+    if sourceInventoryCapped then
+      s"$statusNotice — search limited by source inventory cap"
+    else statusNotice
 
   private def notifyNoCandidates(
-      file: PsiFile,
-      selected: BendSourceSymbol,
-      candidateRoots: List[String]
+      project: Project,
+      selected: SelectedSymbol,
+      candidateRoots: List[RootStatus],
+      inventoryStatus: BendPathInventoryStatus
   ): Unit =
-    val rootsWithStatus = candidateRoots.map { path =>
-      val rootId = rootFile(file, path)
-        .map(BendSourceSymbols.fileId)
-        .getOrElse(new FileId(path, canonical = false))
-      s"$path (${BendCheckingStatus.label(currentStatus(file.getProject, rootId))})"
+    val rootsWithStatus = candidateRoots.map { root =>
+      val cap =
+        if root.sourceInventoryCapped then "; source inventory capped"
+        else ""
+      s"${root.path} (${BendCheckingStatus.label(root.status)}$cap)"
     }
     val role = selected.category match
       case BendSymbolCategory.Law => "candidate fill"
@@ -229,16 +491,17 @@ object BendProofNavigation:
       if rootsWithStatus.isEmpty then
         "No proof roots are configured or suggested."
       else rootsWithStatus.mkString("Selected roots: ", "; ", ".")
+    val inventoryNotice = BendPathInventoryStatus
+      .notice(inventoryStatus)
+      .fold("")(message => s" $message")
+    val sourceInventoryNotice =
+      if candidateRoots.exists(_.sourceInventoryCapped) then
+        " Some root declaration searches reached their safety cap."
+      else ""
     notify(
-      file.getProject,
-      s"No $role found for ${selected.name}. $rootDetail Presence of a matching definition is not proof success."
+      project,
+      s"No $role found for ${selected.name}. $rootDetail$inventoryNotice$sourceInventoryNotice Presence of a matching definition is not proof success."
     )
-
-  private def rootFile(origin: PsiFile, path: String): Option[PsiFile] =
-    if Option(origin.getVirtualFile).exists(_.getPath == path) then Some(origin)
-    else
-      val id = new FileId(path, canonical = false)
-      BendPhysicalTargets.file(origin.getProject, id)
 
   private def currentStatus(
       project: Project,
@@ -256,15 +519,57 @@ object BendProofNavigation:
 
   private def navigate(
       project: Project,
-      destination: BendProofDestination
+      destination: BendProofDestination,
+      expectedModificationCount: Long,
+      expectedConfigurationRevision: Long
   ): Unit =
-    val file = destination.target.getContainingFile
-    Option(file.getVirtualFile).foreach(virtual =>
-      new OpenFileDescriptor(
-        project,
-        virtual,
-        destination.target.getTextOffset
-      ).navigate(true)
+    navigationTarget(
+      project,
+      destination,
+      expectedModificationCount,
+      expectedConfigurationRevision
+    ) match
+      case Some(target) if !project.isDisposed =>
+        new OpenFileDescriptor(project, target.file, target.offset)
+          .navigate(true)
+      case _ if !project.isDisposed =>
+        notify(
+          project,
+          "Bend sources changed while finding proof links; click again"
+        )
+      case _ => ()
+
+  private[proofs] def navigationTarget(
+      project: Project,
+      destination: BendProofDestination,
+      expectedModificationCount: Long,
+      expectedConfigurationRevision: Long
+  ): Option[BendNavigationTarget] =
+    ReadAction.compute(() => {
+      val currentModificationCount =
+        PsiModificationTracker.getInstance(project).getModificationCount
+      val currentConfigurationRevision = project
+        .getService(classOf[BendLoadingConfiguration])
+        .configurationRevision
+      if project.isDisposed ||
+        currentModificationCount != expectedModificationCount ||
+        currentConfigurationRevision != expectedConfigurationRevision ||
+        !destination.target.isValid
+      then None
+      else
+        Option(destination.target.getContainingFile.getVirtualFile).map(file =>
+          BendNavigationTarget(file, destination.target.getTextOffset)
+        )
+    })
+
+  private def isCurrent(project: Project, result: SearchSnapshot): Boolean =
+    ReadAction.compute(() =>
+      PsiModificationTracker
+        .getInstance(project)
+        .getModificationCount == result.sourceModificationCount &&
+        project
+          .getService(classOf[BendLoadingConfiguration])
+          .configurationRevision == result.loadingConfigurationRevision
     )
 
   private def notify(project: Project, message: String): Unit =

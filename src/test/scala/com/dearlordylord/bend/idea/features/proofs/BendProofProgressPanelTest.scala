@@ -6,6 +6,7 @@ import com.dearlordylord.bend.idea.analysis.model.{
   BendCheckOutcome,
   BendCompleteness
 }
+import com.dearlordylord.bend.idea.workspace.api.BendPathInventoryStatus
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
   BendToolchainSettings
@@ -158,7 +159,10 @@ final class BendProofProgressPanelTest extends BasePlatformTestCase:
     val entered = new CountDownLatch(1)
     val stopped = new CountDownLatch(1)
     val slow = new BendProofProgressReader(getProject):
-      override def roots(): List[String] = List(path)
+      override def roots(): BendProofRootInventory = BendProofRootInventory(
+        List(path),
+        BendPathInventoryStatus.Complete
+      )
       override def read(
           rootPath: String,
           canceled: () => Boolean

@@ -5,7 +5,10 @@ import com.dearlordylord.bend.idea.analysis.api.{
   BendExplicitCheckRunner
 }
 import com.dearlordylord.bend.idea.analysis.model.BendCheckOutcome
-import com.dearlordylord.bend.idea.workspace.api.BendWorkspacePaths
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendPathInventoryStatus,
+  BendWorkspacePaths
+}
 import com.intellij.notification.{NotificationGroupManager, NotificationType}
 import com.intellij.openapi.actionSystem.{
   AnAction,
@@ -39,13 +42,19 @@ final class BendCheckProofRootAction extends AnAction("Check Bend Proof Root"):
     val roots = BendProofRootSelection.candidates(
       current,
       store.selectedPaths,
-      conventional
+      conventional.paths
     )
     val choices = BendProofRootSelection.choices(roots)
     val popup = JBPopupFactory
       .getInstance()
       .createPopupChooserBuilder(choices.asJava)
-      .setTitle("Select Bend Proof Root")
+      .setTitle(
+        BendPathInventoryStatus
+          .notice(conventional.status)
+          .fold("Select Bend Proof Root")(notice =>
+            s"Select Bend Proof Root — $notice"
+          )
+      )
       .setItemChosenCallback { choice =>
         choice.path match
           case Some(path) => check(project, path)

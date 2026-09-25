@@ -69,22 +69,21 @@ final class BendCheckAnnotator
       Option(virtual.getCanonicalPath).getOrElse(virtual.getPath),
       virtual.getCanonicalPath != null
     )
-    results.filter(_.outcome != BendCheckOutcome.Success).foreach { result =>
-      val severity = result.outcome match
-        case BendCheckOutcome.Failed => HighlightSeverity.ERROR
-        case _                       => HighlightSeverity.WARNING
-      result.diagnostics.foreach { diagnostic =>
-        BendCheckAnnotator
-          .sourceLine(diagnostic.location, result.key.root, id)
-          .flatMap(line => lineRange(file, line))
-          .foreach { range =>
-            val _ = holder
-              .newAnnotation(severity, diagnostic.message)
-              .range(range)
-              .create()
-          }
+    results
+      .filter(result => BendCheckAnnotator.shouldHighlight(result.outcome))
+      .foreach { result =>
+        result.diagnostics.foreach { diagnostic =>
+          BendCheckAnnotator
+            .sourceLine(diagnostic.location, result.key.root, id)
+            .flatMap(line => lineRange(file, line))
+            .foreach { range =>
+              val _ = holder
+                .newAnnotation(HighlightSeverity.ERROR, diagnostic.message)
+                .range(range)
+                .create()
+            }
+        }
       }
-    }
 
   private def lineRange(file: PsiFile, line: Int): Option[TextRange] =
     Option(file.getViewProvider.getDocument)
@@ -102,6 +101,9 @@ final class BendCheckAnnotator
       }
 
 object BendCheckAnnotator:
+  private[checking] def shouldHighlight(outcome: BendCheckOutcome): Boolean =
+    outcome == BendCheckOutcome.Failed
+
   private[checking] def sourceLine(
       location: BendLocation,
       resultRoot: FileId,

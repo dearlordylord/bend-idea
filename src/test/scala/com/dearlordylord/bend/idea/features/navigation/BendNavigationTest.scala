@@ -16,6 +16,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
 
@@ -25,6 +26,7 @@ final class BendNavigationTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
+    VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable)
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )
@@ -95,7 +97,7 @@ final class BendNavigationTest extends BasePlatformTestCase:
       s"import ${absolute.toString.dropRight(5)}<caret>.bend as M\n"
     )
     assertEquals(
-      absolute.toString,
+      absolute.toRealPath().toString,
       editorTarget().getContainingFile.getVirtualFile.getCanonicalPath
     )
     Files.writeString(temporary.resolve("base.bend"), "def baseValue():\n  0\n")
@@ -131,7 +133,7 @@ final class BendNavigationTest extends BasePlatformTestCase:
       "import 0xabc/ca<caret>ched.bend as C\n"
     )
     assertEquals(
-      cache.resolve("cached.bend").toString,
+      cache.resolve("cached.bend").toRealPath().toString,
       editorTarget().getContainingFile.getVirtualFile.getCanonicalPath
     )
 
@@ -240,7 +242,7 @@ final class BendNavigationTest extends BasePlatformTestCase:
     myFixture.configureByText("main.bend", s"import $link as M\n")
     myFixture.getEditor.getCaretModel.moveToOffset(8)
     assertEquals(
-      real.toString,
+      real.toRealPath().toString,
       editorTarget().getContainingFile.getVirtualFile.getPath
     )
     myFixture.configureByText(

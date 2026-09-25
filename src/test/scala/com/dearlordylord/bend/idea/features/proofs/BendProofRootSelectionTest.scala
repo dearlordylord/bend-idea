@@ -6,6 +6,10 @@ import com.intellij.openapi.actionSystem.{
   ActionUpdateThread
 }
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendNamedPathInventory,
+  BendPathInventoryStatus
+}
 import org.junit.Assert.*
 import java.nio.file.Path
 import scala.io.Source
@@ -34,6 +38,39 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
     assertEquals(List(Some(root), None), choices.map(_.path))
     assertEquals("Browse for a Bend proof root…", choices.last.toString)
 
+  def testPartialRootInventoryKeepsSavedAndOpenCandidatesAndStatus(): Unit =
+    val inventory = BendProofRootSelection.inventory(
+      List("/workspace/saved/PROOF.bend"),
+      BendNamedPathInventory(
+        List("/workspace/open/PROOF.bend"),
+        BendPathInventoryStatus.IndexUnavailable
+      ),
+      128
+    )
+    assertEquals(
+      List(
+        "/workspace/saved/PROOF.bend",
+        "/workspace/open/PROOF.bend"
+      ),
+      inventory.paths
+    )
+    assertEquals(BendPathInventoryStatus.IndexUnavailable, inventory.status)
+
+  def testRootInventoryReportsCombinedIndexAndLimitConditions(): Unit =
+    val inventory = BendProofRootSelection.inventory(
+      List("/workspace/saved/PROOF.bend"),
+      BendNamedPathInventory(
+        List("/workspace/open/PROOF.bend"),
+        BendPathInventoryStatus.IndexUnavailable
+      ),
+      1
+    )
+    assertEquals(List("/workspace/saved/PROOF.bend"), inventory.paths)
+    assertEquals(
+      BendPathInventoryStatus.IndexUnavailableAndCapped,
+      inventory.status
+    )
+
   def testNavigationUsesSavedRootsAndDoesNotTreatALawAsARoot(): Unit =
     val law =
       myFixture.addFileToProject("laws/core.bend", "law claim:\n  Type\n")
@@ -48,13 +85,18 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
 
     assertEquals(
       List(saved.getVirtualFile.getPath),
-      BendProofNavigation.roots(law)
+      BendProofNavigation.roots(law).paths
     )
     assertFalse(
-      BendProofNavigation.roots(law).contains(law.getVirtualFile.getPath)
+      BendProofNavigation.roots(law).paths.contains(law.getVirtualFile.getPath)
     )
     assertFalse(
-      BendProofNavigation.roots(law).contains(unselected.getVirtualFile.getPath)
+      BendProofNavigation
+        .roots(law)
+        .paths
+        .contains(
+          unselected.getVirtualFile.getPath
+        )
     )
 
   def testSelectedRootsPersistAsProjectState(): Unit =
@@ -127,9 +169,9 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
       xml.contains("group id=\"Bend.Tools\" text=\"Bend\" popup=\"true\"")
     )
     assertTrue(
-      "spellchecking descriptor follows Grazie when available",
+      "spellchecking descriptor follows the Spellchecker module when available",
       xml.contains(
-        "config-file=\"com.dearlordylord.bend.idea-spellchecker.xml\">tanvd.grazi"
+        "config-file=\"com.dearlordylord.bend.idea-spellchecker.xml\">com.intellij.modules.spellchecker"
       )
     )
     List("Bend.CreateModule", "Bend.CreateLawProofPair").foreach { id =>

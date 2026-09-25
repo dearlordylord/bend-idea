@@ -23,6 +23,7 @@ object BendGraphLoader:
     val files = mutable.ListBuffer.empty[BendLoadedFile]
     val edges = mutable.ListBuffer.empty[BendLoadedEdge]
     val problems = mutable.ListBuffer.empty[BendGraphProblem]
+    val sourceInventoryLimits = mutable.Set.empty[BendGraphLimit]
     val seen = mutable.Map.empty[FileId, Option[String]]
     // Bound catalog access, including failed lookups, before doing I/O. Reuse
     // one capture per requested path within this load, never across revisions.
@@ -38,6 +39,7 @@ object BendGraphLoader:
               problems += BendGraphProblem.InvalidImport(source.id, imp, reason)
             case Right((path, _))
                 if !sources.contains(path) && sources.size >= maxFiles =>
+              sourceInventoryLimits += BendGraphLimit.SourceLookups
               problems += BendGraphProblem.InvalidImport(
                 source.id,
                 imp,
@@ -73,6 +75,7 @@ object BendGraphLoader:
                       )
                     case Some(Some(_))                 => ()
                     case None if seen.size >= maxFiles =>
+                      sourceInventoryLimits += BendGraphLimit.GraphFiles
                       problems += BendGraphProblem.InvalidImport(
                         source.id,
                         imp,
@@ -83,7 +86,13 @@ object BendGraphLoader:
       seen(source.id) = Some(namespace)
       files += BendLoadedFile(source, namespace)
     visit(root, "")
-    BendLoadedGraph(root.id, files.toList, edges.toList, problems.toList)
+    BendLoadedGraph(
+      root.id,
+      files.toList,
+      edges.toList,
+      problems.toList,
+      sourceInventoryLimits.toSet
+    )
 
   private def target(
       source: BendSourceRecord,

@@ -154,6 +154,11 @@ final class BendGraphLoaderTest:
       "Missing paths also consume the lookup budget",
       lookups.size <= 256
     )
+    assertTrue(
+      "Skipped source lookups cap the graph inventory",
+      graph.sourceInventoryCapped
+    )
+    assertEquals(Set(BendGraphLimit.SourceLookups), graph.sourceInventoryLimits)
     assertEquals(
       Some(shared.id),
       graph.importTarget(root.id, root.imports(1023).offset)
@@ -164,6 +169,26 @@ final class BendGraphLoaderTest:
       case _ => false
     })
     assertEquals(None, graph.importTarget(root.id, root.imports.last.offset))
+
+  @Test def graphFileLimitIsReportedAsIncompleteInventory(): Unit =
+    val root = record("/p/main.bend", "import ./a.bend as A\n")
+    val a = record("/p/a.bend", "import ./b.bend as B\n")
+    val b = record("/p/b.bend", "def leaf():\n  0\n")
+    val graph = BendGraphLoader.load(
+      root,
+      BendGraphLoader.Config("/base.bend", "/cache"),
+      mapCatalog(root, a, b),
+      maxFiles = 2
+    )
+    assertEquals(2, graph.files.size)
+    assertTrue(
+      graph.problems.exists {
+        case BendGraphProblem.InvalidImport(_, _, reason) =>
+          reason == "graph limit exceeded"
+        case _ => false
+      }
+    )
+    assertEquals(Set(BendGraphLimit.GraphFiles), graph.sourceInventoryLimits)
 
   @Test def realSymlinkDeduplicatesAndRejectsTwoNamespaces(): Unit =
     val dir = Files.createTempDirectory("bend-graph-link")

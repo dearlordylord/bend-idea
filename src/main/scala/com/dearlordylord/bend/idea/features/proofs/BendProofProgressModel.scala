@@ -7,6 +7,7 @@ import com.dearlordylord.bend.idea.analysis.model.{
   BendCompleteness,
   BendReliance
 }
+import com.dearlordylord.bend.idea.model.FileId
 
 enum BendProofInventoryKind:
   case Law, CandidateFill, Definition, Hole
@@ -15,7 +16,10 @@ final case class BendProofInventoryEntry(
     kind: BendProofInventoryKind,
     name: String,
     path: String,
-    offset: Int
+    offset: Int,
+    sourceId: FileId,
+    sourceRevision: Long,
+    loadingConfigurationRevision: Long
 ):
   def label: String = s"${kind.toString}: $name — $path"
 

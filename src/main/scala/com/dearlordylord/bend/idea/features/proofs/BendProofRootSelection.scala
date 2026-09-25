@@ -1,6 +1,15 @@
 package com.dearlordylord.bend.idea.features.proofs
 
 import java.nio.file.Path
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendNamedPathInventory,
+  BendPathInventoryStatus
+}
+
+final case class BendProofRootInventory(
+    paths: List[String],
+    status: BendPathInventoryStatus
+)
 
 /** Persisted path spelling is kept separate from the canonical root identity.
   */
@@ -12,6 +21,19 @@ final case class BendProofRootChoice(path: Option[String]):
       s"$name — $value"
 
 object BendProofRootSelection:
+  def inventory(
+      saved: List[String],
+      discovered: BendNamedPathInventory,
+      limit: Int
+  ): BendProofRootInventory =
+    val candidates = (saved ++ discovered.paths).distinct
+    val capped = candidates.size > limit
+    BendProofRootInventory(
+      candidates.take(limit.max(0)),
+      if capped then BendPathInventoryStatus.markCapped(discovered.status)
+      else discovered.status
+    )
+
   def candidates(
       currentPath: Option[String],
       saved: List[String],
