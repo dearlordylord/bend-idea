@@ -41,10 +41,18 @@ object BendSourceDocumentation:
     val rootDeclarations = BendSourceSymbols.declarations(requestFile)
     // Pair declarations throughout this root's loaded graph. A proof root can
     // import an index module which imports laws, while a nested proof module
-    // imports those same laws under its own alias. Only loaded, namespaced
-    // sources participate; unqualified Base declarations do not become laws.
+    // imports those same laws under its own alias. An explicitly loaded Base
+    // source may pair its own law and fill; its unqualified names still do not
+    // pair with declarations from another source.
+    val importedBaseSources = graph.edges
+      .filter(_.importLine.spelling == "Base")
+      .flatMap(_.target)
+      .toSet
     val relevant =
-      graph.files.filter(f => f.source.id == graph.root || f.namespace.nonEmpty)
+      graph.files.filter(f =>
+        f.source.id == graph.root || f.namespace.nonEmpty || importedBaseSources
+          .contains(f.source.id)
+      )
     val loaded = relevant.flatMap { loadedFile =>
       val source = loadedFile.source
       val declarations = if source.id == graph.root then rootDeclarations
