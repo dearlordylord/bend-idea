@@ -560,6 +560,12 @@ final class ArchitectureTest:
         "com.dearlordylord.bend.idea.features.completion.BendExplicitImportPlanner$"
       ) && classes.contain(
         "com.dearlordylord.bend.idea.features.completion.BendExplicitImportAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.completion.BendExplicitImportFlow"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.completion.BendExplicitImportIntention"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.completion.BendUnresolvedCallAnnotator"
       )
     )
     assertTrue(

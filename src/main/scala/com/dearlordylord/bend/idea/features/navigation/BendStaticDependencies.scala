@@ -13,6 +13,7 @@ import com.dearlordylord.bend.idea.workspace.api.{
   BendWorkspacePaths
 }
 import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.psi.{
   PsiElement,
@@ -87,7 +88,10 @@ object BendStaticDependencies:
     inventory.flatMap { paths =>
       val roots = ProjectRootManager.getInstance(project).getContentRoots.toList
       val indexed = paths
-        .flatMap(path => virtualFile(path, roots))
+        .flatMap { path =>
+          ProgressManager.checkCanceled()
+          virtualFile(path, roots)
+        }
         .flatMap(vf => Option(PsiManager.getInstance(project).findFile(vf)))
       val sources = (List(selectedFile) ++ indexed)
         .filter(file =>
@@ -105,8 +109,14 @@ object BendStaticDependencies:
           )
       val selectedKey = selectedDeclaration.map(declarationKey)
 
-      val calls = bounded.flatMap(callEdges)
-      val imports = bounded.flatMap(importEdges)
+      val calls = bounded.flatMap { file =>
+        ProgressManager.checkCanceled()
+        callEdges(file)
+      }
+      val imports = bounded.flatMap { file =>
+        ProgressManager.checkCanceled()
+        importEdges(file)
+      }
       val unresolvedCalls = calls.collect { case Left(_) => () }.size
       val resolvedCalls = calls.collect { case Right(edge) => edge }
       val outgoingCalls = resolvedCalls.filter(edge =>
@@ -121,6 +131,7 @@ object BendStaticDependencies:
               resolvedCalls.filter(_.targetKey.path == selectedPath)
             else Nil)
       val unresolvedOutgoing = bounded.flatMap(file =>
+        ProgressManager.checkCanceled()
         if pathIdentity(file) != selectedPath then Nil
         else
           callEdges(file).collect {
@@ -226,6 +237,7 @@ object BendStaticDependencies:
     Either[(String, BendReferenceElement, Option[BendDeclaration]), CallEdge]
   ] =
     BendSourceApplications.namedCalls(file).flatMap { application =>
+      ProgressManager.checkCanceled()
       val leaf = file.findElementAt(application.calleeFrom)
       val reference =
         if leaf == null then null
@@ -272,6 +284,7 @@ object BendStaticDependencies:
     val source = file.getText
     val lines = BendImportLines.parse(source)
     file.getReferences.toList.flatMap { reference =>
+      ProgressManager.checkCanceled()
       lines
         .find(line =>
           BendImportLines.pathRange(source, line).exists { case (start, end) =>

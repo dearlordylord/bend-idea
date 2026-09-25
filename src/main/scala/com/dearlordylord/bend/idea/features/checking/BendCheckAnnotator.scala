@@ -73,41 +73,44 @@ final class BendCheckAnnotator
       val severity = result.outcome match
         case BendCheckOutcome.Failed => HighlightSeverity.ERROR
         case _                       => HighlightSeverity.WARNING
-      result.diagnostics
-        .filter { diagnostic =>
-          diagnostic.location match
-            case BendLocation.SourceLine(source, _) => source == id
-            case _                                  => result.key.root == id
-        }
-        .foreach { diagnostic =>
-          val range = diagnostic.location match
-            case BendLocation.Line(number)
-                if number >= 0 && number < file.getViewProvider.getDocument.getLineCount =>
-              val doc = file.getViewProvider.getDocument
-              val start = doc.getLineStartOffset(number)
-              if start < file.getTextLength then
-                new TextRange(
-                  start,
-                  math.max(start + 1, doc.getLineEndOffset(number))
-                )
-              else new TextRange(0, 1)
-            case BendLocation.SourceLine(_, number)
-                if number >= 0 &&
-                  number < file.getViewProvider.getDocument.getLineCount =>
-              val doc = file.getViewProvider.getDocument
-              val start = doc.getLineStartOffset(number)
-              if start < file.getTextLength then
-                new TextRange(
-                  start,
-                  math.max(start + 1, doc.getLineEndOffset(number))
-                )
-              else new TextRange(0, 1)
-            case _ =>
-              new TextRange(0, math.max(1, math.min(file.getTextLength, 1)))
-          if file.getTextLength > 0 then
-            holder
+      result.diagnostics.foreach { diagnostic =>
+        BendCheckAnnotator
+          .sourceLine(diagnostic.location, result.key.root, id)
+          .flatMap(line => lineRange(file, line))
+          .foreach { range =>
+            val _ = holder
               .newAnnotation(severity, diagnostic.message)
               .range(range)
               .create()
-        }
+          }
+      }
     }
+
+  private def lineRange(file: PsiFile, line: Int): Option[TextRange] =
+    Option(file.getViewProvider.getDocument)
+      .filter(document => line >= 0 && line < document.getLineCount)
+      .flatMap { document =>
+        val start = document.getLineStartOffset(line)
+        if start >= file.getTextLength then None
+        else
+          Some(
+            new TextRange(
+              start,
+              math.max(start + 1, document.getLineEndOffset(line))
+            )
+          )
+      }
+
+object BendCheckAnnotator:
+  private[checking] def sourceLine(
+      location: BendLocation,
+      resultRoot: FileId,
+      target: FileId
+  ): Option[Int] =
+    location match
+      case BendLocation.Line(number) if resultRoot == target && number >= 0 =>
+        Some(number)
+      case BendLocation.SourceLine(source, number)
+          if source == target && number >= 0 =>
+        Some(number)
+      case _ => None

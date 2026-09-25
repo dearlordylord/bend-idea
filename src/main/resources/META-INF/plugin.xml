@@ -28,7 +28,7 @@ Editing works without a Bend installation. Checking requires a configured Bend c
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
-    <depends optional="true" config-file="bend-spellchecker.xml">com.intellij.spellchecker</depends>
+    <depends optional="true" config-file="com.dearlordylord.bend.idea-spellchecker.xml">tanvd.grazi</depends>
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckingStartup"/>
         <toolWindow id="Bend Proof Progress"
@@ -52,6 +52,8 @@ Editing works without a Bend installation. Checking requires a configured Bend c
                   implementationClass="com.dearlordylord.bend.idea.syntax.lexer.BendSyntaxHighlighterFactory"/>
         <annotator language="Bend"
                    implementationClass="com.dearlordylord.bend.idea.features.editing.BendSemanticAnnotator"/>
+        <annotator language="Bend"
+                   implementationClass="com.dearlordylord.bend.idea.features.completion.BendUnresolvedCallAnnotator"/>
         <colorSettingsPage implementation="com.dearlordylord.bend.idea.syntax.lexer.BendColorSettingsPage"/>
         <lang.commenter language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.editing.BendCommenter"/>
@@ -173,12 +175,14 @@ Editing works without a Bend installation. Checking requires a configured Bend c
         </action>
         <action id="Bend.CreateModule"
                 class="com.dearlordylord.bend.idea.features.templates.BendCreateModuleAction"
-                text="New Bend Module" description="Create an editable Bend source file from the module template">
+                text="New Bend Module" description="Create an editable Bend source file from the module template"
+                icon="/icons/bend.svg">
             <add-to-group group-id="NewGroup" anchor="last"/>
         </action>
         <action id="Bend.CreateLawProofPair"
                 class="com.dearlordylord.bend.idea.features.templates.BendCreateLawProofPairAction"
-                text="New Bend Law and Proof Pair" description="Create sibling LAWS.bend and PROOF.bend files">
+                text="New Bend Law and Proof Pair" description="Create sibling LAWS.bend and PROOF.bend files"
+                icon="/icons/bend.svg">
             <add-to-group group-id="NewGroup" anchor="last"/>
         </action>
     </actions>

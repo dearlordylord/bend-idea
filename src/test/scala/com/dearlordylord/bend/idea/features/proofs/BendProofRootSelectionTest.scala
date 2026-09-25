@@ -126,5 +126,18 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
     assertTrue(
       xml.contains("group id=\"Bend.Tools\" text=\"Bend\" popup=\"true\"")
     )
+    assertTrue(
+      "spellchecking descriptor follows Grazie when available",
+      xml.contains(
+        "config-file=\"com.dearlordylord.bend.idea-spellchecker.xml\">tanvd.grazi"
+      )
+    )
+    List("Bend.CreateModule", "Bend.CreateLawProofPair").foreach { id =>
+      val action = xml.split("<action id=\"" + id + "\"", 2).last
+      assertTrue(
+        id + " has Bend icon",
+        action.takeWhile(_ != '>').contains("icon=\"/icons/bend.svg\"")
+      )
+    }
     assertEquals(1, xml.split("group-id=\"ToolsMenu\"", -1).length - 1)
     assertEquals(9, xml.split("group-id=\"Bend.Tools\"", -1).length - 1)

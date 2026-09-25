@@ -29,7 +29,9 @@ final class BendReferenceContributor extends PsiReferenceContributor:
             element: PsiElement,
             context: ProcessingContext
         ): Array[PsiReference] =
-          val file = element.asInstanceOf[PsiFile]
+          val file = element match
+            case psiFile: PsiFile => psiFile
+            case _                => return PsiReference.EMPTY_ARRAY
           val source = file.getText
           val modulePaths =
             com.dearlordylord.bend.idea.workspace.api.BendImportLines

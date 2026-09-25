@@ -22,6 +22,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
+import scala.jdk.CollectionConverters.*
 import org.junit.Assert.*
 
 final class BendExplicitImportTest extends BasePlatformTestCase:
@@ -41,6 +42,28 @@ final class BendExplicitImportTest extends BasePlatformTestCase:
         .getService(classOf[BendToolchainSettings])
         .update(originalChoices)
     finally super.tearDown()
+
+  def testUnresolvedCallOffersContextImportFix(): Unit =
+    val _ = myFixture.addFileToProject(
+      "library/target.bend",
+      "def bend_idea_target() -> U32:\n  0\n"
+    )
+    val root = myFixture.configureByText(
+      "main.bend",
+      "def main() -> U32:\n  <error descr=\"Unresolved Bend name: bend_idea_target\"><caret>bend_idea_target</error>()\n"
+    )
+
+    myFixture.testHighlighting(true, false, true)
+    val intention = myFixture.getAvailableIntentions.asScala
+      .find(_.getText == "Import Bend symbol")
+      .getOrElse(throw new AssertionError("Import context action was missing"))
+    myFixture.launchAction(intention)
+
+    assertTrue(
+      root.getText,
+      root.getText.contains("import library/target.bend as Target")
+    )
+    assertTrue(root.getText, root.getText.contains("Target.bend_idea_target()"))
 
   def testDuplicateNamesGetSourceContextAndAliasCollisionIsResolved(): Unit =
     val first =
