@@ -39,19 +39,12 @@ object BendSourceDocumentation:
   ): BendDocumentationSite =
     val project = requestFile.getProject
     val rootDeclarations = BendSourceSymbols.declarations(requestFile)
-    val aliases = project
-      .getService(classOf[BendImportedSymbolCatalog])
-      .effectiveDirectEdges(graph)
-      .flatMap(edge =>
-        edge.target.toList.flatMap(target =>
-          edge.importLine.alias.toList.map(alias => target -> alias)
-        )
-      )
-    val directSources = aliases.map(_._1).toSet + graph.root
-    // Base contributes unqualified symbols even when reached transitively.
-    val relevant = graph.files.filter(f =>
-      directSources.contains(f.source.id) || f.namespace.isEmpty
-    )
+    // Pair declarations throughout this root's loaded graph. A proof root can
+    // import an index module which imports laws, while a nested proof module
+    // imports those same laws under its own alias. Only loaded, namespaced
+    // sources participate; unqualified Base declarations do not become laws.
+    val relevant =
+      graph.files.filter(f => f.source.id == graph.root || f.namespace.nonEmpty)
     val loaded = relevant.flatMap { loadedFile =>
       val source = loadedFile.source
       val declarations = if source.id == graph.root then rootDeclarations
@@ -66,30 +59,41 @@ object BendSourceDocumentation:
       case (id, fill) if fill.category == BendSymbolCategory.Definition =>
         (id, fill)
     }
-    val links = laws.flatMap { case (id, law) =>
-      val names =
-        if id == graph.root || relevant.exists(f =>
-            f.source.id == id && f.namespace.isEmpty
+    val validImports = graph.edges
+      .filter(_.importLine.alias.nonEmpty)
+      .reverse
+      .distinctBy(edge => edge.from -> edge.importLine.alias)
+      .reverse
+      .filter(edge =>
+        edge.target.exists(target =>
+          relevant.exists(file =>
+            file.source.id == target && file.namespace == edge.namespace
           )
-        then List(law.name)
-        else aliases.collect { case (`id`, alias) => alias + "." + law.name }
+        )
+      )
+    val links = laws.flatMap { case (lawId, law) =>
+      val matchingAliases = validImports
+        .filter(_.target.contains(lawId))
+        .flatMap(edge => edge.importLine.alias.map(alias => edge.from -> alias))
       val matches = definitions
         .collect {
           case (fillId, fill)
-              if (fillId == id || fillId == graph.root) &&
-                (if fillId == id then List(law.name) else names).exists {
-                  name =>
-                    val qualifiedLaw = law.copy(name = name)
-                    // Within one source, declaration order matters; imported laws
-                    // precede the root's definitions through the loader graph.
-                    BendLawDeclarations.isFill(
-                      BendSourceSymbols.site(qualifiedLaw),
-                      BendSourceSymbols.site(fill),
-                      requireOrder = fillId == id
-                    )
+              if (fillId == lawId && fill.name == law.name) ||
+                matchingAliases.exists { case (from, alias) =>
+                  from == fillId && fill.name == s"$alias.${law.name}"
                 } =>
-            fill
+            val comparable = fill.copy(name = law.name)
+            // Within one source, declaration order matters. Across imported
+            // sources the root graph establishes the relationship.
+            Option.when(
+              BendLawDeclarations.isFill(
+                BendSourceSymbols.site(law),
+                BendSourceSymbols.site(comparable),
+                requireOrder = fillId == lawId
+              )
+            )(fill)
         }
+        .flatten
         .distinctBy(_.handle)
       Option.when(matches.nonEmpty)(law -> matches)
     }

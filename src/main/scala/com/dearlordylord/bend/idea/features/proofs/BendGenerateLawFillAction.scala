@@ -5,6 +5,7 @@ import com.intellij.notification.{NotificationGroupManager, NotificationType}
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
+  ActionUpdateThread,
   CommonDataKeys
 }
 import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
@@ -17,13 +18,21 @@ import scala.jdk.CollectionConverters.*
 /** Explicitly generates a source-level implementation skeleton for a law. */
 final class BendGenerateLawFillAction
     extends AnAction("Generate Bend Law Fill"):
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
   override def update(event: AnActionEvent): Unit =
     val editor = event.getData(CommonDataKeys.EDITOR)
     val file = Option(event.getData(CommonDataKeys.PSI_FILE))
     val enabled = editor != null && file.exists(
       currentLaw(_, editor.getCaretModel.getOffset).nonEmpty
     )
-    event.getPresentation.setEnabledAndVisible(enabled)
+    event.getPresentation.setVisible(true)
+    event.getPresentation.setEnabled(enabled)
+    event.getPresentation.setDescription(
+      if enabled then "Insert an incomplete law fill into a selected proof root"
+      else "Place the caret on a law declaration to enable law-fill generation"
+    )
 
   override def actionPerformed(event: AnActionEvent): Unit =
     val project = event.getProject

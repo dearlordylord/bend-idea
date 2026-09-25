@@ -4,6 +4,7 @@ import com.dearlordylord.bend.idea.analysis.api.{
   BendExplicitCheckOutcome,
   BendExplicitCheckRunner
 }
+import com.dearlordylord.bend.idea.analysis.model.BendCheckOutcome
 import com.dearlordylord.bend.idea.workspace.api.BendWorkspacePaths
 import com.intellij.notification.{NotificationGroupManager, NotificationType}
 import com.intellij.openapi.actionSystem.{
@@ -76,11 +77,18 @@ final class BendCheckProofRootAction extends AnAction("Check Bend Proof Root"):
       .getService(classOf[BendExplicitCheckRunner])
       .check(path, "Checking Bend proof root") {
         case outcome @ BendExplicitCheckOutcome.Published(result) =>
+          val detail = result.details.trim
+          val message =
+            if result.outcome == BendCheckOutcome.Unavailable && detail.nonEmpty
+            then s"${result.status}\n$detail"
+            else result.status
           notify(
             project,
             path,
-            result.status,
-            NotificationType.INFORMATION
+            message,
+            if result.outcome == BendCheckOutcome.Unavailable then
+              NotificationType.WARNING
+            else NotificationType.INFORMATION
           )
           completed(outcome)
         case outcome @ BendExplicitCheckOutcome.Rejected(_, reason) =>

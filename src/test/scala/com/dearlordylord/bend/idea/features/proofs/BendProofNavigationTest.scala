@@ -68,6 +68,49 @@ final class BendProofNavigationTest extends BasePlatformTestCase:
       lawBack.head.target.getContainingFile.getVirtualFile.getPath
     )
 
+  def testLinksFollowNestedLawAndProofModulesInTheSelectedRootGraph(): Unit =
+    val lawFile = myFixture.addFileToProject(
+      "laws/core.bend",
+      "law d20_all_to_nat:\n  Type\n"
+    )
+    val _ = myFixture.addFileToProject(
+      "LAWS.bend",
+      "import ./laws/core.bend as Core\n"
+    )
+    val proofModule = myFixture.addFileToProject(
+      "proofs/core.bend",
+      "import ../laws/core.bend as L\ndef L.d20_all_to_nat():\n  ?TODO\n"
+    )
+    val root = myFixture.addFileToProject(
+      "PROOF.bend",
+      "import ./LAWS.bend as Laws\nimport ./proofs/core.bend as ProofCore\n"
+    )
+    val law = BendSourceSymbols
+      .declarations(lawFile)
+      .find(_.category == BendSymbolCategory.Law)
+      .get
+    val fill = BendSourceSymbols
+      .declarations(proofModule)
+      .find(_.category == BendSymbolCategory.Definition)
+      .get
+    val rootPath = root.getVirtualFile.getPath
+
+    val lawToFill = BendProofNavigation.destinations(
+      lawFile,
+      law,
+      List(rootPath)
+    )
+    assertEquals(1, lawToFill.size)
+    assertEquals(fill.handle, lawToFill.head.symbol.handle)
+
+    val fillToLaw = BendProofNavigation.destinations(
+      proofModule,
+      fill,
+      List(rootPath)
+    )
+    assertEquals(1, fillToLaw.size)
+    assertEquals(law.handle, fillToLaw.head.symbol.handle)
+
   def testUnfilledLawHasNoCandidateTarget(): Unit =
     val lawFile = myFixture.addFileToProject(
       "shared/LAWS.bend",

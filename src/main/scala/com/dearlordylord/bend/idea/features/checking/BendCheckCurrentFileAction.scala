@@ -8,12 +8,16 @@ import com.intellij.codeInsight.hint.HintManager
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
+  ActionUpdateThread,
   CommonDataKeys
 }
 
 /** Checks the current document explicitly; no editor pass invokes Bend. */
 final class BendCheckCurrentFileAction
     extends AnAction("Check Current Bend File"):
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
   override def update(event: AnActionEvent): Unit =
     val file = event.getData(CommonDataKeys.VIRTUAL_FILE)
     event.getPresentation.setEnabledAndVisible(

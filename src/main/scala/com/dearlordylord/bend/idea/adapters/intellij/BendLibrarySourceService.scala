@@ -107,6 +107,7 @@ final class BendLibrarySourceService(project: Project)
             file.isValid && !file.isDirectory && file.getName == name
           )
           .map(_.getPath)
+          .take(limit)
           .toList
         val indexed =
           try
@@ -119,6 +120,7 @@ final class BendLibrarySourceService(project: Project)
               .iterator
               .filter(file => file.isValid && !file.isDirectory)
               .map(_.getPath)
+              .take(limit)
               .toList
           catch case _: IndexNotReadyException => Nil
         (open ++ indexed).distinct.take(limit)

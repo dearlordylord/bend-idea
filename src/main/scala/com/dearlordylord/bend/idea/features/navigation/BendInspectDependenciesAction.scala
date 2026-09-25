@@ -5,6 +5,7 @@ import com.dearlordylord.bend.idea.syntax.psi.BendDeclaration
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
+  ActionUpdateThread,
   CommonDataKeys
 }
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
@@ -17,6 +18,9 @@ import scala.jdk.CollectionConverters.*
 
 /** Opens a navigable list of direct source dependencies around the caret. */
 final class BendInspectDependenciesAction extends AnAction with DumbAware:
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
   override def update(event: AnActionEvent): Unit =
     val file = event.getData(CommonDataKeys.PSI_FILE)
     val enabled = file != null && file.getLanguage == BendLanguage.instance

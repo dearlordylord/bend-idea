@@ -117,56 +117,59 @@ Editing works without a Bend installation. Checking requires a configured Bend c
         <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendBaseSymbolCatalog"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.symbols.api.BendImportedSymbolCatalog"/>
         <applicationConfigurable instance="com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"
-                                 id="com.dearlordylord.bend.idea.settings" displayName="Bend"/>
+                                 id="com.dearlordylord.bend.idea.settings" displayName="Bend" parentId="language"/>
         <notificationGroup id="Bend" displayType="BALLOON"/>
     </extensions>
     <actions>
+        <group id="Bend.Tools" text="Bend" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </group>
         <action id="Bend.CheckCurrentFile"
                 class="com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction"
                 text="Check Current Bend File" description="Check the current Bend document without running main">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.CheckProofRoot"
                 class="com.dearlordylord.bend.idea.features.proofs.BendCheckProofRootAction"
                 text="Check Bend Proof Root" description="Select and check a persisted Bend proof root">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.NextProofHole"
                 class="com.dearlordylord.bend.idea.features.proofs.BendNextHoleAction"
                 text="Next Bend Proof Hole" description="Navigate to the next named or TODO hole">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.PreviousProofHole"
                 class="com.dearlordylord.bend.idea.features.proofs.BendPreviousHoleAction"
                 text="Previous Bend Proof Hole" description="Navigate to the previous named or TODO hole">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.GenerateMatchCases"
                 class="com.dearlordylord.bend.idea.features.editing.BendGenerateMatchCasesAction"
                 text="Generate Match Cases" description="Append missing cases for a uniquely resolved datatype binder">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.GenerateLawFill"
                 class="com.dearlordylord.bend.idea.features.proofs.BendGenerateLawFillAction"
                 text="Generate Bend Law Fill" description="Insert an incomplete law-fill skeleton into a selected proof root">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.CheckStatus"
                 class="com.dearlordylord.bend.idea.features.checking.BendCheckStatusAction"
                 text="Bend Check Status" description="Show the current Bend check state">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.ExplicitImport"
                 class="com.dearlordylord.bend.idea.features.completion.BendExplicitImportAction"
                 text="Import Bend Symbol at Caret"
                 description="Choose a workspace declaration and add an explicit Bend import">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.InspectDependencies"
                 class="com.dearlordylord.bend.idea.features.navigation.BendInspectDependenciesAction"
                 text="Inspect Bend Dependencies"
                 description="Show direct resolved calls and module imports around the caret">
-            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.CreateModule"
                 class="com.dearlordylord.bend.idea.features.templates.BendCreateModuleAction"

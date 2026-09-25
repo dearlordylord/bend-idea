@@ -37,16 +37,22 @@ final class BendRunConfigurationType
       new BendFileType().getIcon
     ):
   addFactory(new ConfigurationFactory(this):
+    override def getName: String = "Bend Run"
+
     override def createTemplateConfiguration(
         project: Project
     ): BendRunConfiguration =
-      new BendRunConfiguration(project, this, "Bend"))
+      new BendRunConfiguration(project, this, "Bend Run"))
   addFactory(new ConfigurationFactory(this):
+    override def getName: String = "Bend Build"
+
     override def createTemplateConfiguration(
         project: Project
     ): BendBuildConfiguration =
       new BendBuildConfiguration(project, this, "Bend Build"))
   addFactory(new ConfigurationFactory(this):
+    override def getName: String = "Bend Native"
+
     override def createTemplateConfiguration(
         project: Project
     ): BendNativeRunConfiguration =
@@ -66,7 +72,7 @@ final class BendRunConfiguration(
   override def getConfigurationEditor: SettingsEditor[
     ? <: com.intellij.execution.configurations.RunConfiguration
   ] =
-    new BendRunConfigurationEditor
+    new BendRunConfigurationEditor(project)
 
   override def getState(
       executor: Executor,
@@ -171,9 +177,9 @@ final class BendRunConfiguration(
     copied.environmentLines = environmentLines
     copied
 
-private final class BendRunConfigurationEditor
+private final class BendRunConfigurationEditor(project: Project)
     extends SettingsEditor[BendRunConfiguration]:
-  private val rootPath = new JBTextField()
+  private val rootPath = BendRootSourceField.create(project)
   private val executable = new JBTextField()
   private val workingDirectory = new JBTextField()
   private val arguments = new JBTextField()

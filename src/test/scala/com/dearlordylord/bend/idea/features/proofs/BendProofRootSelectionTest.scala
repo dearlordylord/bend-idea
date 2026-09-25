@@ -1,9 +1,14 @@
 package com.dearlordylord.bend.idea.features.proofs
 
-import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.{
+  ActionManager,
+  ActionGroup,
+  ActionUpdateThread
+}
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
 import java.nio.file.Path
+import scala.io.Source
 
 final class BendProofRootSelectionTest extends BasePlatformTestCase:
   def testConventionalRootsAreSuggestedAndSiblingProofComesFirst(): Unit =
@@ -28,6 +33,29 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
     )
     assertEquals(List(Some(root), None), choices.map(_.path))
     assertEquals("Browse for a Bend proof root…", choices.last.toString)
+
+  def testNavigationUsesSavedRootsAndDoesNotTreatALawAsARoot(): Unit =
+    val law =
+      myFixture.addFileToProject("laws/core.bend", "law claim:\n  Type\n")
+    val saved = myFixture.addFileToProject("dnd/PROOF.bend", "def main(): 0\n")
+    val unselected = myFixture.addFileToProject(
+      "samples/PROOF.bend",
+      "def main(): 0\n"
+    )
+    val roots = getProject.getService(classOf[BendProofRootStore])
+    roots.loadState(new BendProofRootState)
+    roots.select(saved.getVirtualFile.getPath)
+
+    assertEquals(
+      List(saved.getVirtualFile.getPath),
+      BendProofNavigation.roots(law)
+    )
+    assertFalse(
+      BendProofNavigation.roots(law).contains(law.getVirtualFile.getPath)
+    )
+    assertFalse(
+      BendProofNavigation.roots(law).contains(unselected.getVirtualFile.getPath)
+    )
 
   def testSelectedRootsPersistAsProjectState(): Unit =
     val store = getProject.getService(classOf[BendProofRootStore])
@@ -60,3 +88,43 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
           com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction
         ]
     )
+
+  def testBendToolsGroupAndPsiVfsActionsUseBackgroundUpdates(): Unit =
+    val manager = ActionManager.getInstance()
+    assertTrue(manager.getAction("Bend.Tools").isInstanceOf[ActionGroup])
+    val ids = List(
+      "Bend.CreateModule",
+      "Bend.CreateLawProofPair",
+      "Bend.InspectDependencies",
+      "Bend.GenerateMatchCases",
+      "Bend.GenerateLawFill",
+      "Bend.ExplicitImport",
+      "Bend.CheckCurrentFile",
+      "Bend.CheckStatus",
+      "Bend.NextProofHole",
+      "Bend.PreviousProofHole"
+    )
+    ids.foreach { id =>
+      assertEquals(
+        id,
+        ActionUpdateThread.BGT,
+        manager.getAction(id).getActionUpdateThread
+      )
+    }
+
+  def testSettingsAndToolsUseBendSpecificPlacement(): Unit =
+    val input = Option(getClass.getResourceAsStream("/META-INF/plugin.xml")).get
+    val source = Source.fromInputStream(input)
+    val xml = try source.mkString
+    finally source.close()
+    assertTrue(
+      "Bend settings are nested under Languages & Frameworks",
+      xml.contains(
+        "id=\"com.dearlordylord.bend.idea.settings\" displayName=\"Bend\" parentId=\"language\""
+      )
+    )
+    assertTrue(
+      xml.contains("group id=\"Bend.Tools\" text=\"Bend\" popup=\"true\"")
+    )
+    assertEquals(1, xml.split("group-id=\"ToolsMenu\"", -1).length - 1)
+    assertEquals(9, xml.split("group-id=\"Bend.Tools\"", -1).length - 1)

@@ -3,6 +3,7 @@ package com.dearlordylord.bend.idea.features.templates
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
+  ActionUpdateThread,
   CommonDataKeys
 }
 import com.intellij.openapi.project.DumbAware
@@ -12,6 +13,9 @@ import com.intellij.psi.{PsiDirectory, PsiFile, PsiManager}
 
 /** Creates the conventional sibling LAWS.bend and PROOF.bend sources. */
 final class BendCreateLawProofPairAction extends AnAction with DumbAware:
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
   override def update(event: AnActionEvent): Unit =
     event.getPresentation.setEnabledAndVisible(
       event.getProject != null && directory(event).nonEmpty

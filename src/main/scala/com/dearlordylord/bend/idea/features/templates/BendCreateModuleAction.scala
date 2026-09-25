@@ -3,6 +3,7 @@ package com.dearlordylord.bend.idea.features.templates
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
+  ActionUpdateThread,
   CommonDataKeys
 }
 import com.intellij.openapi.project.DumbAware
@@ -12,6 +13,9 @@ import com.intellij.psi.{PsiDirectory, PsiFile, PsiManager}
 
 /** Creates one editable Bend source module in the selected directory. */
 final class BendCreateModuleAction extends AnAction with DumbAware:
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
   override def update(event: AnActionEvent): Unit =
     event.getPresentation.setEnabledAndVisible(
       event.getProject != null && directory(event).nonEmpty

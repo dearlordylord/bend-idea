@@ -61,7 +61,7 @@ final class BendBuildConfiguration(
 
   override def getConfigurationEditor: SettingsEditor[
     ? <: com.intellij.execution.configurations.RunConfiguration
-  ] = new BendBuildConfigurationEditor
+  ] = new BendBuildConfigurationEditor(project)
 
   override def checkConfiguration(): Unit =
     buildRequest() match
@@ -309,9 +309,9 @@ private object BendBuildConfiguration:
         console.print("\n", ConsoleViewContentType.NORMAL_OUTPUT)
       case _ => ()
 
-private final class BendBuildConfigurationEditor
+private final class BendBuildConfigurationEditor(project: Project)
     extends SettingsEditor[BendBuildConfiguration]:
-  private val rootPath = new JBTextField()
+  private val rootPath = BendRootSourceField.create(project)
   private val executable = new JBTextField()
   private val output = new JBTextField()
   private val kind = new JComboBox[String](

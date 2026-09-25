@@ -18,10 +18,12 @@ import com.intellij.execution.process.{
   ProcessHandler
 }
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.nio.file.{Files, Path}
+import java.awt.{Component, Container}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import org.junit.Assert.*
 
@@ -249,6 +251,17 @@ final class BendBuildConfigurationTest extends BasePlatformTestCase:
     configuration.gpu = "4TB"
     assertTrue(configuration.nativeRequest().isLeft)
 
+  def testBuildRootSourceMustBeSelectedWithTheFileChooser(): Unit =
+    val editor = buildConfiguration().getConfigurationEditor
+    val fields = descendants(editor.getComponent).collect {
+      case field: TextFieldWithBrowseButton => field
+    }
+    assertEquals(1, fields.size)
+    assertFalse(
+      "Root source is selected, not typed manually",
+      fields.head.isEditable
+    )
+
   private def writeRoot(name: String): Path =
     val path = directory.resolve(name)
     Files.writeString(path, "import Base\ndef main() -> U32:\n  1\n")
@@ -262,6 +275,12 @@ final class BendBuildConfigurationTest extends BasePlatformTestCase:
     val configurationType = new BendRunConfigurationType
     val factory = configurationType.getConfigurationFactories.apply(1)
     new BendBuildConfiguration(getProject, factory, "test build")
+
+  private def descendants(component: Component): List[Component] =
+    component :: (component match
+      case container: Container =>
+        container.getComponents.toList.flatMap(descendants)
+      case _ => Nil)
 
   private def nativeConfiguration(): BendNativeRunConfiguration =
     val configurationType = new BendRunConfigurationType

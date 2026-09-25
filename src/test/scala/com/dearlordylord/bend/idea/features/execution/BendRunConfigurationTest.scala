@@ -9,11 +9,13 @@ import com.intellij.execution.configurations.ConfigurationFactory
 import com.intellij.execution.process.{ProcessAdapter, ProcessEvent}
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import java.awt.{Component, Container}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.annotation.nowarn
 import org.junit.Assert.*
@@ -241,6 +243,33 @@ final class BendRunConfigurationTest extends BasePlatformTestCase:
       highlightEnd(result)
     )
 
+  def testRunRootSourceMustBeSelectedWithTheFileChooser(): Unit =
+    val configurationType = new BendRunConfigurationType
+    val factories = configurationType.getConfigurationFactories
+    val runEditor = runConfiguration().getConfigurationEditor
+    val buildEditor = new BendBuildConfiguration(
+      getProject,
+      factories(1),
+      "fixture"
+    ).getConfigurationEditor
+    List(runEditor, buildEditor).foreach { editor =>
+      val fields = descendants(editor.getComponent).collect {
+        case field: TextFieldWithBrowseButton => field
+      }
+      assertEquals(1, fields.size)
+      assertFalse(
+        "Root source is selected, not typed manually",
+        fields.head.isEditable
+      )
+    }
+
+  def testRunBuildAndNativeFactoriesHaveDistinctNames(): Unit =
+    val configurationType = new BendRunConfigurationType
+    val factoryNames = configurationType.getConfigurationFactories.toList.map(
+      _.getName
+    )
+    assertEquals(List("Bend Run", "Bend Build", "Bend Native"), factoryNames)
+
   @nowarn("cat=deprecation")
   private def highlightStart(
       result: com.intellij.execution.filters.Filter.Result
@@ -256,6 +285,12 @@ final class BendRunConfigurationTest extends BasePlatformTestCase:
     val factory: ConfigurationFactory =
       configType.getConfigurationFactories.head
     new BendRunConfiguration(getProject, factory, "fixture")
+
+  private def descendants(component: Component): List[Component] =
+    component :: (component match
+      case container: Container =>
+        container.getComponents.toList.flatMap(descendants)
+      case _ => Nil)
 
   private def observeTermination(
       handler: com.intellij.execution.process.ProcessHandler

@@ -16,14 +16,17 @@ import com.intellij.notification.{NotificationGroupManager, NotificationType}
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
+  ActionUpdateThread,
   CommonDataKeys
 }
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.progress.{ProgressIndicator, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.{PsiElement, PsiFile}
-import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.{PsiModificationTracker, PsiTreeUtil}
 import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
 
@@ -42,20 +45,37 @@ final case class BendProofDestination(
   * success; the attached state is only the selected root's latest check status.
   */
 object BendProofNavigation:
-  private val RootLimit = 128
+  private val RootLimit = 32
 
   def roots(origin: PsiFile): List[String] =
     val project = origin.getProject
     val currentPath = Option(origin.getVirtualFile).map(_.getPath)
     val saved = project.getService(classOf[BendProofRootStore]).selectedPaths
-    val conventional = project
-      .getService(classOf[BendWorkspacePaths])
-      .filesNamed("PROOF.bend", RootLimit)
-    (currentPath.toList ++ BendProofRootSelection.candidates(
-      currentPath,
-      saved,
-      conventional
-    )).distinct
+    val lawIndex = currentPath.exists(path =>
+      java.nio.file.Path.of(path).getFileName.toString == "LAWS.bend"
+    )
+    val conventional =
+      if saved.isEmpty || lawIndex then
+        project
+          .getService(classOf[BendWorkspacePaths])
+          .filesNamed("PROOF.bend", RootLimit)
+      else Nil
+    val suggestions =
+      if saved.isEmpty then conventional
+      else
+        currentPath
+          .filter(path =>
+            java.nio.file.Path.of(path).getFileName.toString == "LAWS.bend"
+          )
+          .map(path =>
+            java.nio.file.Path
+              .of(path)
+              .resolveSibling("PROOF.bend")
+              .toString
+          )
+          .filter(conventional.contains)
+          .toList
+    BendProofRootSelection.candidates(currentPath, saved, suggestions)
 
   def destinations(
       origin: PsiFile,
@@ -117,21 +137,72 @@ object BendProofNavigation:
           file.getProject,
           "The declaration changed; reload its proof link"
         )
-      case Some(symbol) =>
-        val candidates = destinations(file, symbol, roots(file))
-        if candidates.isEmpty then notifyNoCandidates(file, symbol)
-        else if candidates.size == 1 && !requiresStatusChoice(candidates) then
-          navigate(file.getProject, candidates.head)
-        else
-          JBPopupFactory
-            .getInstance()
-            .createPopupChooserBuilder(candidates.asJava)
-            .setTitle("Candidate law or proof declarations")
-            .setItemChosenCallback(destination =>
-              navigate(file.getProject, destination)
+      case Some(symbol) => findDestinations(file, symbol)
+
+  private def findDestinations(
+      file: PsiFile,
+      selected: BendSourceSymbol
+  ): Unit =
+    val project = file.getProject
+    new Task.Backgroundable(project, "Finding Bend laws and proofs", true):
+      private var selectedRoots = List.empty[String]
+      private var currentSymbol: Option[BendSourceSymbol] = None
+      private var found = List.empty[BendProofDestination]
+      private var sourceModificationCount = 0L
+
+      override def run(indicator: ProgressIndicator): Unit =
+        val captured = ReadAction.compute(() => {
+          val rootPaths = roots(file)
+          val refreshed = BendSourceSymbols
+            .declarations(file)
+            .find(_.handle == selected.handle)
+          val destinations =
+            if indicator.isCanceled then Nil
+            else
+              refreshed.toList.flatMap(symbol =>
+                BendProofNavigation.destinations(file, symbol, rootPaths)
+              )
+          val modificationCount =
+            PsiModificationTracker.getInstance(project).getModificationCount
+          (modificationCount, rootPaths, refreshed, destinations)
+        })
+        sourceModificationCount = captured._1
+        selectedRoots = captured._2
+        currentSymbol = captured._3
+        found = captured._4
+
+      override def onSuccess(): Unit =
+        if project.isDisposed || !file.isValid then return
+        if PsiModificationTracker
+            .getInstance(project)
+            .getModificationCount != sourceModificationCount
+        then
+          BendProofNavigation.notify(
+            project,
+            "Bend sources changed while finding proof links; click again"
+          )
+          return
+        currentSymbol match
+          case None =>
+            BendProofNavigation.notify(
+              project,
+              "The declaration changed; reload its proof link"
             )
-            .createPopup()
-            .showCenteredInCurrentWindow(file.getProject)
+          case Some(symbol) if found.isEmpty =>
+            notifyNoCandidates(file, symbol, selectedRoots)
+          case Some(_) if found.size == 1 && !requiresStatusChoice(found) =>
+            navigate(project, found.head)
+          case Some(_) =>
+            JBPopupFactory
+              .getInstance()
+              .createPopupChooserBuilder(found.asJava)
+              .setTitle("Candidate law or proof declarations")
+              .setItemChosenCallback(destination =>
+                navigate(project, destination)
+              )
+              .createPopup()
+              .showCenteredInCurrentWindow(project)
+    .queue()
 
   private[proofs] def requiresStatusChoice(
       candidates: List[BendProofDestination]
@@ -142,9 +213,10 @@ object BendProofNavigation:
 
   private def notifyNoCandidates(
       file: PsiFile,
-      selected: BendSourceSymbol
+      selected: BendSourceSymbol,
+      candidateRoots: List[String]
   ): Unit =
-    val rootsWithStatus = roots(file).map { path =>
+    val rootsWithStatus = candidateRoots.map { path =>
       val rootId = rootFile(file, path)
         .map(BendSourceSymbols.fileId)
         .getOrElse(new FileId(path, canonical = false))
@@ -223,6 +295,9 @@ object BendHoleNavigation:
 
 abstract class BendHoleNavigationAction(forward: Boolean, name: String)
     extends AnAction(name):
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
   override def update(event: AnActionEvent): Unit =
     val editor = event.getData(CommonDataKeys.EDITOR)
     val file = event.getData(CommonDataKeys.PSI_FILE)
