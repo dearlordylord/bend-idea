@@ -5,7 +5,6 @@ import com.dearlordylord.bend.idea.adapters.cli.{
   BendExternalInputs
 }
 import com.dearlordylord.bend.idea.analysis.api.{
-  BendBackgroundCheckControl,
   BendBackgroundCheckTicket,
   BendCheckService
 }
@@ -40,7 +39,6 @@ import scala.util.control.NonFatal
   */
 final class BendCheckSession(project: Project)
     extends BendCheckService,
-      BendBackgroundCheckControl,
       Disposable:
   private val uiRefreshDelayMillis = 2000
   private val backend = new BendCliCheckBackend

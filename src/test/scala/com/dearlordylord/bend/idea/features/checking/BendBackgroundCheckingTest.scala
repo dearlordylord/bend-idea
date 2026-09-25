@@ -5,10 +5,7 @@ import com.dearlordylord.bend.idea.adapters.intellij.{
   BendBackgroundChecking,
   BendCheckSession
 }
-import com.dearlordylord.bend.idea.analysis.api.{
-  BendBackgroundCheckControl,
-  BendCheckService
-}
+import com.dearlordylord.bend.idea.analysis.api.BendCheckService
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.{
@@ -327,7 +324,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
       backgroundSnapshot.copy(text = manualText, sourceRevision = 2L)
     val session = new BendCheckSession(getProject)
     try
-      val control = session.asInstanceOf[BendBackgroundCheckControl]
+      val control = session
       val scheduled = control
         .requestBackground(root)
         .getOrElse(

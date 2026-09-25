@@ -1,10 +1,7 @@
 package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
-import com.dearlordylord.bend.idea.analysis.api.{
-  BendBackgroundCheckControl,
-  BendCheckService
-}
+import com.dearlordylord.bend.idea.analysis.api.{BendCheckService}
 import com.dearlordylord.bend.idea.analysis.checking.BendCheckAction.ScheduleBackground
 import com.dearlordylord.bend.idea.analysis.model.BendCheckResult
 import com.dearlordylord.bend.idea.model.FileId
@@ -63,10 +60,8 @@ final class BendBackgroundCheckingTimerTest extends BasePlatformTestCase:
     val canonical = Option(file.getCanonicalPath)
     new FileId(canonical.getOrElse(file.getPath), canonical.isDefined)
 
-  private def control: BendBackgroundCheckControl =
-    getProject
-      .getService(classOf[BendCheckService])
-      .asInstanceOf[BendBackgroundCheckControl]
+  private def control: BendCheckService =
+    getProject.getService(classOf[BendCheckService])
 
   private def waitForScheduled(root: FileId): Long =
     val until = System.nanoTime() + 5_000_000_000L

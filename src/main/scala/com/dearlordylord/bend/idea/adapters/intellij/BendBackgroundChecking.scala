@@ -1,7 +1,6 @@
 package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.analysis.api.{
-  BendBackgroundCheckControl,
   BendBackgroundCheckTicket,
   BendCheckService,
   BendGraphSnapshot
@@ -48,6 +47,10 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
   private val timers = mutable.Map.empty[FileId, (Long, ScheduledFuture[?])]
   private val rootFiles = mutable.Map.empty[FileId, VirtualFile]
   @volatile private var disposed = false
+  // Resolve this sibling project service once while both services are live.
+  // The container may remove service registrations in either order at unload.
+  private val service: BendCheckService =
+    project.getService(classOf[BendCheckService])
 
   executor.scheduleWithFixedDelay(
     new Runnable:
@@ -63,10 +66,7 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
     TimeUnit.MILLISECONDS
   )
 
-  private def service: BendCheckService =
-    project.getService(classOf[BendCheckService])
-  private def control: BendBackgroundCheckControl = service
-    .asInstanceOf[BendBackgroundCheckControl]
+  private def control: BendCheckService = service
   private def settings: BendToolchainSettings =
     ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
   private def id(file: VirtualFile): FileId =

@@ -10,7 +10,7 @@ import com.dearlordylord.bend.idea.workspace.api.{
   BendWorkspaceGraph
 }
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.{ApplicationManager, ReadAction}
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -74,12 +74,7 @@ final class BendExplicitCheckRunnerService(project: Project)
             root.revision,
             selection
           )
-          val virtualFile = LocalFileSystem
-            .getInstance()
-            .findFileByNioFile(Path.of(initialPath))
-          val document = Option(virtualFile).flatMap(file =>
-            Option(FileDocumentManager.getInstance().getDocument(file))
-          )
+          val document = documentAt(Path.of(initialPath))
           def sourceCurrent: Boolean = catalog
             .source(initialPath)
             .exists(current =>
@@ -158,3 +153,11 @@ final class BendExplicitCheckRunnerService(project: Project)
           override def documentChanged(event: DocumentEvent): Unit = callback()
         value.addDocumentListener(listener)
         () => value.removeDocumentListener(listener)
+
+  private[intellij] def documentAt(path: Path): Option[Document] =
+    ReadAction.compute(() =>
+      Option(LocalFileSystem.getInstance().findFileByNioFile(path))
+        .flatMap(file =>
+          Option(FileDocumentManager.getInstance().getDocument(file))
+        )
+    )
