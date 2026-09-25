@@ -9,6 +9,7 @@ import com.dearlordylord.bend.idea.syntax.psi.{
   BendName,
   BendReferenceElement
 }
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.{PsiElement, PsiFile, PsiReference}
 import com.intellij.psi.search.{LocalSearchScope, SearchScope}
@@ -25,6 +26,14 @@ import scala.util.boundary, boundary.break
 final class BendUsageSearch
     extends QueryExecutor[PsiReference, ReferencesSearch.SearchParameters]:
   override def execute(
+      parameters: ReferencesSearch.SearchParameters,
+      consumer: Processor[? >: PsiReference]
+  ): Boolean =
+    // Find Usages invokes query executors on progress workers without read
+    // access; target, reference, VFS, and PSI traversal below need that lock.
+    ReadAction.compute(() => executeWithRead(parameters, consumer))
+
+  private def executeWithRead(
       parameters: ReferencesSearch.SearchParameters,
       consumer: Processor[? >: PsiReference]
   ): Boolean =
