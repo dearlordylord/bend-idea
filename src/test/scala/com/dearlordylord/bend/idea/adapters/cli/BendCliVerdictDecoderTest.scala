@@ -2,6 +2,11 @@ package com.dearlordylord.bend.idea.adapters.cli
 
 import com.dearlordylord.bend.idea.adapters.process.BendProcessOutcome
 import com.dearlordylord.bend.idea.analysis.model.*
+import com.dearlordylord.bend.idea.toolchain.api.{
+  BendCheckOnlySupport,
+  BendCompilerInfo,
+  BendCompilerInfoResult
+}
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -30,6 +35,33 @@ final class BendCliVerdictDecoderTest:
     )
     assertTrue(
       unsupported.isInstanceOf[BendCliVerdictDecoder.Capability.Unavailable]
+    )
+
+  @Test def compilerInfoExtractsVersionAndCheckOnlyCapability(): Unit =
+    val oldCompiler = BendCliVerdictDecoder.compilerInfo(
+      BendProcessOutcome.Exited(
+        0,
+        "Bend 2.0.16: check, run, build and publish Bend programs.\n"
+      )
+    )
+    assertEquals(
+      BendCompilerInfoResult.Detected(
+        BendCompilerInfo(Some("2.0.16"), BendCheckOnlySupport.Unsupported)
+      ),
+      oldCompiler
+    )
+
+    val currentCompiler = BendCliVerdictDecoder.compilerInfo(
+      BendProcessOutcome.Exited(
+        0,
+        s"Bend 2.0.27: help\n$checkOnlyLine\n"
+      )
+    )
+    assertEquals(
+      BendCompilerInfoResult.Detected(
+        BendCompilerInfo(Some("2.0.27"), BendCheckOnlySupport.Supported)
+      ),
+      currentCompiler
     )
 
   @Test def onlyWholeDocumentedReportsEstablishSuccessOrReliance(): Unit =

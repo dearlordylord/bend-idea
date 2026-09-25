@@ -106,6 +106,8 @@ Editing works without a Bend installation. Checking requires a configured Bend c
         <projectService serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendBackgroundChecking"/>
         <applicationService serviceInterface="com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings"
                             serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendSettingsStorage"/>
+        <applicationService serviceInterface="com.dearlordylord.bend.idea.toolchain.api.BendCompilerInfoProbe"
+                            serviceImplementation="com.dearlordylord.bend.idea.adapters.cli.BendCompilerInfoProbeService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendLibrarySource"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendLibrarySourceService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog"

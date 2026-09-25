@@ -269,6 +269,16 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Compiler version display must use the toolchain API and CLI adapter",
+      classes.contain(
+        "com.dearlordylord.bend.idea.toolchain.api.BendCompilerInfoProbe"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.cli.BendCompilerInfoProbeService"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.settings.BendSettingsConfigurable"
+      )
+    )
+    assertTrue(
       "Base source contract must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.workspace.api.BendBaseSource"
