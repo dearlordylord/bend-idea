@@ -198,6 +198,7 @@ Editing works without a Bend installation. Checking requires a configured Bend c
                 text="Inspect Bend Dependencies"
                 description="Show direct resolved calls and module imports around the caret">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
         </action>
         <action id="Bend.CreateModule"
                 class="com.dearlordylord.bend.idea.features.templates.BendCreateModuleAction"
