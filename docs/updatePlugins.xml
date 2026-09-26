@@ -5,6 +5,7 @@
           version="0.1.5">
     <idea-version since-build="251"/>
     <name>Bend2</name>
+    <!-- The description is the stable plugin overview; match packaged change-notes for version history. -->
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
 
 <ul>

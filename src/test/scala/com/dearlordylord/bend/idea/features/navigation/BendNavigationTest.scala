@@ -428,6 +428,21 @@ final class BendNavigationTest extends BasePlatformTestCase:
     )
     assertEquals(5, target(nestedType).getTextOffset)
 
+  def testDamageTypeUseNavigatesToSameFileDeclaration(): Unit =
+    val file = myFixture.configureByText(
+      "attack_data.bend",
+      "import Base\n" +
+        "type DamageType is Data:\n" +
+        "  Acid{}\n  Bludgeoning{}\n  Cold{}\n  Fire{}\n" +
+        "type DamageComponent is Data:\n" +
+        "  Component{ordinal: Nat, damage_type: <caret>DamageType}\n"
+    )
+    assertEquals(
+      file.getText.indexOf("DamageType"),
+      editorTarget().getTextOffset
+    )
+    assertEquals(file, editorTarget().getContainingFile)
+
   def testBaseAndUnresolvedIncompleteInput(): Unit =
     Files.writeString(
       temporary.resolve("base.bend"),

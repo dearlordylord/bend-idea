@@ -2,6 +2,7 @@
     <id>com.dearlordylord.bend.idea</id>
     <name>Bend2</name>
     <vendor url="https://github.com/dearlordylord/bend-idea">dearlordylord</vendor>
+    <!-- The description is the stable plugin overview; put version history and user-visible fixes in change-notes. -->
     <description><![CDATA[
 Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
 
@@ -21,7 +22,7 @@ compiler-backed features. See the
     <change-notes><![CDATA[
 <p>Version 0.1.6:</p>
 <ul>
-  <li>Clarify compiler setup in the plugin overview</li>
+  <li>Tested with Bend 2.0.25</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

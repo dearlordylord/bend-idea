@@ -145,6 +145,65 @@ val policyMutationCheck by tasks.registering(JavaExec::class) {
     }
 }
 
+val productionScalaSources = fileTree("src/main/scala") { include("**/*.scala") }
+val unsafeCastProbe = file("quality-gate/fixtures/UnsafeCastProbe.scala")
+val unsafeCastLintArguments: (List<File>) -> List<String> = { sources ->
+    listOf(
+        "--config",
+        file(".scalafix-unsafe-casts.conf").absolutePath,
+        "--scala-version",
+        providers.gradleProperty("scalaVersion").get(),
+        "--syntactic",
+        "--check"
+    ) + sources.flatMap { source -> listOf("--files", source.absolutePath) }
+}
+val unsafeCastCheck by tasks.registering(JavaExec::class) {
+    description = "Rejects unchecked asInstanceOf casts in production Scala."
+    group = "verification"
+    classpath = scalafixCli
+    mainClass.set("scalafix.cli.Cli")
+    inputs.files(productionScalaSources)
+    inputs.file(".scalafix-unsafe-casts.conf")
+    inputs.property("scalafixVersion", scalafixVersion)
+    doFirst {
+        val sources = productionScalaSources.files.sortedBy {
+            it.relativeTo(projectDir).invariantSeparatorsPath
+        }
+        check(sources.isNotEmpty()) { "Unsafe cast lint has no production Scala sources." }
+        setArgs(unsafeCastLintArguments(sources))
+    }
+}
+val unsafeCastProbeStdout = ByteArrayOutputStream()
+val unsafeCastProbeStderr = ByteArrayOutputStream()
+val unsafeCastNegativeCheck by tasks.registering(JavaExec::class) {
+    description = "Proves that the production cast lint rejects asInstanceOf."
+    group = "verification"
+    classpath = scalafixCli
+    mainClass.set("scalafix.cli.Cli")
+    isIgnoreExitValue = true
+    inputs.files(unsafeCastProbe)
+    inputs.file(".scalafix-unsafe-casts.conf")
+    inputs.property("scalafixVersion", scalafixVersion)
+    doFirst {
+        check(unsafeCastProbe.isFile && unsafeCastProbe.readText().contains("asInstanceOf")) {
+            "The unsafe cast probe must contain an asInstanceOf cast."
+        }
+        unsafeCastProbeStdout.reset()
+        unsafeCastProbeStderr.reset()
+        standardOutput = unsafeCastProbeStdout
+        errorOutput = unsafeCastProbeStderr
+        setArgs(unsafeCastLintArguments(listOf(unsafeCastProbe)))
+    }
+    doLast {
+        val output = String(unsafeCastProbeStdout.toByteArray(), Charsets.UTF_8) +
+            String(unsafeCastProbeStderr.toByteArray(), Charsets.UTF_8)
+        check(executionResult.get().exitValue != 0 && output.contains("DisableSyntax.asInstanceOf")) {
+            "The unsafe cast probe was not rejected with the expected diagnostic:\n$output"
+        }
+        logger.lifecycle("Verified production cast lint rejects asInstanceOf.")
+    }
+}
+
 val policyMutationProbe = file("quality-gate/fixtures/PolicyMutationProbe.scala")
 val discardedResultProbe = file("quality-gate/fixtures/DiscardedResultProbe.scala")
 val mutationProbeStdout = ByteArrayOutputStream()
@@ -237,11 +296,11 @@ val compileDiscardedResultNegativeCheck by tasks.registering(JavaExec::class) {
 val qualityGateNegativeChecks by tasks.registering {
     description = "Runs negative probes for the configured compiler and policy lint gates."
     group = "verification"
-    dependsOn(policyMutationNegativeCheck, compileDiscardedResultNegativeCheck)
+    dependsOn(policyMutationNegativeCheck, unsafeCastNegativeCheck, compileDiscardedResultNegativeCheck)
 }
 
 tasks.check {
-    dependsOn(architectureTest, policyMutationCheck, qualityGateNegativeChecks)
+    dependsOn(architectureTest, policyMutationCheck, unsafeCastCheck, qualityGateNegativeChecks)
 }
 
 val requireSigning by tasks.registering {

@@ -44,6 +44,7 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 - Optional background checking refreshes diagnostics after edits to the root or its dependencies. Results belong to the checked root, and older results are discarded when their inputs change.
 - **Bend Check Status** reports checking, current, stale, incomplete, failed, unavailable, and timeout states. Compiler errors appear in the editor when their source location can be mapped unambiguously.
 
+<!-- Keep installation guidance focused on user tasks; put version history in plugin change notes and release notes. -->
 ## Getting started
 
 1. In IntelliJ IDEA 2025.1 or a verified newer version, open **Settings → Plugins → gear icon → Manage Plugin Repositories** and add `https://idea.dearlordylord.com/updatePlugins.xml`. If the new domain reports a connection error, use `https://bend-idea-plugins.pages.dev/updatePlugins.xml` instead. Then search for **Bend2** in the Marketplace tab and install it. Restart if prompted. Editing features work immediately.

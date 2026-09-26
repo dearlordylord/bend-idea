@@ -1,10 +1,12 @@
 package com.dearlordylord.bend.idea.features.execution
 
 import com.dearlordylord.bend.idea.syntax.BendLanguage
+import com.intellij.execution.RunManager
 import com.intellij.execution.actions.{
   ConfigurationContext,
   RunConfigurationProducer
 }
+import com.intellij.execution.configurations.ConfigurationTypeUtil
 import com.intellij.execution.lineMarker.RunLineMarkerContributor
 import com.intellij.psi.PsiElement
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -63,6 +65,37 @@ final class BendMainRunContextTest extends BasePlatformTestCase:
           .createConfigurationFromContext(new ConfigurationContext(leaf))
       )
     }
+
+  def testBuildAndNativeConfigurationsAreNotReusedAsRun(): Unit =
+    val file = myFixture.configureByText(
+      "main.bend",
+      "def <caret>main() -> Nat:\n  0n\n"
+    )
+    val context = new ConfigurationContext(
+      file.findElementAt(myFixture.getCaretOffset)
+    )
+    val producer = new BendMainRunConfigurationProducer
+    val manager = RunManager.getInstance(getProject)
+    val factories = ConfigurationTypeUtil
+      .findConfigurationType(classOf[BendRunConfigurationType])
+      .getConfigurationFactories
+    val alternatives = List("Bend Build", "Bend Native").map { id =>
+      val factory = factories.find(_.getId == id).get
+      manager.createConfiguration(id, factory)
+    }
+    alternatives.foreach(manager.addConfiguration)
+    try
+      alternatives.foreach(settings =>
+        assertFalse(
+          producer.isConfigurationFromContext(
+            settings.getConfiguration,
+            context
+          )
+        )
+      )
+      assertNull(producer.findExistingConfiguration(context))
+      assertNotNull(producer.createConfigurationFromContext(context))
+    finally alternatives.foreach(manager.removeConfiguration)
 
   def testMainMarkerIsOnlyOnNameLeaf(): Unit =
     val file = myFixture.configureByText(

@@ -8,7 +8,8 @@ import com.intellij.execution.actions.{
 }
 import com.intellij.execution.configurations.{
   ConfigurationFactory,
-  ConfigurationTypeUtil
+  ConfigurationTypeUtil,
+  RunConfiguration
 }
 import com.intellij.execution.lineMarker.{
   ExecutorAction,
@@ -45,7 +46,7 @@ private[execution] object BendMainRunContext:
 /** Lets IDEA create and reuse Bend Run configurations from a main definition.
   */
 final class BendMainRunConfigurationProducer
-    extends LazyRunConfigurationProducer[BendRunConfiguration]
+    extends LazyRunConfigurationProducer[RunConfiguration]
     with DumbAware:
   override def getConfigurationFactory: ConfigurationFactory =
     ConfigurationTypeUtil
@@ -55,35 +56,43 @@ final class BendMainRunConfigurationProducer
       .getOrElse(throw new IllegalStateException("Bend Run factory is missing"))
 
   override protected def setupConfigurationFromContext(
-      configuration: BendRunConfiguration,
+      configuration: RunConfiguration,
       context: ConfigurationContext,
       sourceElement: Ref[PsiElement]
   ): Boolean =
-    BendMainRunContext.definitionAt(context.getPsiLocation) match
-      case Some(definition) =>
+    (
+      configuration,
+      BendMainRunContext.definitionAt(context.getPsiLocation)
+    ) match
+      case (run: BendRunConfiguration, Some(definition)) =>
         val file = definition.getContainingFile
-        configuration.rootPath = file.getVirtualFile.getPath
-        configuration.setName(s"Bend: ${file.getName}")
+        run.rootPath = file.getVirtualFile.getPath
+        run.setName(s"Bend: ${file.getName}")
         sourceElement.set(definition.getNameIdentifier)
         true
-      case None => false
+      case _ => false
 
   override def isConfigurationFromContext(
-      configuration: BendRunConfiguration,
+      configuration: RunConfiguration,
       context: ConfigurationContext
   ): Boolean =
-    BendMainRunContext.definitionAt(context.getPsiLocation).exists {
-      definition =>
-        BendExecutionConfigurationParsing
-          .absolute(
-            configuration.rootPath,
-            BendExecutionConfigurationParsing.projectBase(context.getProject)
-          )
-          .toOption
-          .exists(
-            _.toString == definition.getContainingFile.getVirtualFile.getPath
-          )
-    }
+    configuration match
+      case run: BendRunConfiguration =>
+        BendMainRunContext.definitionAt(context.getPsiLocation).exists {
+          definition =>
+            BendExecutionConfigurationParsing
+              .absolute(
+                run.rootPath,
+                BendExecutionConfigurationParsing.projectBase(
+                  context.getProject
+                )
+              )
+              .toOption
+              .exists(
+                _.toString == definition.getContainingFile.getVirtualFile.getPath
+              )
+        }
+      case _ => false
 
 /** The standard Run popup at the name leaf of a runnable main definition. */
 final class BendMainRunLineMarkerContributor
