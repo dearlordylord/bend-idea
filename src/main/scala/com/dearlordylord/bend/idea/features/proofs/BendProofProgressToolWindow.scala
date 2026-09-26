@@ -5,6 +5,8 @@ import com.dearlordylord.bend.idea.analysis.api.{
   BendExplicitCheckOutcome,
   BendExplicitCheckRunner
 }
+import com.dearlordylord.bend.idea.analysis.model.{BendCheckOutcome, BendCheckResult}
+import com.dearlordylord.bend.idea.model.FileId
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
 import com.intellij.openapi.editor.{EditorFactory, event}
@@ -15,10 +17,16 @@ import com.intellij.openapi.fileEditor.{
 }
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.{ModuleRootEvent, ModuleRootListener}
+import com.intellij.openapi.ui.Messages
 import com.dearlordylord.bend.idea.symbols.api.BendPhysicalTargets
 import com.dearlordylord.bend.idea.syntax.psi.BendLaw
 import com.dearlordylord.bend.idea.workspace.api.BendPathInventoryStatus
+import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.intellij.openapi.wm.{ToolWindow, ToolWindowFactory}
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.ui.components.{JBLabel, JBList, JBTextField}
 import com.intellij.util.Alarm
 import com.intellij.ui.content.ContentFactory
@@ -44,6 +52,7 @@ import javax.swing.{
   JTabbedPane,
   JTextArea
 }
+import scala.jdk.CollectionConverters.*
 
 final class BendProofProgressToolWindowFactory extends ToolWindowFactory:
   override def createToolWindowContent(
@@ -65,8 +74,11 @@ final class BendProofProgressPanel(
   def this(project: Project) =
     this(project, new BendProofProgressReader(project))
   private val alarm = new Alarm(Alarm.ThreadToUse.POOLED_THREAD, this)
+  private val statusAlarm = new Alarm(Alarm.ThreadToUse.POOLED_THREAD, this)
   private val generation = new AtomicLong(0L)
   private val selectionGeneration = new AtomicLong(0L)
+  private val sourceGeneration = new AtomicLong(0L)
+  private val statusGeneration = new AtomicLong(0L)
   private val disposed = new AtomicBoolean(false)
   @volatile private var activeRootPath: Option[String] = None
   private val roots = new JComboBox[String]()
@@ -80,11 +92,13 @@ final class BendProofProgressPanel(
   private val summary = new JBLabel(
     "Choose a proof root above to find holes and laws without candidate fills."
   )
+  private val checkExplanation = new JTextArea()
   private val detail = new JTextArea("Open a work item to edit its source.")
   private var workItems = List.empty[BendProofInventoryEntry]
   private var allEntries = List.empty[BendProofInventoryEntry]
   private var pendingWorkSelection: Option[BendProofInventoryEntry] = None
   @volatile private var latestSnapshot: Option[BendProofProgressSnapshot] = None
+  private var latestCheckResult: Option[BendCheckResult] = None
   private var rootInventoryStatus = BendPathInventoryStatus.Complete
   private var updatingRoots = false
 
@@ -96,23 +110,54 @@ final class BendProofProgressPanel(
   )
   private val statusUnsubscribe = project
     .getService(classOf[BendCheckService])
-    .addStatusListener(_ => refresh())
+    .addStatusListener(updateCheckStatus)
 
   private val documentListener = new event.DocumentListener:
     override def documentChanged(change: event.DocumentEvent): Unit =
       Option(FileDocumentManager.getInstance().getFile(change.getDocument))
         .filter(file => file.isValid && file.getName.endsWith(".bend"))
-        .foreach(_ => refresh())
+        .filter(file =>
+          latestSnapshot.exists(_.sourcePaths.contains(file.getPath)) ||
+            (latestSnapshot.isEmpty && activeRootPath.contains(file.getPath))
+        )
+        .foreach(_ =>
+          sourceGeneration.incrementAndGet()
+          refresh()
+        )
   EditorFactory
     .getInstance()
     .getEventMulticaster
     .addDocumentListener(documentListener, this)
+
+  connection.subscribe(
+    VirtualFileManager.VFS_CHANGES,
+    new BulkFileListener:
+      override def after(events: java.util.List[? <: VFileEvent]): Unit =
+        val observed = latestSnapshot.fold(Set.empty[String])(_.observedPaths)
+        val changed = events.asScala.map(_.getPath).toSet
+        if observed.exists(path =>
+            changed.exists(eventPath =>
+              path == eventPath || path.startsWith(eventPath.stripSuffix("/") + "/")
+            )
+          )
+        then
+          sourceGeneration.incrementAndGet()
+          refresh()
+  )
+  connection.subscribe(
+    ModuleRootListener.TOPIC,
+    new ModuleRootListener:
+      override def rootsChanged(event: ModuleRootEvent): Unit =
+        sourceGeneration.incrementAndGet()
+        refresh()
+  )
 
   private val top = new JPanel(new BorderLayout(6, 0))
   private val controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0))
   private val rootLabel = new JBLabel("Proof root:")
   private val refreshButton = new JButton("Refresh")
   private val checkButton = new JButton("Check root")
+  private val showOutputButton = new JButton("Show check output")
   private val openButton = new JButton("Open")
   private val generateButton = new JButton("Generate fill in this root")
   private val nextHoleButton = new JButton("Next hole")
@@ -125,6 +170,13 @@ final class BendProofProgressPanel(
   detail.setLineWrap(true)
   detail.setWrapStyleWord(true)
   detail.setRows(2)
+  checkExplanation.setEditable(false)
+  checkExplanation.setFocusable(false)
+  checkExplanation.setOpaque(false)
+  checkExplanation.setLineWrap(true)
+  checkExplanation.setWrapStyleWord(true)
+  checkExplanation.setRows(2)
+  showOutputButton.setEnabled(false)
   filter.getEmptyText.setText("Filter work and inventory")
   roots.setRenderer(new DefaultListCellRenderer:
     override def getListCellRendererComponent(
@@ -157,10 +209,14 @@ final class BendProofProgressPanel(
   controls.add(rootLabel)
   controls.add(roots)
   controls.add(checkButton)
+  controls.add(showOutputButton)
   controls.add(refreshButton)
   top.add(controls, BorderLayout.WEST)
   top.add(filter, BorderLayout.CENTER)
-  top.add(summary, BorderLayout.SOUTH)
+  val checkPanel = new JPanel(new BorderLayout(0, 3))
+  checkPanel.add(summary, BorderLayout.NORTH)
+  checkPanel.add(checkExplanation, BorderLayout.SOUTH)
+  top.add(checkPanel, BorderLayout.SOUTH)
   workActions.add(openButton)
   workActions.add(generateButton)
   workActions.add(nextHoleButton)
@@ -198,6 +254,11 @@ final class BendProofProgressPanel(
         selectedRoot.foreach(loadRoot))
   refreshButton.addActionListener((_: ActionEvent) => refresh())
   checkButton.addActionListener((_: ActionEvent) => checkSelectedRoot())
+  showOutputButton.addActionListener((_: ActionEvent) =>
+    latestCheckResult
+      .map(checkOutput)
+      .filter(_.nonEmpty)
+      .foreach(output => Messages.showInfoMessage(project, output, "Bend check output")))
   filter.getDocument.addDocumentListener(new SwingDocumentListener:
     override def insertUpdate(change: SwingDocumentEvent): Unit = applyFilter()
     override def removeUpdate(change: SwingDocumentEvent): Unit = applyFilter()
@@ -240,10 +301,13 @@ final class BendProofProgressPanel(
                       setActiveRoot(None)
                       pendingWorkSelection = None
                       latestSnapshot = None
+                      latestCheckResult = None
                       workItems = Nil
                       allEntries = Nil
                       renderEntries()
                       counts.setText("No source work items found.")
+                      checkExplanation.setText("")
+                      showOutputButton.setEnabled(false)
                       summary.setText(
                         withRootInventoryNotice(
                           if inventory.paths.isEmpty then
@@ -265,23 +329,29 @@ final class BendProofProgressPanel(
     loadRoot(path, ticket)
 
   private def loadRoot(path: String, ticket: Long): Unit =
+    val sameRoot = activeRootPath.contains(path) && latestSnapshot.nonEmpty
     val previousSelection =
       if activeRootPath.contains(path) then Option(list.getSelectedValue)
       else None
     setActiveRoot(Some(path))
-    latestSnapshot = None
-    workItems = Nil
-    allEntries = Nil
-    renderEntries()
+    if !sameRoot then
+      latestSnapshot = None
+      latestCheckResult = None
+      workItems = Nil
+      allEntries = Nil
+      renderEntries()
+      counts.setText("Loading source work…")
+      summary.setText("Loading selected proof root…")
+      checkExplanation.setText("")
+      showOutputButton.setEnabled(false)
     pendingWorkSelection = previousSelection
-    counts.setText("Loading source work…")
-    summary.setText("Loading selected proof root…")
     summary.setToolTipText(path)
     alarm.addRequest(
       new Runnable:
         override def run(): Unit =
           val snapshot = reader.read(path, () => !current(ticket))
           snapshot.foreach { value =>
+            val check = value.rootId.map(reader.checkState)
             if current(ticket) then
               ApplicationManager.getApplication.invokeLater(
                 new Runnable:
@@ -303,12 +373,17 @@ final class BendProofProgressPanel(
                           (if value.inventoryLimited then "; inventory capped"
                            else "")
                       )
-                      summary.setText(
-                        withRootInventoryNotice(
-                          value.checkedStatus
-                        )
-                      )
-                      summary.setToolTipText(value.rootPath)
+                      check match
+                        case Some((status, result)) =>
+                          showCheckState(value, status, result)
+                        case None =>
+                          latestCheckResult = None
+                          checkExplanation.setText("")
+                          showOutputButton.setEnabled(false)
+                          summary.setText(
+                            withRootInventoryNotice(value.checkedStatus)
+                          )
+                          summary.setToolTipText(value.rootPath)
                 ,
                 ModalityState.any()
               )
@@ -323,10 +398,92 @@ final class BendProofProgressPanel(
       project
         .getService(classOf[BendExplicitCheckRunner])
         .check(path, "Checking Bend proof root") {
-          case BendExplicitCheckOutcome.Published(_)   => refresh()
-          case BendExplicitCheckOutcome.Rejected(_, _) => refresh()
+          case BendExplicitCheckOutcome.Published(_) =>
+            if latestSnapshot.exists(_.rootId.isEmpty) then refresh()
+          case BendExplicitCheckOutcome.Rejected(_, reason) =>
+            if selectedRoot.contains(path) then checkExplanation.setText(reason)
         }
     }
+
+  private def updateCheckStatus(root: FileId): Unit =
+    val selected = latestSnapshot.filter(_.rootId.contains(root))
+    if !disposed.get() && selected.exists(snapshot =>
+        snapshot.loadingConfigurationRevision != project
+          .getService(classOf[BendLoadingConfiguration])
+          .configurationRevision
+      )
+    then
+      sourceGeneration.incrementAndGet()
+      refresh()
+    else if !disposed.get() && selected.nonEmpty then
+      val ticket = selectionGeneration.get()
+      val sourceTicket = sourceGeneration.get()
+      val statusTicket = statusGeneration.incrementAndGet()
+      statusAlarm.cancelAllRequests()
+      statusAlarm.addRequest(
+        new Runnable:
+          override def run(): Unit =
+            val (status, result) = reader.checkState(root)
+            ApplicationManager.getApplication.invokeLater(
+              new Runnable:
+                override def run(): Unit =
+                  if selectionGeneration.get() == ticket &&
+                    sourceGeneration.get() == sourceTicket &&
+                    statusGeneration.get() == statusTicket &&
+                    !disposed.get()
+                  then
+                    latestSnapshot
+                      .filter(_.rootId.contains(root))
+                      .foreach(snapshot =>
+                        showCheckState(snapshot, status, result)
+                      )
+              ,
+              ModalityState.any()
+            )
+        ,
+        150
+      )
+
+  private def showCheckState(
+      snapshot: BendProofProgressSnapshot,
+      status: String,
+      result: Option[BendCheckResult]
+  ): Unit =
+    latestSnapshot = Some(snapshot.copy(
+      checkedStatus = status + snapshot.sourceNotice
+    ))
+    latestCheckResult = result
+    summary.setText(withRootInventoryNotice(status + snapshot.sourceNotice))
+    summary.setToolTipText(snapshot.rootPath)
+    showOutputButton.setEnabled(
+      status != "Checking" && result.exists(value => checkOutput(value).nonEmpty)
+    )
+    checkExplanation.setText(if status == "Checking" then
+      "Checking this proof root…"
+    else if result.exists(!_.fresh) then
+      "The source changed since the last check. Check root to get a current result."
+    else if status == "Not checked" ||
+      status == "Background checking disabled"
+    then
+      "Select Check root to run the Bend compiler on this proof root."
+    else result match
+      case Some(value) if value.outcome == BendCheckOutcome.Failed =>
+        val firstError = value.diagnostics.headOption.map(_.message)
+          .orElse(value.details.linesIterator.map(_.trim).find(_.nonEmpty))
+          .map(_.take(220))
+          .getOrElse("Open the check output for the compiler error.")
+        s"First error: $firstError  Fix it in the source, then Check root."
+      case Some(value) if value.outcome == BendCheckOutcome.Unavailable =>
+        "The compiler could not check this root. Show check output for the reason."
+      case Some(value) if value.outcome == BendCheckOutcome.TimedOut =>
+        "The root check timed out. Show check output for details."
+      case _ => ""
+    )
+
+  private def checkOutput(result: BendCheckResult): String =
+    val details = result.details.trim
+    if details.nonEmpty then details
+    else result.diagnostics.map(_.message).mkString("\n").trim
 
   private def selectedRoot: Option[String] =
     Option(roots.getSelectedItem).map(_.toString)
@@ -518,7 +675,9 @@ final class BendProofProgressPanel(
     }
 
   private def open(entry: BendProofInventoryEntry): Unit =
-    val ticket = generation.get()
+    val rootPath = selectedRoot
+    val ticket = selectionGeneration.get()
+    val sourceTicket = sourceGeneration.get()
     ProgressManager
       .getInstance()
       .run(
@@ -530,8 +689,13 @@ final class BendProofProgressPanel(
                 ApplicationManager.getApplication.invokeLater(
                   new Runnable:
                     override def run(): Unit =
-                      if current(ticket) then
-                        target match
+                      if rootPath.exists(path => selectionCurrent(path, ticket))
+                      then
+                        if sourceGeneration.get() != sourceTicket then
+                          detail.setText(
+                            "Source changed; refresh proof progress before opening this row."
+                          )
+                        else target match
                           case Some(value) =>
                             val editor = FileEditorManager
                               .getInstance(project)

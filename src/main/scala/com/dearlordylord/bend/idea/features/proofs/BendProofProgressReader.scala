@@ -1,6 +1,8 @@
 package com.dearlordylord.bend.idea.features.proofs
 
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
+import com.dearlordylord.bend.idea.analysis.model.BendCheckResult
+import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.symbols.api.{
   BendPhysicalTargets,
   BendSourceDocumentation,
@@ -17,6 +19,7 @@ import com.dearlordylord.bend.idea.workspace.api.{
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import java.nio.file.Path
 
 /** Reads a root and its current imports through the shared workspace loader. */
 class BendProofProgressReader(project: Project):
@@ -26,6 +29,12 @@ class BendProofProgressReader(project: Project):
   private val SourceCharacterLimit = 250000
   private val TokenLimitPerFile = 25000
   private val BaseLawLimit = 512
+
+  /** Check state is read separately so status events never rescan source. */
+  def checkState(root: FileId): (String, Option[BendCheckResult]) =
+    val service = project.getService(classOf[BendCheckService])
+    val result = service.result(root)
+    BendProofProgressModel.checkedStatus(service.status(root), result) -> result
 
   def roots(): BendProofRootInventory =
     val saved = project.getService(classOf[BendProofRootStore]).selectedPaths
@@ -46,7 +55,8 @@ class BendProofProgressReader(project: Project):
           BendProofProgressSnapshot(
             rootPath,
             "Root source unavailable",
-            Nil
+            Nil,
+            observedPaths = Set(rootPath)
           )
         )
       case Some(root) =>
@@ -66,11 +76,7 @@ class BendProofProgressReader(project: Project):
             .getService(classOf[BendLoadingConfiguration])
             .configurationRevision != loadingConfiguration.configurationRevision
         then return None
-        val checkService = project.getService(classOf[BendCheckService])
-        val checked = BendProofProgressModel.checkedStatus(
-          checkService.status(root.id),
-          checkService.result(root.id)
-        )
+        val checked = checkState(root.id)._1
         val sourceFiles = graph.files.take(SourceFileLimit)
         val importedBaseIds = graph.edges
           .filter(_.importLine.spelling == "Base")
@@ -232,14 +238,25 @@ class BendProofProgressReader(project: Project):
         val graphState =
           if graph.problems.isEmpty then ""
           else s"; ${graph.problems.size} loading issue(s)"
+        val sourceNotice = graphState +
+          (if inventoryLimited then "; inventory capped" else "")
+        val sourcePaths = graph.files.map(_.source.path).toSet
         Some(
           BendProofProgressSnapshot(
             rootPath,
-            checked + graphState +
-              (if inventoryLimited then "; inventory capped" else ""),
+            checked + sourceNotice,
             entries,
             lawGroups,
-            inventoryLimited
+            inventoryLimited,
+            Some(root.id),
+            sourcePaths,
+            sourceNotice,
+            sourcePaths ++
+              graph.edges.map(_.requestedPath) ++
+              Option.when(Path.of(rootPath).getFileName.toString == "PROOF.bend")(
+                Path.of(rootPath).resolveSibling("LAWS.bend").toString
+              ),
+            loadingConfiguration.configurationRevision
           )
         )
 

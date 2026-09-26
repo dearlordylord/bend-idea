@@ -103,7 +103,11 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
             val candidates = synchronized {
               affected.flatMap(rootFiles.get).toList
             }
-            (candidates :+ source).distinct.foreach(request)
+            val direct =
+              if FileEditorManager.getInstance(project).isFileOpen(source) then
+                List(source)
+              else Nil
+            (candidates ++ direct).distinct.foreach(request)
       ,
       this
     )
@@ -126,13 +130,23 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       new BulkFileListener:
         override def after(events: java.util.List[? <: VFileEvent]): Unit =
           val selection = settings.selection
-          if events.asScala.exists { event =>
-              val path = event.getPath
-              path.endsWith(".bend") || path == selection.executable ||
-              path == selection.baseSource || path
-                .startsWith(selection.packageCache.stripSuffix("/") + "/")
+          val paths = events.asScala.map(_.getPath).toSet
+          val externalChanged = paths.exists(path =>
+            path == selection.executable || path == selection.baseSource ||
+              path.startsWith(selection.packageCache.stripSuffix("/") + "/")
+          )
+          if externalChanged || paths.exists(_.endsWith(".bend")) then
+            val affected =
+              if externalChanged then synchronized { rootFiles.keySet.toSet }
+              else control.backgroundAffectedPaths(paths)
+            val candidates = synchronized {
+              rootFiles.collect {
+                case (root, file)
+                    if affected.contains(root) || paths.contains(file.getPath) =>
+                  file
+              }.toList
             }
-          then synchronized { rootFiles.values.toList }.foreach(request)
+            candidates.distinct.foreach(request)
     )
 
   def configurationChanged(): Unit =

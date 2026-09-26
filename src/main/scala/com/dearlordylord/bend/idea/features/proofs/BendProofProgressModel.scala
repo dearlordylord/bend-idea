@@ -28,7 +28,12 @@ final case class BendProofProgressSnapshot(
     checkedStatus: String,
     entries: List[BendProofInventoryEntry],
     lawGroups: List[BendProofLawGroup] = Nil,
-    inventoryLimited: Boolean = false
+    inventoryLimited: Boolean = false,
+    rootId: Option[FileId] = None,
+    sourcePaths: Set[String] = Set.empty,
+    sourceNotice: String = "",
+    observedPaths: Set[String] = Set.empty,
+    loadingConfigurationRevision: Long = -1L
 )
 
 /** A source law and the definitions matched to it in this root. */
@@ -79,7 +84,10 @@ object BendProofProgressModel:
           case BendCheckOutcome.Unavailable => "Checker unavailable"
           case BendCheckOutcome.TimedOut    => "Compiler check timed out"
       case None => BendCheckingStatus.label(status)
-    val reliance = result.map(_.reliance) match
+    val reliance = result.filter(value =>
+      value.outcome == BendCheckOutcome.Success ||
+        value.completeness == BendCompleteness.Incomplete
+    ).map(_.reliance) match
       case Some(BendReliance.UnsafeOrForeign) => "; unsafe or foreign reliance"
       case Some(BendReliance.Unknown)         => "; reliance unknown"
       case _                                  => ""

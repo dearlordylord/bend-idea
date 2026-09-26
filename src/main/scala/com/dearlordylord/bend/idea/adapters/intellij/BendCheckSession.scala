@@ -372,7 +372,7 @@ final class BendCheckSession(project: Project)
   override def backgroundStaleObserved(root: FileId): Unit =
     val transition = applyEvent(BackgroundStaleObserved(root))
     perform(transition.actions)
-    notifyStatusChanged(Set(root))
+    if transition.actions.nonEmpty then notifyStatusChanged(Set(root))
 
   override def backgroundConfigurationChanged(enabled: Boolean): Unit =
     val roots = synchronized { policyState.roots.keySet.toSet }
@@ -392,6 +392,16 @@ final class BendCheckSession(project: Project)
               rootDependsOn(rootState, source) =>
           root
       }.toSet ++ policyState.active.filter(_.root == source).map(_.root)
+    }
+
+  override def backgroundAffectedPaths(paths: Set[String]): Set[FileId] =
+    synchronized {
+      policyState.roots.toList.collect {
+        case (root, rootState)
+            if (rootState.snapshot.toList ++ rootState.pending.toList.map(
+              _.snapshot
+            )).exists(snapshotAffectedBy(_, paths)) => root
+      }.toSet
     }
 
   override def cancel(root: FileId): Unit =
