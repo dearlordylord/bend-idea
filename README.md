@@ -46,12 +46,14 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 
 ## Getting started
 
-1. Install the plugin in IntelliJ IDEA Community Edition 2025.1 and open a `.bend` file. Editing features work immediately.
+1. In IntelliJ IDEA 2025.1 or a verified newer version, open **Settings → Plugins → gear icon → Manage Plugin Repositories** and add `https://idea.dearlordylord.com/updatePlugins.xml`. If the new domain reports a connection error, use `https://bend-idea-plugins.pages.dev/updatePlugins.xml` instead. Then search for **Bend2** in the Marketplace tab and install it. Restart if prompted. Editing features work immediately.
 2. Open **Settings → Languages & Frameworks → Bend** to select your Bend executable and Base source. The settings also include the package cache and a background diagnostics toggle.
 3. Open **Tools → Bend** to check a file, inspect check status, choose proof roots, navigate proof relationships, and access the other Bend workflows. **Open or Create Bend Proof** is available there and becomes enabled when the caret is on a law.
 4. Create **Bend Run**, **Bend Build**, or **Bend Native** configurations as needed. Select the `.bend` root with the file chooser; the root path is not a free-form text field.
 
 Checking requires a Bend executable with documented `--check-only` support. If the executable, Base, or another required capability is unavailable, the plugin reports that state instead of treating the file as successfully checked.
+
+Before installation, an IDE may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.4/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4) records the signed ZIP's SHA-256 so you can check your download. If you prefer manual installation, download [`bend-idea-0.1.4-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.4/bend-idea-0.1.4-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
 
 The real compiler tests in `./gradlew check` require `BEND_TEST_COMPILER_DIR` to name a clean Bend checkout and `BEND_TEST_BUN` to name an absolute Bun executable. The approved Bend commit and the exact Bun version/revision are recorded in [`ci/bend-test-toolchain.properties`](ci/bend-test-toolchain.properties); the test gate fails before running tests if either supplied input is missing or mismatched. CI checks Bend out separately under `_ci/bend`, provisions Bun at the recorded release, and logs both inputs before the gate. Local test runs can use any clean checkout of the recorded Bend commit and Bun executable matching the recorded version and revision; supplied `.references` checkouts are not changed.
 
