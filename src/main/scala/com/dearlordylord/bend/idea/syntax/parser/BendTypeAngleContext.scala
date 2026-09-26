@@ -10,14 +10,21 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 import scala.collection.mutable
 
-/** A deliberately narrow syntax judgment for editing type arguments in
-  * declaration headers.
+/** Shared source syntax judgments for type angles. Editor matching stays
+  * conservative; signature consumers can also recognize expression-level
+  * datatype applications.
   */
 object BendTypeAngleContext:
-  /** Paired type angles from the tolerant declaration and do-type surface.
-    * Other operators stay unmatched.
-    */
   def matchedPairs(source: CharSequence): Map[Int, Int] =
+    scanPairs(source, allowExpressionApplications = false)
+
+  def applicationPairs(source: CharSequence): Map[Int, Int] =
+    scanPairs(source, allowExpressionApplications = true)
+
+  private def scanPairs(
+      source: CharSequence,
+      allowExpressionApplications: Boolean
+  ): Map[Int, Int] =
     val lexer = new BendLexer()
     lexer.start(source)
     val opens = mutable.ArrayBuffer.empty[Int]
@@ -32,14 +39,19 @@ object BendTypeAngleContext:
       val start = lexer.getTokenStart
       val end = lexer.getTokenEnd
       val kind = lexer.getTokenType
+      if kind == BendTokens.DeclarationKeyword && opens.nonEmpty then
+        val lineStart = lineBeginning(source, start)
+        val before = source.subSequence(lineStart, start).toString
+        if before.matches("[ \\t]*(?:@unsafe[ \\t]+)?") &&
+          indentation(source, start) <= indentation(source, opens.head)
+        then opens.clear()
       if kind == BendTokens.DeclarationKeyword then
         val lineStart = lineBeginning(source, start)
         val before = source.subSequence(lineStart, start).toString
-        if before.isEmpty || before.matches("@unsafe\\s+") then
+        if before.matches("[ \\t]*(?:@unsafe[ \\t]+)?") then
           header = true
           doType = false
           datatypeBody = source.subSequence(start, end).toString == "type"
-          opens.clear()
           round = 0
           square = 0
           curly = 0
@@ -62,8 +74,8 @@ object BendTypeAngleContext:
         case BendTokens.LeftBrace    => curly += 1
         case BendTokens.RightBrace   => curly = math.max(0, curly - 1)
         case BendTokens.LeftAngle
-            if (header || doType || datatypeBody && curly > 0) &&
-              typeNameBefore(source, start) =>
+            if (allowExpressionApplications || header || doType ||
+              datatypeBody && curly > 0) && typeNameBefore(source, start) =>
           opens += start
         case BendTokens.RightAngle if opens.nonEmpty =>
           val open = opens.remove(opens.size - 1)
@@ -78,11 +90,46 @@ object BendTypeAngleContext:
       lexer.advance()
     pairs.toMap
 
+  /** An unfinished uppercase-name type application at the caret, if present.
+    */
+  def incompleteTypeApplicationAt(
+      source: CharSequence,
+      offset: Int
+  ): Option[Int] =
+    if offset < 0 || offset > source.length then return None
+    val matched = applicationPairs(source)
+    val lexer = new BendLexer()
+    lexer.start(source)
+    var incomplete = Option.empty[Int]
+    while lexer.getTokenType != null && lexer.getTokenStart < offset do
+      val start = lexer.getTokenStart
+      val kind = lexer.getTokenType
+      if kind == BendTokens.DeclarationKeyword then
+        val lineStart = lineBeginning(source, start)
+        val prefix = source.subSequence(lineStart, start).toString
+        if prefix.matches("[ \\t]*(?:@unsafe[ \\t]+)?") &&
+          incomplete.exists(open =>
+            indentation(source, start) <= indentation(source, open)
+          )
+        then incomplete = None
+      if kind == BendTokens.LeftAngle && !matched.contains(start) &&
+        typeNameBefore(source, start)
+      then incomplete = Some(start)
+      lexer.advance()
+    incomplete
+
   private def lineBeginning(source: CharSequence, offset: Int): Int =
     var at = offset - 1
     while at >= 0 && source.charAt(at) != '\n' && source.charAt(at) != '\r' do
       at -= 1
     at + 1
+
+  private def indentation(source: CharSequence, offset: Int): Int =
+    val start = lineBeginning(source, offset)
+    var at = start
+    while at < offset && (source.charAt(at) == ' ' || source.charAt(at) == '\t')
+    do at += 1
+    at - start
 
   private def typeNameBefore(source: CharSequence, offset: Int): Boolean =
     var at = offset - 1

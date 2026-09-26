@@ -3,11 +3,14 @@ package com.dearlordylord.bend.idea.features.templates.api
 import com.intellij.codeInsight.template.{Template, TemplateManager}
 import com.intellij.codeInsight.template.impl.ConstantNode
 import com.intellij.openapi.project.Project
+import com.dearlordylord.bend.idea.syntax.psi.BendSourceParameter
 
 /** The six source skeletons shared by completion and later explicit template
   * actions.
   */
 object BendSnippets:
+  final case class MatchArm(constructor: String, fields: List[String])
+
   final case class Snippet(
       trigger: String,
       description: String,
@@ -19,6 +22,28 @@ object BendSnippets:
     case End
 
   import Part.*
+
+  /** Render a source-level law implementation skeleton. Bend fills take bare
+    * names from the law telescope; quantities and types belong to the law and
+    * are not repeated in its fill.
+    */
+  def renderLawFill(
+      name: String,
+      parameters: List[BendSourceParameter]
+  ): String =
+    val binders = parameters.map(_.name).mkString(", ")
+    s"def $name($binders):\n  ?TODO\n"
+
+  /** Render constructor arms without inferring branch goals or exhaustiveness.
+    */
+  def renderMatchArms(
+      arms: List[MatchArm],
+      caseIndent: String
+  ): String =
+    arms.map { arm =>
+      val fields = arm.fields.mkString(", ")
+      s"${caseIndent}case ${arm.constructor}{$fields}:\n${caseIndent}  ?TODO\n"
+    }.mkString
 
   val all: List[Snippet] = List(
     Snippet(

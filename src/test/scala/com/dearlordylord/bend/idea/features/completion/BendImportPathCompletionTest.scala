@@ -6,6 +6,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
 
@@ -15,6 +16,7 @@ final class BendImportPathCompletionTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
+    VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable)
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )

@@ -6,11 +6,15 @@ import com.dearlordylord.bend.idea.model.FileId
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
+  ActionUpdateThread,
   CommonDataKeys
 }
 
 /** The Tools menu exposes the selected root's actual check state. */
 final class BendCheckStatusAction extends AnAction("Bend Check Status"):
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
   override def update(event: AnActionEvent): Unit =
     val file = event.getData(CommonDataKeys.VIRTUAL_FILE)
     val project = event.getProject
@@ -25,5 +29,12 @@ final class BendCheckStatusAction extends AnAction("Bend Check Status"):
       )
       val status = project.getService(classOf[BendCheckService]).status(id)
       event.getPresentation.setText("Bend: " + BendCheckingStatus.label(status))
+      project.getService(classOf[BendCheckService]).result(id).foreach {
+        result =>
+          if result.details.trim.nonEmpty then
+            event.getPresentation.setDescription(
+              s"${result.status}: ${result.details.trim}"
+            )
+      }
 
   override def actionPerformed(event: AnActionEvent): Unit = ()

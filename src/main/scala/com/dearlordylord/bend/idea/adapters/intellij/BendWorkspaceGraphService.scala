@@ -1,11 +1,13 @@
 package com.dearlordylord.bend.idea.adapters.intellij
 
-import com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendSourceCatalog,
+  BendWorkspaceGraph
+}
 import com.dearlordylord.bend.idea.workspace.model.{
   BendLoadedGraph,
   BendSourceRecord
 }
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 import com.intellij.openapi.project.Project
 import java.nio.file.Path
 

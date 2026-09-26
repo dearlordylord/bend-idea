@@ -6,7 +6,7 @@ import com.dearlordylord.bend.idea.syntax.psi.*
 import com.intellij.lang.{ASTNode, ParserDefinition, PsiParser}
 import com.intellij.lexer.Lexer
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.fileTypes.FileTypeManager
+import com.intellij.openapi.fileTypes.{FileType, FileTypeManager}
 import com.intellij.psi.{FileViewProvider, PsiElement, PsiFile, TokenType}
 import com.intellij.extapi.psi.{ASTWrapperPsiElement, PsiFileBase}
 import com.intellij.psi.tree.{IElementType, IFileElementType, TokenSet}
@@ -49,6 +49,5 @@ final class BendFile(viewProvider: FileViewProvider)
   override def getReferences: Array[com.intellij.psi.PsiReference] =
     com.intellij.psi.impl.source.resolve.reference.ReferenceProvidersRegistry
       .getReferencesFromProviders(this)
-  override def getFileType: BendFileType = FileTypeManager.getInstance
+  override def getFileType: FileType = FileTypeManager.getInstance
     .getFileTypeByExtension("bend")
-    .asInstanceOf[BendFileType]

@@ -11,8 +11,8 @@ object BendCheckingStatus:
       running: Boolean,
       result: Option[BendCheckResult]
   ): BendCheckingStatus =
-    if !enabled then Disabled
-    else if running then Checking
+    if running then Checking
+    else if !enabled then Disabled
     else
       result match
         case None                        => Unchecked

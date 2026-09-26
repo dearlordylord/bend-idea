@@ -380,9 +380,9 @@ final class BendCliCheckBackend(
         else
           val digest =
             BendAnalysisKey.sourceDigest(file.source.id.value).take(24)
-          temp
-            .resolve(digest)
-            .resolve(Path.of(file.source.path).getFileName.toString)
+          rootPath.getParent.resolve(
+            digest + "-" + Path.of(file.source.path).getFileName.toString
+          )
         file.source.id -> target
       }.toMap
       val mappingResults = materialized.map { file =>

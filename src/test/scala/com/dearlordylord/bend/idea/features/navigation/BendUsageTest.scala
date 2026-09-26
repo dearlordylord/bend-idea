@@ -15,6 +15,7 @@ import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
+import java.util.concurrent.{Callable, FutureTask, TimeUnit}
 import scala.jdk.CollectionConverters.*
 
 final class BendUsageTest extends BasePlatformTestCase:
@@ -187,6 +188,16 @@ final class BendUsageTest extends BasePlatformTestCase:
     assertTrue(provider.canFindUsagesFor(owner))
     assertEquals("value", provider.getDescriptiveName(owner))
     assertEquals(1, usages(owner).size)
+
+  def testReferencesSearchFromPooledThreadAcquiresReadAccess(): Unit =
+    val declaration = target(
+      "def value():\n  0\ndef main():\n  <caret>value()\n"
+    )
+    val task = new FutureTask[Int](new Callable[Int]:
+      override def call(): Int =
+        ReferencesSearch.search(declaration).findAll().size)
+    ApplicationManager.getApplication.executeOnPooledThread(task)
+    assertEquals(1, task.get(10, TimeUnit.SECONDS))
 
   def testLocalScopeRestrictsToSelectedSubtree(): Unit =
     val declaration = target(

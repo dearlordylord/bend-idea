@@ -21,6 +21,17 @@ object BendImportPaths:
     else if rel.startsWith("/") then rel
     else normalize(parent(sourcePath) + "/" + rel)
 
+  /** Namespace assigned by Bend's loader to one written import edge. */
+  def namespace(sourceNamespace: String, spelling: String): String =
+    if spelling == "Base" then ""
+    else
+      val rel = normalize(spelling)
+      val sub =
+        if rel.matches("^0x[0-9a-f]+/.*") || rel.startsWith("/") then rel
+        else if parent(sourceNamespace).isEmpty then normalize(rel)
+        else normalize(parent(sourceNamespace) + "/" + rel)
+      sub.stripSuffix(".bend")
+
   def directory(
       sourcePath: String,
       packageCache: String,

@@ -8,31 +8,6 @@ import com.dearlordylord.bend.idea.analysis.model.{
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.analysis.model.BendCheckingStatus
 
-/** Explicit root check and last published root result, consumed by the editor.
-  */
-trait BendCheckService:
-  /** Reserve the project worker and observe later edits to this root document.
-    */
-  def begin(
-      snapshot: BendCheckSnapshot,
-      subscribe: (() => Unit) => (() => Unit),
-      isCurrent: () => Boolean
-  ): Option[BendCheckReservation]
-  def cancel(root: FileId): Unit
-  def configurationChanged(): Unit
-  def check(
-      snapshot: BendCheckSnapshot,
-      reservation: BendCheckReservation,
-      canceled: () => Boolean
-  ): Option[BendCheckResult]
-  def result(root: FileId): Option[BendCheckResult]
-
-  /** Current root-owned results whose diagnostics may project onto this file.
-    */
-  def resultsFor(source: FileId): List[BendCheckResult]
-  def busy: Boolean
-  def status(root: FileId): BendCheckingStatus
-
 /** Narrow scheduler control; policy decisions stay behind this analysis
   * boundary.
   */
@@ -64,3 +39,43 @@ trait BendBackgroundCheckControl:
   def backgroundConfigurationChanged(enabled: Boolean): Unit
   def backgroundSchedulerDisposed(): Unit
   def backgroundAffectedRoots(source: FileId): Set[FileId]
+
+  /** Roots whose captured inputs or unresolved paths may change at these VFS
+    * paths.
+    */
+  def backgroundAffectedPaths(paths: Set[String]): Set[FileId]
+
+/** Explicit root check and last published root result, consumed by the editor.
+  */
+trait BendCheckService extends BendBackgroundCheckControl:
+  /** Reserve the project worker and observe later edits to this root document.
+    */
+  def begin(
+      snapshot: BendCheckSnapshot,
+      subscribe: (() => Unit) => (() => Unit),
+      isCurrent: () => Boolean
+  ): Option[BendCheckReservation]
+  def cancel(root: FileId): Unit
+  def configurationChanged(): Unit
+  def check(
+      snapshot: BendCheckSnapshot,
+      reservation: BendCheckReservation,
+      canceled: () => Boolean
+  ): Option[BendCheckResult]
+  def result(root: FileId): Option[BendCheckResult]
+
+  /** Subscribe to root-owned status/result transitions. Callbacks receive only
+    * the root identity and must unsubscribe when their UI owner is disposed.
+    */
+  def addStatusListener(listener: FileId => Unit): () => Unit
+
+  /** In-memory publication guard for UI callbacks. This must not traverse
+    * sources or the filesystem.
+    */
+  def isCurrent(result: BendCheckResult): Boolean
+
+  /** Current root-owned results whose diagnostics may project onto this file.
+    */
+  def resultsFor(source: FileId): List[BendCheckResult]
+  def busy: Boolean
+  def status(root: FileId): BendCheckingStatus

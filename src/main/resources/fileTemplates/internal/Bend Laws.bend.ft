@@ -1,0 +1,4 @@
+import Base
+
+law ${NAME}:
+  {1 == 1 : U32}

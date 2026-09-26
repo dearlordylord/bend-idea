@@ -1,7 +1,6 @@
 package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.analysis.api.{
-  BendBackgroundCheckControl,
   BendBackgroundCheckTicket,
   BendCheckService,
   BendGraphSnapshot
@@ -48,6 +47,10 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
   private val timers = mutable.Map.empty[FileId, (Long, ScheduledFuture[?])]
   private val rootFiles = mutable.Map.empty[FileId, VirtualFile]
   @volatile private var disposed = false
+  // Resolve this sibling project service once while both services are live.
+  // The container may remove service registrations in either order at unload.
+  private val service: BendCheckService =
+    project.getService(classOf[BendCheckService])
 
   executor.scheduleWithFixedDelay(
     new Runnable:
@@ -63,10 +66,7 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
     TimeUnit.MILLISECONDS
   )
 
-  private def service: BendCheckService =
-    project.getService(classOf[BendCheckService])
-  private def control: BendBackgroundCheckControl = service
-    .asInstanceOf[BendBackgroundCheckControl]
+  private def control: BendCheckService = service
   private def settings: BendToolchainSettings =
     ApplicationManager.getApplication.getService(classOf[BendToolchainSettings])
   private def id(file: VirtualFile): FileId =
@@ -103,7 +103,11 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
             val candidates = synchronized {
               affected.flatMap(rootFiles.get).toList
             }
-            (candidates :+ source).distinct.foreach(request)
+            val direct =
+              if FileEditorManager.getInstance(project).isFileOpen(source) then
+                List(source)
+              else Nil
+            (candidates ++ direct).distinct.foreach(request)
       ,
       this
     )
@@ -126,13 +130,24 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       new BulkFileListener:
         override def after(events: java.util.List[? <: VFileEvent]): Unit =
           val selection = settings.selection
-          if events.asScala.exists { event =>
-              val path = event.getPath
-              path.endsWith(".bend") || path == selection.executable ||
-              path == selection.baseSource || path
-                .startsWith(selection.packageCache.stripSuffix("/") + "/")
+          val paths = events.asScala.map(_.getPath).toSet
+          val externalChanged = paths.exists(path =>
+            path == selection.executable || path == selection.baseSource ||
+              path.startsWith(selection.packageCache.stripSuffix("/") + "/")
+          )
+          if externalChanged || paths.exists(_.endsWith(".bend")) then
+            val affected =
+              if externalChanged then synchronized { rootFiles.keySet.toSet }
+              else control.backgroundAffectedPaths(paths)
+            val candidates = synchronized {
+              rootFiles.collect {
+                case (root, file)
+                    if affected.contains(root) || paths
+                      .contains(file.getPath) =>
+                  file
+              }.toList
             }
-          then synchronized { rootFiles.values.toList }.foreach(request)
+            candidates.distinct.foreach(request)
     )
 
   def configurationChanged(): Unit =
@@ -316,4 +331,6 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
         true
     }
     if shouldNotify && !project.isDisposed then
-      control.backgroundSchedulerDisposed()
+      Option(project.getService(classOf[BendCheckService])).foreach(
+        _.backgroundSchedulerDisposed()
+      )

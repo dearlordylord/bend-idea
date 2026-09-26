@@ -1,0 +1,404 @@
+package com.dearlordylord.bend.idea.features.proofs
+
+import com.dearlordylord.bend.idea.workspace.api.BendPathInventoryStatus
+import com.dearlordylord.bend.idea.syntax.BendLanguage
+import com.dearlordylord.bend.idea.syntax.psi.{BendProofForm, BendProofSurface}
+import com.intellij.notification.{NotificationGroupManager, NotificationType}
+import com.intellij.codeInsight.intention.IntentionAction
+import com.intellij.openapi.actionSystem.{
+  AnAction,
+  AnActionEvent,
+  ActionUpdateThread,
+  CommonDataKeys
+}
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.fileEditor.{FileEditorManager, OpenFileDescriptor}
+import com.intellij.openapi.progress.{ProgressIndicator, Task}
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.psi.{PsiFile, SmartPsiElementPointer, SmartPointerManager}
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.PsiModificationTracker
+import com.dearlordylord.bend.idea.syntax.psi.BendLaw
+import scala.jdk.CollectionConverters.*
+
+/** Opens an existing law fill or creates an incomplete source skeleton. */
+final class BendGenerateLawFillAction
+    extends AnAction("Open or Create Bend Proof")
+    with IntentionAction:
+  private final case class Discovery(
+      roots: BendProofRootInventory,
+      fillSearch: BendProofFillSearch,
+      sourceModificationCount: Long
+  )
+
+  override def getActionUpdateThread: ActionUpdateThread =
+    ActionUpdateThread.BGT
+
+  override def getText: String = "Open or Create Bend Proof"
+  override def getFamilyName: String = "Bend proof fills"
+
+  override def isAvailable(
+      project: Project,
+      editor: Editor,
+      file: PsiFile
+  ): Boolean =
+    project != null && editor != null && file != null &&
+      file.getLanguage == BendLanguage.instance &&
+      currentLaw(file, editor.getCaretModel.getOffset).nonEmpty
+
+  override def invoke(project: Project, editor: Editor, file: PsiFile): Unit =
+    perform(project, editor, file)
+
+  override def startInWriteAction: Boolean = false
+
+  override def update(event: AnActionEvent): Unit =
+    val editor = event.getData(CommonDataKeys.EDITOR)
+    val file = Option(event.getData(CommonDataKeys.PSI_FILE))
+    val enabled = editor != null && file.exists(
+      currentLaw(_, editor.getCaretModel.getOffset).nonEmpty
+    )
+    event.getPresentation.setVisible(true)
+    event.getPresentation.setEnabled(enabled)
+    event.getPresentation.setDescription(
+      if enabled then "Open an existing proof or create an incomplete law fill"
+      else "Place the caret on a law declaration to open or create its proof"
+    )
+
+  override def actionPerformed(event: AnActionEvent): Unit =
+    val editor = event.getData(CommonDataKeys.EDITOR)
+    perform(
+      event.getProject,
+      editor,
+      event.getData(CommonDataKeys.PSI_FILE)
+    )
+
+  private def perform(
+      project: Project,
+      editor: Editor,
+      file: PsiFile
+  ): Unit =
+    if project == null || editor == null then return
+    val lawPointer = ReadAction.compute(() =>
+      Option(file).flatMap(file =>
+        currentLaw(file, editor.getCaretModel.getOffset).map(law =>
+          SmartPointerManager
+            .getInstance(project)
+            .createSmartPsiElementPointer(law)
+        )
+      )
+    )
+    lawPointer match
+      case None =>
+        notify(
+          project,
+          "Place the caret on a Bend law declaration",
+          NotificationType.WARNING
+        )
+      case Some(pointer) => discover(project, Some(editor), pointer, None)
+
+  /** The progress panel has already chosen a proof root. Keep generation in
+    * that root while reusing the same background planning and insertion path.
+    */
+  private[proofs] def generateForRoot(
+      project: Project,
+      law: SmartPsiElementPointer[BendLaw],
+      rootPath: String,
+      stillCurrent: () => Boolean
+  ): Unit = discover(project, None, law, Some(rootPath), stillCurrent)
+
+  private def discover(
+      project: Project,
+      editor: Option[Editor],
+      law: SmartPsiElementPointer[BendLaw],
+      selectedRoot: Option[String],
+      stillCurrent: () => Boolean = () => true
+  ): Unit =
+    new Task.Backgroundable(project, "Finding Bend proof roots", true):
+      private var result: Option[Discovery] = None
+
+      override def run(indicator: ProgressIndicator): Unit =
+        val file = ReadAction.compute(() =>
+          Option(law.getElement).filter(_.isValid).map(_.getContainingFile)
+        )
+        file.filter(_ => stillCurrent()).foreach { sourceFile =>
+          val modificationCount = ReadAction.compute(() =>
+            PsiModificationTracker
+              .getInstance(project)
+              .getModificationCount
+          )
+          val roots = selectedRoot match
+            case Some(path) =>
+              BendProofRootInventory(
+                List(path),
+                BendPathInventoryStatus.Complete
+              )
+            case None =>
+              ReadAction.compute(() => BendProofNavigation.roots(sourceFile))
+          val targets = BendProofFillGenerator.candidates(
+            law,
+            roots.paths,
+            () => indicator.isCanceled || !stillCurrent()
+          )
+          if !indicator.isCanceled && stillCurrent() then
+            targets.foreach(values =>
+              result = Some(Discovery(roots, values, modificationCount))
+            )
+        }
+
+      override def onSuccess(): Unit =
+        if project.isDisposed || !stillCurrent() then return
+        result match
+          case None =>
+            BendGenerateLawFillAction.this.notify(
+              project,
+              "The law changed while finding proof roots; run generation again",
+              NotificationType.WARNING
+            )
+          case Some(discovery) if discovery.fillSearch.existing.nonEmpty =>
+            val fills = discovery.fillSearch.existing
+            if fills.size == 1 then openExisting(project, fills.head)
+            else
+              val popup = JBPopupFactory
+                .getInstance()
+                .createPopupChooserBuilder(fills.asJava)
+                .setTitle("Open existing Bend law fill")
+                .setItemChosenCallback(fill => openExisting(project, fill))
+                .createPopup()
+              editor match
+                case Some(value) => popup.showInBestPositionFor(value)
+                case None        => popup.showInFocusCenter()
+          case Some(discovery) if discovery.fillSearch.targets.isEmpty =>
+            if selectedRoot.isEmpty && !discovery.fillSearch.sourceInventoryCapped &&
+              discovery.roots.status == BendPathInventoryStatus.Complete
+            then
+              BendProofFillGenerator
+                .insertConventional(
+                  project,
+                  law,
+                  discovery.sourceModificationCount
+                ) match
+                case Right(inserted) => openInserted(project, inserted)
+                case Left(reason)    =>
+                  BendGenerateLawFillAction.this.notify(
+                    project,
+                    reason,
+                    NotificationType.WARNING
+                  )
+            else
+              val notice = BendPathInventoryStatus
+                .notice(discovery.roots.status)
+                .fold("")(message => s" $message")
+              val capNotice = sourceInventoryNotice(discovery.fillSearch)
+              BendGenerateLawFillAction.this.notify(
+                project,
+                s"No writable proof root exposes this law without an existing fill.$notice$capNotice",
+                NotificationType.WARNING
+              )
+          case Some(discovery)
+              if shouldAutoInsert(
+                discovery.roots.status,
+                discovery.fillSearch
+              ) =>
+            validateAndInsert(
+              project,
+              law,
+              discovery.fillSearch.targets.head,
+              automaticSelection = true,
+              stillCurrent
+            )
+          case Some(discovery) =>
+            val baseTitle = BendPathInventoryStatus
+              .notice(discovery.roots.status)
+              .fold("Generate law fill in proof root")(notice =>
+                s"Generate law fill in proof root — $notice"
+              )
+            val title =
+              if discovery.fillSearch.sourceInventoryCapped then
+                s"$baseTitle — source inventory capped; results may be incomplete"
+              else baseTitle
+            val popup = JBPopupFactory
+              .getInstance()
+              .createPopupChooserBuilder(discovery.fillSearch.targets.asJava)
+              .setTitle(title)
+              .setItemChosenCallback(target =>
+                if stillCurrent() then
+                  validateAndInsert(
+                    project,
+                    law,
+                    target,
+                    automaticSelection = false,
+                    stillCurrent
+                  )
+              )
+              .createPopup()
+            editor match
+              case Some(value) => popup.showInBestPositionFor(value)
+              case None        => popup.showInFocusCenter()
+    .queue()
+
+  private[proofs] def shouldAutoInsert(
+      rootInventoryStatus: BendPathInventoryStatus,
+      search: BendProofFillSearch
+  ): Boolean =
+    rootInventoryStatus == BendPathInventoryStatus.Complete &&
+      search.targets.size == 1 && !search.sourceInventoryCapped
+
+  private def sourceInventoryNotice(search: BendProofFillSearch): String =
+    if search.sourceInventoryCapped then
+      s" Source inventory limits were reached in: ${search.cappedRootPaths.mkString(", ")}; more matches may exist."
+    else ""
+
+  private[proofs] def mayInsertAfterRefresh(
+      automaticSelection: Boolean,
+      refreshed: BendProofFillSearch
+  ): Boolean =
+    !automaticSelection || !refreshed.sourceInventoryCapped
+
+  private def validateAndInsert(
+      project: Project,
+      law: SmartPsiElementPointer[BendLaw],
+      selected: BendProofFillTarget,
+      automaticSelection: Boolean,
+      stillCurrent: () => Boolean
+  ): Unit =
+    if !stillCurrent() then return
+    new Task.Backgroundable(project, "Rechecking Bend law visibility", true):
+      private var refreshed: Option[BendProofFillSearch] = None
+
+      override def run(indicator: ProgressIndicator): Unit =
+        if stillCurrent() then
+          refreshed = BendProofFillGenerator.refreshCandidate(
+            law,
+            selected,
+            () => indicator.isCanceled || !stillCurrent()
+          )
+
+      override def onSuccess(): Unit =
+        if project.isDisposed || !stillCurrent() then return
+        refreshed match
+          case None =>
+            BendGenerateLawFillAction.this.notify(
+              project,
+              "The law, proof-root imports, or loading settings changed; generate the fill again",
+              NotificationType.WARNING
+            )
+          case Some(search) if search.existing.nonEmpty =>
+            openExisting(project, search.existing.head)
+          case Some(search) if search.targets.isEmpty =>
+            BendGenerateLawFillAction.this.notify(
+              project,
+              "The law, proof-root imports, or loading settings changed; generate the fill again",
+              NotificationType.WARNING
+            )
+          case Some(search)
+              if !mayInsertAfterRefresh(automaticSelection, search) =>
+            BendGenerateLawFillAction.this.notify(
+              project,
+              s"The proof-root source inventory became capped during automatic selection.${sourceInventoryNotice(search)} Run generation again and choose a target explicitly.",
+              NotificationType.WARNING
+            )
+          case Some(search) => insert(project, search.targets.head)
+    .queue()
+
+  private def currentLaw(file: PsiFile, offset: Int): Option[BendLaw] =
+    if file.getTextLength == 0 then None
+    else
+      Option(
+        file.findElementAt(
+          math.max(0, math.min(offset, file.getTextLength - 1))
+        )
+      )
+        .flatMap(element =>
+          Option(PsiTreeUtil.getParentOfType(element, classOf[BendLaw]))
+        )
+
+  private def insert(
+      project: Project,
+      target: BendProofFillTarget
+  ): Unit =
+    BendProofFillGenerator.insert(project, target) match
+      case Left(reason)  => notify(project, reason, NotificationType.WARNING)
+      case Right(result) => openInserted(project, result)
+
+  private def openInserted(
+      project: Project,
+      result: BendProofFillInsertion
+  ): Unit =
+    Option(
+      FileEditorManager
+        .getInstance(project)
+        .openTextEditor(
+          new OpenFileDescriptor(
+            project,
+            result.file,
+            result.placeholderStart
+          ),
+          true
+        )
+    ).foreach { editor =>
+      editor.getSelectionModel.setSelection(
+        result.placeholderStart,
+        result.placeholderEnd
+      )
+    }
+    notify(
+      project,
+      "Law fill skeleton inserted; ?TODO remains incomplete until replaced",
+      NotificationType.INFORMATION
+    )
+
+  private def openExisting(
+      project: Project,
+      fill: BendProofExistingFill
+  ): Unit =
+    val location = ReadAction.compute(() =>
+      Option(fill.declaration.getElement).filter(_.isValid).flatMap { entry =>
+        Option(entry.getContainingFile.getVirtualFile).map { file =>
+          val hole = BendProofSurface
+            .holesBounded(
+              entry.getText,
+              entry.getTextOffset,
+              8192,
+              1,
+              () => false
+            )
+            .flatMap(_.forms.collectFirst { case value: BendProofForm.Hole =>
+              value.from
+            })
+          (file, hole, entry.getTextOffset)
+        }
+      }
+    )
+    location match
+      case None =>
+        notify(
+          project,
+          "The existing law fill changed; run generation again",
+          NotificationType.WARNING
+        )
+      case Some((file, hole, definitionOffset)) =>
+        new OpenFileDescriptor(
+          project,
+          file,
+          hole.getOrElse(definitionOffset)
+        ).navigate(true)
+        notify(
+          project,
+          s"${fill.name} already has a fill in ${fill.path}; opened ${
+              if hole.nonEmpty then "its first proof hole" else "the definition"
+            }",
+          NotificationType.INFORMATION
+        )
+
+  private def notify(
+      project: Project,
+      message: String,
+      kind: NotificationType
+  ): Unit =
+    NotificationGroupManager
+      .getInstance()
+      .getNotificationGroup("Bend")
+      .createNotification(message, kind)
+      .notify(project)

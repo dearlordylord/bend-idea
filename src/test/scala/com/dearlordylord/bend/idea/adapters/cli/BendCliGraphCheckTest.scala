@@ -6,10 +6,10 @@ import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSelection
 import com.dearlordylord.bend.idea.workspace.api.{
   BendImportLines,
+  BendSourceCatalog,
   BendWorkspaceGraph
 }
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 import java.nio.file.{Files, Path}
 import org.junit.Assert.*
 import org.junit.Test
@@ -133,6 +133,11 @@ final class BendCliGraphCheckTest:
       rootMap.copiedText
         .substring(rewrite.copiedStart, rewrite.copiedEnd)
         .endsWith("math.bend")
+    )
+    assertTrue(
+      rootMap.copiedText
+        .substring(rewrite.copiedStart, rewrite.copiedEnd)
+        .startsWith("./")
     )
     val afterImport = rootMap.copiedText.indexOf("def main")
     assertEquals(
@@ -287,6 +292,19 @@ final class BendCliGraphCheckTest:
       )
       val result = check(dir, bend, root)
       assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
+      val copiedParents = result.mappings
+        .map(mapping => Path.of(mapping.copiedPath).getParent)
+        .distinct
+      assertEquals(1, copiedParents.size)
+      result.mappings.foreach { mapping =>
+        mapping.rewrites.foreach { rewrite =>
+          assertTrue(
+            mapping.copiedText
+              .substring(rewrite.copiedStart, rewrite.copiedEnd)
+              .startsWith("./")
+          )
+        }
+      }
     }
 
   @Test def identicalExcerptsStayOnRoot(): Unit = fixture { (dir, bend) =>

@@ -1,5 +1,6 @@
 package com.dearlordylord.bend.idea.features.navigation
 
+import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
   BendToolchainSettings
@@ -15,6 +16,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.util.ThrowableComputable
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -42,6 +44,12 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
+    val compilerDirectory = RealBendCompilerFixture.inputs.compilerDirectory
+    VfsTestRoots.allowSystemTemporaryDirectory(
+      getTestRootDisposable,
+      compilerDirectory,
+      compilerDirectory.getParent
+    )
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )
@@ -184,6 +192,10 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
   def testOpenFilesOutsideTheSearchScopeDoNotContributeNames(): Unit =
     val included =
       myFixture.addFileToProject("included.bend", "def inScopeName():\n  0\n")
+    myFixture.addFileToProject(
+      "closed-excluded.bend",
+      "def indexedOutOfScopeName():\n  0\n"
+    )
     val excluded = myFixture.addFileToProject(
       "excluded.bend",
       "def outOfScopeName():\n  0\n"
@@ -200,6 +212,10 @@ final class BendSymbolSearchTest extends BasePlatformTestCase:
     assertFalse(
       "Leaked names: " + scopedNames,
       scopedNames.contains("outOfScopeName")
+    )
+    assertFalse(
+      "Leaked names: " + scopedNames,
+      scopedNames.contains("indexedOutOfScopeName")
     )
     assertFalse(
       "Leaked names: " + scopedNames,

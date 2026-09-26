@@ -2,6 +2,10 @@ package com.dearlordylord.bend.idea.adapters.cli
 
 import com.dearlordylord.bend.idea.adapters.process.BendProcessOutcome
 import com.dearlordylord.bend.idea.analysis.model.*
+import com.dearlordylord.bend.idea.toolchain.api.{
+  BendCompilerInfo,
+  BendCompilerInfoResult
+}
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -30,6 +34,33 @@ final class BendCliVerdictDecoderTest:
     )
     assertTrue(
       unsupported.isInstanceOf[BendCliVerdictDecoder.Capability.Unavailable]
+    )
+
+  @Test def compilerInfoExtractsVersionOnly(): Unit =
+    val oldCompiler = BendCliVerdictDecoder.compilerInfo(
+      BendProcessOutcome.Exited(
+        0,
+        "Bend 2.0.16: check, run, build and publish Bend programs.\n"
+      )
+    )
+    assertEquals(
+      BendCompilerInfoResult.Detected(
+        BendCompilerInfo(Some("2.0.16"))
+      ),
+      oldCompiler
+    )
+
+    val currentCompiler = BendCliVerdictDecoder.compilerInfo(
+      BendProcessOutcome.Exited(
+        0,
+        s"Bend 2.0.27: help\n$checkOnlyLine\n"
+      )
+    )
+    assertEquals(
+      BendCompilerInfoResult.Detected(
+        BendCompilerInfo(Some("2.0.27"))
+      ),
+      currentCompiler
     )
 
   @Test def onlyWholeDocumentedReportsEstablishSuccessOrReliance(): Unit =
@@ -97,6 +128,29 @@ final class BendCliVerdictDecoderTest:
     assertEquals(BendCompleteness.Unknown, error.completeness)
     assertEquals(BendReliance.Unknown, error.reliance)
     assertTrue(error.sourceLocationAllowed)
+
+    val underlinedError = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(
+        1,
+        compilerError.replace(
+          "3>|   missing_name\n4 | ",
+          "3>|   missing_name\n  |   ^^^^^^^^^^^^\n4 | "
+        )
+      )
+    )
+    assertEquals(BendCheckOutcome.Failed, underlinedError.outcome)
+    assertTrue(underlinedError.sourceLocationAllowed)
+
+    val misplacedUnderline = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(
+        1,
+        compilerError.replace(
+          "3>|   missing_name\n4 | ",
+          "3>|   missing_name\n4 | \n  |   ^^^^^^^^^^^^"
+        )
+      )
+    )
+    assertFalse(misplacedUnderline.sourceLocationAllowed)
 
     val changedErrorTail = BendCliVerdictDecoder.check(
       BendProcessOutcome.Exited(

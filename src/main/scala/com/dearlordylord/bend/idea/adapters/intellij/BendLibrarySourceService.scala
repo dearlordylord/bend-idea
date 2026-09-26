@@ -6,10 +6,12 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.psi.search.{FilenameIndex, GlobalSearchScope}
+import com.intellij.openapi.project.IndexNotReadyException
 import java.nio.file.{Files, Path}
+import scala.jdk.CollectionConverters.*
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 
 /** VFS/document capture is kept outside workspace policy. */
 final class BendLibrarySourceService(project: Project)
@@ -92,6 +94,104 @@ final class BendLibrarySourceService(project: Project)
         case _: java.io.IOException                => ()
         case _: SecurityException                  => ()
       entries.values.toList
+
+  override def filesNamed(
+      name: String,
+      limit: Int
+  ): BendNamedPathInventory =
+    if limit <= 0 || !name.endsWith(".bend") then
+      BendNamedPathInventory(Nil, BendPathInventoryStatus.Complete)
+    else
+      ReadAction.compute(() => {
+        val fileIndex = ProjectRootManager
+          .getInstance(project)
+          .getFileIndex
+        val open = FileEditorManager
+          .getInstance(project)
+          .getOpenFiles
+          .iterator
+          .filter(file =>
+            file.isValid && fileIndex.isInContent(file) &&
+              !file.isDirectory && file.getName == name
+          )
+          .map(_.getPath)
+          .distinct
+          .take(limit + 1)
+          .toList
+        val openPaths = open.toSet
+        val remainingCandidates = (limit + 1 - open.size).max(0)
+        val indexed: Option[List[String]] =
+          try
+            Some(
+              FilenameIndex
+                .getVirtualFilesByName(
+                  name,
+                  GlobalSearchScope.projectScope(project)
+                )
+                .asScala
+                .iterator
+                .filter(file => file.isValid && !file.isDirectory)
+                .map(_.getPath)
+                .filterNot(openPaths.contains)
+                .distinct
+                .take(remainingCandidates)
+                .toList
+            )
+          catch case _: IndexNotReadyException => None
+        val candidates = open ++ indexed.getOrElse(Nil)
+        BendNamedPathInventory(
+          candidates.take(limit),
+          BendPathInventoryStatus.of(indexed.isDefined, candidates.size > limit)
+        )
+      })
+
+  override def filesWithExtension(
+      extension: String,
+      limit: Int
+  ): Either[String, List[String]] =
+    if limit <= 0 || extension.isEmpty then
+      Left("A positive limit and file extension are required.")
+    else
+      ReadAction.compute(() =>
+        try
+          val ext = extension.stripPrefix(".")
+          val fileIndex = ProjectRootManager
+            .getInstance(project)
+            .getFileIndex
+          val found = scala.collection.mutable.LinkedHashSet.empty[String]
+          val open = FileEditorManager
+            .getInstance(project)
+            .getOpenFiles
+            .iterator
+            .filter(file =>
+              file.isValid && fileIndex.isInContent(file) &&
+                !file.isDirectory &&
+                file.getExtension == ext
+            )
+          while open.hasNext && found.size <= limit do
+            val _ = found.add(open.next().getPath)
+          val indexed = FilenameIndex
+            .getAllFilesByExt(
+              project,
+              ext,
+              GlobalSearchScope.projectScope(project)
+            )
+            .asScala
+            .iterator
+          while indexed.hasNext && found.size <= limit do
+            val file = indexed.next()
+            if file.isValid && fileIndex.isInContent(file) &&
+              !file.isDirectory && file.getExtension == ext
+            then
+              val _ = found.add(file.getPath)
+          val bounded = found.toList
+          if bounded.size > limit then
+            Left("Project source inventory exceeds the safe refactoring limit.")
+          else Right(bounded)
+        catch
+          case _: IndexNotReadyException =>
+            Left("Project file index is unavailable for safe refactoring.")
+      )
 
   override def source(path: String): Option[BendSourceRecord] =
     try
