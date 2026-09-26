@@ -5,5 +5,24 @@
           version="0.1.4">
     <idea-version since-build="251"/>
     <name>Bend2</name>
+    <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
+
+<ul>
+  <li>Syntax highlighting, hash line comments, and editable snippets</li>
+  <li>Completion for declarations, local bindings, Base, imports, and import paths</li>
+  <li>Go to Declaration, Go to Symbol, Find Usages, and source Quick Documentation</li>
+  <li>Manual and optional background compiler checking of unsaved source and imports</li>
+</ul>
+
+Editing works without a Bend installation. Checking requires a configured Bend compiler with
+<code>--check-only</code> support. See the
+<a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
+    <change-notes><![CDATA[<p>Version 0.1.4:</p>
+<ul>
+  <li>Add a Bend structure view, source-preserving formatting, and binding-aware rename</li>
+  <li>Search workspace declarations with Go to Symbol</li>
+  <li>Make compiler checks more reliable with pinned offline test inputs, current-only results, conservative verdicts, and exact imported-source mapping</li>
+  <li>Remove IntelliJ Internal API usages reported by Plugin Verifier</li>
+</ul>]]></change-notes>
   </plugin>
 </plugins>
