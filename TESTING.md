@@ -1,4 +1,4 @@
-# Manual test guide: issues #34–#37
+# Manual test guide: issues #34–#36
 
 This guide covers the features in [PR #60](https://github.com/dearlordylord/bend-idea/pull/60).
 
@@ -24,7 +24,6 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 | [#34](https://github.com/dearlordylord/bend-idea/issues/34) | Build and inspect generated output | Source: `bend-idea/run/main.bend`; output directory: `bend-idea/generated/` | Add **Bend Build**, use its browse button to select the fixture root, and set output path under `bend-idea/generated/`. Try C or JavaScript output, then open the generated source from the console link. Native output requires the compiler's native backend and `clang`. |
 | [#35](https://github.com/dearlordylord/bend-idea/issues/35) | Complete and navigate foreign imports | `bend-idea/foreign/main.bend`; targets: `bend-idea/foreign/ffi/native.c` and `bend-idea/foreign/ffi/native.js` | In the fixture source, shorten a quoted import to `import "ffi/"`, invoke completion, and choose an asset. Use Go to Declaration (`⌘B` / `Ctrl+B`, or Ctrl-click) on the path. |
 | [#36](https://github.com/dearlordylord/bend-idea/issues/36) | Move and rename source files | `bend-idea/refactor/app/main.bend`; target: `bend-idea/refactor/library/dep_for_move.bend`; foreign targets: `bend-idea/refactor/ffi/native.c` and `bend-idea/refactor/ffi/native.js` | Use **Refactor → Move** or **Rename** from the project tree; inspect the preview, apply it, and verify module and foreign paths update. Undo and check that the original paths return. Keep all changes inside `bend-idea/refactor/`. |
-| [#37](https://github.com/dearlordylord/bend-idea/issues/37) | Import a selected symbol explicitly | `bend-idea/imports/main.bend` (`bend_idea_target()` unresolved); candidate: `bend-idea/imports/library.bend` | Put the caret on the unresolved call and use the context-action shortcut (**Option+Enter** on macOS, **Alt+Enter** on Windows/Linux). Choose **Import Bend symbol**; it should add the import directly for one candidate or offer a chooser for several. Undo should restore the fixture. The **Tools → Bend → Import Bend Symbol at Caret** command remains available too. | btw generally, EACH file has warning at first symbol: "This Bend compiler does not document --check-only; no source was checked.".  now, to the 37: it should be tool. in TS I usually have hotkeys like cmd+enter or something like that. before I use hotkey, editor highlights the non-defined thing as error. after I use hotkey, there's usually a choice where import from OR just import happens if no choice. I think it works like that, you should check. it's not only ts but any language I used. |
 
 ## Follow-up UI regression checks
 
