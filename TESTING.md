@@ -1,4 +1,4 @@
-# Manual test guide: issues #32–#40
+# Manual test guide: issues #33–#40
 
 This guide covers the features in [PR #60](https://github.com/dearlordylord/bend-idea/pull/60).
 
@@ -21,7 +21,6 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 
 | Issue                                                       | Feature | Files to open/check | Manual test | Feedback |
 |-------------------------------------------------------------|---|---|---|---|
-| [#32](https://github.com/dearlordylord/bend-idea/issues/32) | Browse proof work | `bend-idea/proofs/PROOF.bend`, `bend-idea/proofs/LAWS.bend`, and imported `bend-idea/proofs/holes.bend`; full-project alternative: `PROOF.bend` and `proofs/core.bend` | Select the small root with **Check Bend Proof Root**, then open **View → Tool Windows → Bend Proof Progress**. **Work to do** should show its `?TODO` and `?evidence` holes plus `self_equal` with no candidate fill found. Open a hole and confirm its token is selected. Select `self_equal` and use **Generate fill in this root**; the new `?TODO` should be selected in the small proof root. In **Laws and candidate fills**, double-click `Law: self_equal` to open its declaration. Check that status changes do not repeatedly blank the rows; if the check fails, read the first error and use **Show check output** for the full text. Switch to the full root and check that ordinary definitions stay out of the work queue, while the root check result stays separate from source inventory. | |
 | [#33](https://github.com/dearlordylord/bend-idea/issues/33) | Run Bend explicitly | `bend-idea/run/main.bend`; larger real demo: `battle.bend` | Open **Run → Edit Configurations** and add **Bend Run**. Use the browse button to select `bend-idea/run/main.bend`; the root field should not accept manual typing. Run it and inspect the Run console output. |
 | [#34](https://github.com/dearlordylord/bend-idea/issues/34) | Build and inspect generated output | Source: `bend-idea/run/main.bend`; output directory: `bend-idea/generated/` | Add **Bend Build**, use its browse button to select the fixture root, and set output path under `bend-idea/generated/`. Try C or JavaScript output, then open the generated source from the console link. Native output requires the compiler's native backend and `clang`. |
 | [#35](https://github.com/dearlordylord/bend-idea/issues/35) | Complete and navigate foreign imports | `bend-idea/foreign/main.bend`; targets: `bend-idea/foreign/ffi/native.c` and `bend-idea/foreign/ffi/native.js` | In the fixture source, shorten a quoted import to `import "ffi/"`, invoke completion, and choose an asset. Use Go to Declaration (`⌘B` / `Ctrl+B`, or Ctrl-click) on the path. |
