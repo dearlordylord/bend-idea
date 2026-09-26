@@ -104,21 +104,16 @@ object BendProofNavigation:
           .filesNamed("PROOF.bend", RootLimit)
       else BendNamedPathInventory(Nil, BendPathInventoryStatus.Complete)
     val conventional = discovered.paths
+    val sibling = Option(origin.getVirtualFile)
+      .filter(_.getName == "LAWS.bend")
+      .flatMap(file => Option(file.getParent))
+      .flatMap(parent => Option(parent.findChild("PROOF.bend")))
+      .filter(file => file.isValid && !file.isDirectory)
+      .map(_.getPath)
+      .toList
     val suggestions =
-      if saved.isEmpty then conventional
-      else
-        currentPath
-          .filter(path =>
-            java.nio.file.Path.of(path).getFileName.toString == "LAWS.bend"
-          )
-          .map(path =>
-            java.nio.file.Path
-              .of(path)
-              .resolveSibling("PROOF.bend")
-              .toString
-          )
-          .filter(conventional.contains)
-          .toList
+      if saved.isEmpty then sibling ++ conventional
+      else sibling
     BendProofRootInventory(
       BendProofRootSelection.candidates(currentPath, saved, suggestions),
       discovered.status
