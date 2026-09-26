@@ -38,6 +38,8 @@ final class BendRunConfigurationType
     ):
   addFactory(new ConfigurationFactory(this):
     override def getName: String = "Bend Run"
+    // Match the old default ID, which was derived from this display name.
+    override def getId: String = "Bend Run"
 
     override def createTemplateConfiguration(
         project: Project
@@ -45,6 +47,7 @@ final class BendRunConfigurationType
       new BendRunConfiguration(project, this, "Bend Run"))
   addFactory(new ConfigurationFactory(this):
     override def getName: String = "Bend Build"
+    override def getId: String = "Bend Build"
 
     override def createTemplateConfiguration(
         project: Project
@@ -52,6 +55,7 @@ final class BendRunConfigurationType
       new BendBuildConfiguration(project, this, "Bend Build"))
   addFactory(new ConfigurationFactory(this):
     override def getName: String = "Bend Native"
+    override def getId: String = "Bend Native"
 
     override def createTemplateConfiguration(
         project: Project

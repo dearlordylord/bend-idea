@@ -35,6 +35,9 @@ Editing works without a Bend installation. Checking requires a configured Bend c
                     anchor="right"
                     factoryClass="com.dearlordylord.bend.idea.features.proofs.BendProofProgressToolWindowFactory"/>
         <configurationType implementation="com.dearlordylord.bend.idea.features.execution.BendRunConfigurationType"/>
+        <runConfigurationProducer implementation="com.dearlordylord.bend.idea.features.execution.BendMainRunConfigurationProducer"/>
+        <runLineMarkerContributor language="Bend"
+                                  implementationClass="com.dearlordylord.bend.idea.features.execution.BendMainRunLineMarkerContributor"/>
         <fileType name="Bend" language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.syntax.BendFileType"
                   extensions="bend"/>
