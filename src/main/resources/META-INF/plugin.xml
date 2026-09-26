@@ -185,7 +185,7 @@ Editing works without a Bend installation. Checking requires a configured Bend c
         </action>
         <action id="Bend.GenerateLawFill"
                 class="com.dearlordylord.bend.idea.features.proofs.BendGenerateLawFillAction"
-                text="Generate Bend Law Fill" description="Insert an incomplete law-fill skeleton into a selected proof root">
+                text="Open or Create Bend Proof" description="Open an existing proof or create an incomplete law fill">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.CheckStatus"

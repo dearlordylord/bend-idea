@@ -86,7 +86,7 @@ final class BendProofFillGeneratorTest extends BasePlatformTestCase:
       "<caret>law claim:\n  for n: Nat\n  {n == n : Nat}\n"
     )
     val action = myFixture.getAvailableIntentions.asScala
-      .find(_.getText == "Generate Bend Law Fill")
+      .find(_.getText == "Open or Create Bend Proof")
       .getOrElse(
         throw new AssertionError("Law-fill context action was missing")
       )

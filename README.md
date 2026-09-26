@@ -48,7 +48,7 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 
 1. Install the plugin in IntelliJ IDEA Community Edition 2025.1 and open a `.bend` file. Editing features work immediately.
 2. Open **Settings → Languages & Frameworks → Bend** to select your Bend executable and Base source. The settings also include the package cache and a background diagnostics toggle.
-3. Open **Tools → Bend** to check a file, inspect check status, choose proof roots, navigate proof relationships, and access the other Bend workflows. **Generate Bend Law Fill** is available there and becomes enabled when the caret is on a law.
+3. Open **Tools → Bend** to check a file, inspect check status, choose proof roots, navigate proof relationships, and access the other Bend workflows. **Open or Create Bend Proof** is available there and becomes enabled when the caret is on a law.
 4. Create **Bend Run**, **Bend Build**, or **Bend Native** configurations as needed. Select the `.bend` root with the file chooser; the root path is not a free-form text field.
 
 Checking requires a Bend executable with documented `--check-only` support. If the executable, Base, or another required capability is unavailable, the plugin reports that state instead of treating the file as successfully checked.

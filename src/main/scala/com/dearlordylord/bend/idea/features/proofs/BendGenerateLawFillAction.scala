@@ -23,9 +23,9 @@ import com.intellij.psi.util.PsiModificationTracker
 import com.dearlordylord.bend.idea.syntax.psi.BendLaw
 import scala.jdk.CollectionConverters.*
 
-/** Explicitly generates a source-level implementation skeleton for a law. */
+/** Opens an existing law fill or creates an incomplete source skeleton. */
 final class BendGenerateLawFillAction
-    extends AnAction("Generate Bend Law Fill")
+    extends AnAction("Open or Create Bend Proof")
     with IntentionAction:
   private final case class Discovery(
       roots: BendProofRootInventory,
@@ -36,7 +36,7 @@ final class BendGenerateLawFillAction
   override def getActionUpdateThread: ActionUpdateThread =
     ActionUpdateThread.BGT
 
-  override def getText: String = "Generate Bend Law Fill"
+  override def getText: String = "Open or Create Bend Proof"
   override def getFamilyName: String = "Bend proof fills"
 
   override def isAvailable(
@@ -62,8 +62,8 @@ final class BendGenerateLawFillAction
     event.getPresentation.setVisible(true)
     event.getPresentation.setEnabled(enabled)
     event.getPresentation.setDescription(
-      if enabled then "Generate a law fill or open its existing proof hole"
-      else "Place the caret on a law declaration to enable law-fill generation"
+      if enabled then "Open an existing proof or create an incomplete law fill"
+      else "Place the caret on a law declaration to open or create its proof"
     )
 
   override def actionPerformed(event: AnActionEvent): Unit =
@@ -157,8 +157,7 @@ final class BendGenerateLawFillAction
               NotificationType.WARNING
             )
           case Some(discovery)
-              if discovery.fillSearch.targets.isEmpty &&
-                discovery.fillSearch.existing.nonEmpty =>
+              if discovery.fillSearch.existing.nonEmpty =>
             val fills = discovery.fillSearch.existing
             if fills.size == 1 then openExisting(project, fills.head)
             else
