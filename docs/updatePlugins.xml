@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.5/bend-idea-0.1.5-signed.zip"
-          version="0.1.5">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.6/bend-idea-0.1.6-signed.zip"
+          version="0.1.6">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <!-- The description is the stable plugin overview; match packaged change-notes for version history. -->
-    <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
+    <description><![CDATA[
+Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
 
 <ul>
   <li>Syntax highlighting, hash line comments, and editable snippets</li>
@@ -17,15 +18,15 @@
   <li>Foreign source paths, previewable file refactoring, templates, and optional IDE spelling assistance</li>
 </ul>
 
-Editing works without a Bend installation. Checking requires a configured Bend compiler with
-<code>--check-only</code> support. See the
-<a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.5:</p>
+Editing works without a Bend installation. Configure a Bend compiler to use checking and
+compiler-backed features. See the
+<a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
+    ]]></description>
+    <change-notes><![CDATA[
+<p>Version 0.1.6:</p>
 <ul>
-  <li>Add parameter information, semantic selection, parameter hints, match-case generation, and explicit import actions</li>
-  <li>Select and check proof roots; navigate laws, fills, and holes; browse proof work and open or create law fills</li>
-  <li>Add Bend Run, Build, and Native configurations, foreign import navigation, file refactoring, dependency inspection, templates, and spelling support</li>
-  <li>Improve editor responsiveness, compiler result freshness, and proof workflow diagnostics</li>
-</ul>]]></change-notes>
+  <li>Tested with Bend 2.0.25</li>
+</ul>
+    ]]></change-notes>
   </plugin>
 </plugins>
