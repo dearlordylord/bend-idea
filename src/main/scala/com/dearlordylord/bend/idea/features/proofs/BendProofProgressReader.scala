@@ -148,25 +148,26 @@ class BendProofProgressReader(project: Project):
         )
         val sourcesById =
           graph.files.map(file => file.source.id -> file.source).toMap
-        val declarationEntries = declarations.toList.map { declaration =>
+        val declarationEntries = declarations.toList.flatMap { declaration =>
+          val linkedLaw = linkedFills.get(declaration.handle)
           val kind = if declaration.category == BendSymbolCategory.Law then
-            BendProofInventoryKind.Law
-          else if linkedFills.contains(declaration.handle) then
-            BendProofInventoryKind.CandidateFill
-          else BendProofInventoryKind.Definition
-          val label = linkedFills.get(declaration.handle) match
-            case Some(law) => s"${declaration.name} → ${law.name}"
-            case None      => declaration.name
-          val source = sourcesById.get(declaration.handle.file)
-          BendProofInventoryEntry(
-            kind,
-            label,
-            source.fold(rootPath)(_.path),
-            declaration.handle.nameOffset,
-            declaration.handle.file,
-            source.fold(root.revision)(_.revision),
-            loadingConfiguration.configurationRevision
-          )
+            Some(BendProofInventoryKind.Law)
+          else linkedLaw.map(_ => BendProofInventoryKind.CandidateFill)
+          kind.map { inventoryKind =>
+            val label = linkedLaw match
+              case Some(law) => s"${declaration.name} → ${law.name}"
+              case None      => declaration.name
+            val source = sourcesById.get(declaration.handle.file)
+            BendProofInventoryEntry(
+              inventoryKind,
+              label,
+              source.fold(rootPath)(_.path),
+              declaration.handle.nameOffset,
+              declaration.handle.file,
+              source.fold(root.revision)(_.revision),
+              loadingConfiguration.configurationRevision
+            )
+          }
         }
 
         val holes = scala.collection.mutable.ListBuffer.empty[

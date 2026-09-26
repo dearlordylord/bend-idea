@@ -10,7 +10,7 @@ import com.dearlordylord.bend.idea.analysis.model.{
 import com.dearlordylord.bend.idea.model.FileId
 
 enum BendProofInventoryKind:
-  case Law, CandidateFill, Definition, Hole
+  case Law, CandidateFill, Hole
 
 final case class BendProofInventoryEntry(
     kind: BendProofInventoryKind,
