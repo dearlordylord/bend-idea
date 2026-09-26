@@ -2,6 +2,8 @@
 
 Checked 2026-09-26 against this repository and first-party JetBrains and GitHub documentation. The signed 0.1.4 ZIP is available as a [GitHub Release asset](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), and the [custom repository XML](https://dearlordylord.github.io/bend-idea/updatePlugins.xml) is publicly served by GitHub Pages. The feed has not been tested in an IDE.
 
+A Git-connected Cloudflare Pages project also serves this XML at `https://bend-idea-plugins.pages.dev/updatePlugins.xml`. `idea.dearlordylord.com` has been added as a custom domain, but its authoritative Gandi DNS still needs a CNAME record `idea → bend-idea-plugins.pages.dev` before that hostname is live. The GitHub Pages URL remains the active user-facing address during DNS setup. [Cloudflare Pages custom domain instructions](https://developers.cloudflare.com/pages/configuration/custom-domains/)
+
 ## Recommendation
 
 **Publish each verified, signed plugin ZIP as a GitHub Release asset and link that release from `README.md`.** A user downloads the asset, opens **Settings → Plugins → gear icon → Install Plugin from Disk**, selects the ZIP, and restarts if prompted. JetBrains documents local ZIP/JAR installation; GitHub Releases provide a stable page for binaries and release notes. Do not give users GitHub's automatic source-code ZIP: it is source, not the packaged IntelliJ plugin. [JetBrains install instructions](https://www.jetbrains.com/help/idea/managing-plugins.html#install_plugin_from_disk), [GitHub releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases), [GitHub release asset instructions](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release)
