@@ -29,7 +29,6 @@ import javax.swing.{
   DefaultListModel,
   JButton,
   JComboBox,
-  JComponent,
   JList,
   JPanel,
   JScrollPane
@@ -120,12 +119,11 @@ final class BendProofProgressPanel(
         selected,
         focused
       )
-      rendered match
-        case component: JComponent =>
-          component.setToolTipText(value match
-            case entry: BendProofInventoryEntry => entry.path
-            case _                              => null)
-        case _ => ()
+      value match
+        case entry: BendProofInventoryEntry =>
+          setText(entry.label)
+          setToolTipText(entry.path)
+        case _ => setToolTipText(null)
       rendered)
   list.addMouseListener(new MouseAdapter:
     override def mouseClicked(event: MouseEvent): Unit =
@@ -161,9 +159,7 @@ final class BendProofProgressPanel(
                   rootInventoryStatus = inventory.status
                   val next = previous
                     .filter(inventory.paths.contains)
-                    .orElse(
-                      Option.when(inventory.paths.size == 1)(inventory.paths.head)
-                    )
+                    .orElse(inventory.paths.headOption)
                   updatingRoots = true
                   roots.setModel(
                     new DefaultComboBoxModel[String](inventory.paths.toArray)
