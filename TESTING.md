@@ -1,4 +1,4 @@
-# Manual test guide: issues #34–#36
+# Manual test guide: issues #34–#35
 
 This guide covers the features in [PR #60](https://github.com/dearlordylord/bend-idea/pull/60).
 
@@ -23,7 +23,6 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 |-------------------------------------------------------------|---|---|---|---|
 | [#34](https://github.com/dearlordylord/bend-idea/issues/34) | Build and inspect generated output | Source: `bend-idea/run/main.bend`; output directory: `bend-idea/generated/` | Add **Bend Build**, use its browse button to select the fixture root, and set output path under `bend-idea/generated/`. Try C or JavaScript output, then open the generated source from the console link. Native output requires the compiler's native backend and `clang`. |
 | [#35](https://github.com/dearlordylord/bend-idea/issues/35) | Complete and navigate foreign imports | `bend-idea/foreign/main.bend`; targets: `bend-idea/foreign/ffi/native.c` and `bend-idea/foreign/ffi/native.js` | In the fixture source, shorten a quoted import to `import "ffi/"`, invoke completion, and choose an asset. Use Go to Declaration (`⌘B` / `Ctrl+B`, or Ctrl-click) on the path. |
-| [#36](https://github.com/dearlordylord/bend-idea/issues/36) | Move and rename source files | `bend-idea/refactor/app/main.bend`; target: `bend-idea/refactor/library/dep_for_move.bend`; foreign targets: `bend-idea/refactor/ffi/native.c` and `bend-idea/refactor/ffi/native.js` | Use **Refactor → Move** or **Rename** from the project tree; inspect the preview, apply it, and verify module and foreign paths update. Undo and check that the original paths return. Keep all changes inside `bend-idea/refactor/`. |
 
 ## Follow-up UI regression checks
 
@@ -31,5 +30,4 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 - [ ] Confirm the settings page detects and displays the Bend compiler version without blocking the UI; **Detect** refreshes the result after changing the executable.
 - [ ] Confirm Bend actions appear under **Tools → Bend**. Open Tools with `bend-idea/signatures.bend` active and from a tool window; opening **New → Bend Module** on `bend-idea/templates-output/` should not produce `virtualFile`/`psi.File` EDT access errors.
 - [ ] In `bend-idea/proofs/LAWS.bend`, place the caret on a law and confirm **Option+Enter** (macOS) / **Alt+Enter** (Windows/Linux) offers **Generate Bend Law Fill**.
-- [ ] In `bend-idea/imports/library.bend`, temporarily remove `import Base`, place the caret on `Nat` in the return type, and confirm **Option+Enter** (macOS) / **Alt+Enter** (Windows/Linux) offers **Import Bend symbol**. Choose it and confirm `import Base` returns; undo or restore the fixture afterward.
 - [ ] Right-click inside a `.bend` editor and confirm **Bend → Check Current Bend File**, **Next Bend Proof Hole**, and **Previous Bend Proof Hole** appear.
