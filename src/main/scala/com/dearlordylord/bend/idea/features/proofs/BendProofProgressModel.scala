@@ -26,10 +26,36 @@ final case class BendProofInventoryEntry(
 final case class BendProofProgressSnapshot(
     rootPath: String,
     checkedStatus: String,
-    entries: List[BendProofInventoryEntry]
+    entries: List[BendProofInventoryEntry],
+    lawGroups: List[BendProofLawGroup] = Nil,
+    inventoryLimited: Boolean = false
+)
+
+/** A source law and the definitions matched to it in this root. */
+final case class BendProofLawGroup(
+    law: BendProofInventoryEntry,
+    candidateFills: List[BendProofInventoryEntry]
 )
 
 object BendProofProgressModel:
+  def workItems(snapshot: BendProofProgressSnapshot): List[BendProofInventoryEntry] =
+    snapshot.entries.filter(_.kind == BendProofInventoryKind.Hole) ++
+      snapshot.lawGroups.filter(_.candidateFills.isEmpty).map(_.law)
+
+  def inventoryItems(
+      snapshot: BendProofProgressSnapshot
+  ): List[BendProofInventoryEntry] =
+    val grouped = snapshot.lawGroups.flatMap(group =>
+      group.law :: group.candidateFills
+    )
+    val groupedFills = grouped.filter(
+      _.kind == BendProofInventoryKind.CandidateFill
+    ).toSet
+    grouped ++ snapshot.entries.filter(entry =>
+      entry.kind == BendProofInventoryKind.CandidateFill &&
+        !groupedFills.contains(entry)
+    )
+
   /** Source inventory remains independent from the compiler's root verdict. */
   def checkedStatus(
       status: BendCheckingStatus,

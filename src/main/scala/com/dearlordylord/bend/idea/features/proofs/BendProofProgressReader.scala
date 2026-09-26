@@ -84,6 +84,39 @@ class BendProofProgressReader(project: Project):
         )
         var limited =
           graph.sourceInventoryCapped || graph.files.size > SourceFileLimit
+        val holes = scala.collection.mutable.ListBuffer.empty[
+          BendProofInventoryEntry
+        ]
+        val fileIterator = inventoryFiles.iterator
+        while fileIterator.hasNext && holes.size < EntryLimit && !canceled() do
+          val loaded = fileIterator.next()
+          val remaining = EntryLimit - holes.size
+          BendProofSurface.holesBounded(
+            loaded.source.text,
+            0,
+            TokenLimitPerFile,
+            remaining,
+            canceled
+          ) match
+            case None       => ()
+            case Some(scan) =>
+              if scan.truncated then limited = true
+              scan.forms
+                .collect { case hole: BendProofForm.Hole => hole }
+                .foreach { hole =>
+                  holes += BendProofInventoryEntry(
+                    BendProofInventoryKind.Hole,
+                    if hole.name.isEmpty then "?" else s"?${hole.name}",
+                    loaded.source.path,
+                    hole.from,
+                    loaded.source.id,
+                    loaded.source.revision,
+                    loadingConfiguration.configurationRevision
+                  )
+                }
+        if holes.size == EntryLimit then limited = true
+        if canceled() then return None
+
         val accepted =
           Set(BendSymbolCategory.Law, BendSymbolCategory.Definition)
         val declarations = scala.collection.mutable.ListBuffer.empty[
@@ -148,7 +181,7 @@ class BendProofProgressReader(project: Project):
         )
         val sourcesById =
           graph.files.map(file => file.source.id -> file.source).toMap
-        val declarationEntries = declarations.toList.flatMap { declaration =>
+        val declarationEntriesByHandle = declarations.toList.flatMap { declaration =>
           val linkedLaw = linkedFills.get(declaration.handle)
           val kind = if declaration.category == BendSymbolCategory.Law then
             Some(BendProofInventoryKind.Law)
@@ -158,7 +191,7 @@ class BendProofProgressReader(project: Project):
               case Some(law) => s"${declaration.name} → ${law.name}"
               case None      => declaration.name
             val source = sourcesById.get(declaration.handle.file)
-            BendProofInventoryEntry(
+            declaration.handle -> BendProofInventoryEntry(
               inventoryKind,
               label,
               source.fold(rootPath)(_.path),
@@ -169,50 +202,32 @@ class BendProofProgressReader(project: Project):
             )
           }
         }
-
-        val holes = scala.collection.mutable.ListBuffer.empty[
-          BendProofInventoryEntry
-        ]
-        val fileIterator = inventoryFiles.iterator
-        while fileIterator.hasNext && declarationEntries.size + holes.size < EntryLimit &&
-          !canceled()
-        do
-          val loaded = fileIterator.next()
-          val remaining = EntryLimit - declarationEntries.size - holes.size
-          BendProofSurface.holesBounded(
-            loaded.source.text,
-            0,
-            TokenLimitPerFile,
-            remaining,
-            canceled
-          ) match
-            case None       => ()
-            case Some(scan) =>
-              if scan.truncated then limited = true
-              scan.forms
-                .collect { case hole: BendProofForm.Hole => hole }
-                .foreach { hole =>
-                  if holes.size < remaining then
-                    holes += BendProofInventoryEntry(
-                      BendProofInventoryKind.Hole,
-                      if hole.name.isEmpty then "?" else s"?${hole.name}",
-                      loaded.source.path,
-                      hole.from,
-                      loaded.source.id,
-                      loaded.source.revision,
-                      loadingConfiguration.configurationRevision
-                    )
-                }
-        if declarationEntries.size + holes.size == EntryLimit then
-          limited = true
+        val declarationEntries = declarationEntriesByHandle.map(_._2)
+        val entriesByHandle = declarationEntriesByHandle.toMap
+        val fillsByLaw = linkedFills.toList.groupMap(_._2.handle)(_._1)
+        val lawGroups = declarations.toList
+          .filter(_.category == BendSymbolCategory.Law)
+          .flatMap(law =>
+            entriesByHandle.get(law.handle).map(lawEntry =>
+              BendProofLawGroup(
+                lawEntry,
+                fillsByLaw
+                  .getOrElse(law.handle, Nil)
+                  .flatMap(entriesByHandle.get)
+                  .sortBy(entry => (entry.path, entry.offset))
+              )
+            )
+          )
+          .sortBy(group => (group.law.path, group.law.offset))
         if canceled() ||
           project
             .getService(classOf[BendLoadingConfiguration])
             .configurationRevision != loadingConfiguration.configurationRevision
         then return None
-        val entries = (declarationEntries ++ holes)
-          .sortBy(entry => (entry.path, entry.offset, entry.kind.ordinal))
-          .take(EntryLimit)
+        val roomForDeclarations = EntryLimit - holes.size
+        if declarationEntries.size > roomForDeclarations then limited = true
+        val entries = holes.toList.sortBy(entry => (entry.path, entry.offset)) ++
+          declarationEntries.take(roomForDeclarations)
         val inventoryLimited = limited
         val graphState =
           if graph.problems.isEmpty then ""
@@ -222,7 +237,9 @@ class BendProofProgressReader(project: Project):
             rootPath,
             checked + graphState +
               (if inventoryLimited then "; inventory capped" else ""),
-            entries
+            entries,
+            lawGroups,
+            inventoryLimited
           )
         )
 

@@ -93,12 +93,24 @@ final class BendGenerateLawFillAction
           "Place the caret on a Bend law declaration",
           NotificationType.WARNING
         )
-      case Some(pointer) => discover(project, editor, pointer)
+      case Some(pointer) => discover(project, Some(editor), pointer, None)
+
+  /** The progress panel has already chosen a proof root. Keep generation in
+    * that root while reusing the same background planning and insertion path.
+    */
+  private[proofs] def generateForRoot(
+      project: Project,
+      law: SmartPsiElementPointer[BendLaw],
+      rootPath: String,
+      stillCurrent: () => Boolean
+  ): Unit = discover(project, None, law, Some(rootPath), stillCurrent)
 
   private def discover(
       project: Project,
-      editor: Editor,
-      law: SmartPsiElementPointer[BendLaw]
+      editor: Option[Editor],
+      law: SmartPsiElementPointer[BendLaw],
+      selectedRoot: Option[String],
+      stillCurrent: () => Boolean = () => true
   ): Unit =
     new Task.Backgroundable(project, "Finding Bend proof roots", true):
       private var result: Option[Discovery] = None
@@ -107,20 +119,25 @@ final class BendGenerateLawFillAction
         val file = ReadAction.compute(() =>
           Option(law.getElement).filter(_.isValid).map(_.getContainingFile)
         )
-        file.foreach { sourceFile =>
-          val roots =
-            ReadAction.compute(() => BendProofNavigation.roots(sourceFile))
+        file.filter(_ => stillCurrent()).foreach { sourceFile =>
+          val roots = selectedRoot match
+            case Some(path) => BendProofRootInventory(
+                List(path),
+                BendPathInventoryStatus.Complete
+              )
+            case None =>
+              ReadAction.compute(() => BendProofNavigation.roots(sourceFile))
           val targets = BendProofFillGenerator.candidates(
             law,
             roots.paths,
-            () => indicator.isCanceled
+            () => indicator.isCanceled || !stillCurrent()
           )
-          if !indicator.isCanceled then
+          if !indicator.isCanceled && stillCurrent() then
             targets.foreach(values => result = Some(Discovery(roots, values)))
         }
 
       override def onSuccess(): Unit =
-        if project.isDisposed then return
+        if project.isDisposed || !stillCurrent() then return
         result match
           case None =>
             BendGenerateLawFillAction.this.notify(
@@ -147,7 +164,8 @@ final class BendGenerateLawFillAction
               project,
               law,
               discovery.fillSearch.targets.head,
-              automaticSelection = true
+              automaticSelection = true,
+              stillCurrent
             )
           case Some(discovery) =>
             val baseTitle = BendPathInventoryStatus
@@ -159,20 +177,24 @@ final class BendGenerateLawFillAction
               if discovery.fillSearch.sourceInventoryCapped then
                 s"$baseTitle — source inventory capped; results may be incomplete"
               else baseTitle
-            JBPopupFactory
+            val popup = JBPopupFactory
               .getInstance()
               .createPopupChooserBuilder(discovery.fillSearch.targets.asJava)
               .setTitle(title)
               .setItemChosenCallback(target =>
-                validateAndInsert(
-                  project,
-                  law,
-                  target,
-                  automaticSelection = false
-                )
+                if stillCurrent() then
+                  validateAndInsert(
+                    project,
+                    law,
+                    target,
+                    automaticSelection = false,
+                    stillCurrent
+                  )
               )
               .createPopup()
-              .showInBestPositionFor(editor)
+            editor match
+              case Some(value) => popup.showInBestPositionFor(value)
+              case None        => popup.showInFocusCenter()
     .queue()
 
   private[proofs] def shouldAutoInsert(
@@ -197,20 +219,23 @@ final class BendGenerateLawFillAction
       project: Project,
       law: SmartPsiElementPointer[BendLaw],
       selected: BendProofFillTarget,
-      automaticSelection: Boolean
+      automaticSelection: Boolean,
+      stillCurrent: () => Boolean
   ): Unit =
+    if !stillCurrent() then return
     new Task.Backgroundable(project, "Rechecking Bend law visibility", true):
       private var refreshed: Option[BendProofFillSearch] = None
 
       override def run(indicator: ProgressIndicator): Unit =
-        refreshed = BendProofFillGenerator.refreshCandidate(
-          law,
-          selected,
-          () => indicator.isCanceled
-        )
+        if stillCurrent() then
+          refreshed = BendProofFillGenerator.refreshCandidate(
+            law,
+            selected,
+            () => indicator.isCanceled || !stillCurrent()
+          )
 
       override def onSuccess(): Unit =
-        if project.isDisposed then return
+        if project.isDisposed || !stillCurrent() then return
         refreshed match
           case None =>
             BendGenerateLawFillAction.this.notify(
