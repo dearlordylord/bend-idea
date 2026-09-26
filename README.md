@@ -36,11 +36,13 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 
 ## Getting started
 
-1. Install the plugin in IntelliJ IDEA Community Edition 2025.1 and open a `.bend` file. Editing features work immediately.
+1. Download [`bend-idea-0.1.4-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.4/bend-idea-0.1.4-signed.zip) from the [0.1.4 GitHub release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4). In IntelliJ IDEA 2025.1 or a verified newer version, open **Settings → Plugins → gear icon → Install Plugin from Disk**, select the ZIP, and restart if prompted. Choose the named signed ZIP, not GitHub's automatic source-code ZIP. Editing features work immediately.
 2. To use compiler checking or Base completion, search for **Bend** in IDE Settings and select your Bend executable and Base source. The settings also include the package cache and a background diagnostics toggle.
 3. Use **Tools → Check Current Bend File** for an immediate check, or enable background diagnostics for checks after edits. Use **Tools → Bend Check Status** to inspect the current result.
 
 Checking requires a Bend executable with documented `--check-only` support. If the executable, Base, or another required capability is unavailable, the plugin reports that state instead of treating the file as successfully checked.
+
+Before installation, an IDE may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.4/bend-idea-signing-certificate.crt) from the same release and add it under **Settings → Plugins → Manage Plugin Certificates**. The release records the signed ZIP's SHA-256 so you can check your download. Until the plugin is approved on JetBrains Marketplace, install updates from [GitHub Releases](https://github.com/dearlordylord/bend-idea/releases) using the same disk-install steps.
 
 The real compiler tests in `./gradlew check` require `BEND_TEST_COMPILER_DIR` to name a clean Bend checkout and `BEND_TEST_BUN` to name an absolute Bun executable. The approved Bend commit and the exact Bun version/revision are recorded in [`ci/bend-test-toolchain.properties`](ci/bend-test-toolchain.properties); the test gate fails before running tests if either supplied input is missing or mismatched. CI checks Bend out separately under `_ci/bend`, provisions Bun at the recorded release, and logs both inputs before the gate. Local test runs can use any clean checkout of the recorded Bend commit and Bun executable matching the recorded version and revision; supplied `.references` checkouts are not changed.
 

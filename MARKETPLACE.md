@@ -29,6 +29,8 @@ The signed archive is `build/distributions/bend-idea-0.1.4-signed.zip` (SHA-256:
 
 ## Future updates
 
+The verified 0.1.4 signed archive is also available in the public [GitHub Release v0.1.4](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), tagged at tested candidate commit `6e91d38c3c6194b42cffe651594bf587a1748212`. The release asset was downloaded without authentication and matched the SHA-256 above. A public copy of the self-signed certificate is attached for users who choose to trust it in IDEA. The GitHub release does not establish Marketplace approval, and there is no custom plugin update feed yet.
+
 Increment `pluginVersion` in `gradle.properties` and update the `<change-notes>` section in `src/main/resources/META-INF/plugin.xml`. Keep the open-ended IDE range and verify newer IDE releases before claiming support.
 
 Use a full JDK 21 and run the release gates:
