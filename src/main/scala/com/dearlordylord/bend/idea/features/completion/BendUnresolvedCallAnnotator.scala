@@ -16,7 +16,9 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.PsiTreeUtil
 
-/** Marks unresolved named applications and offers the explicit-import fix. */
+/** Marks unresolved named applications. The import intention is registered
+  * separately so it is also available on bare type references.
+  */
 final class BendUnresolvedCallAnnotator extends Annotator:
   private val MaxSourceLength = 1024 * 1024
 
@@ -58,11 +60,7 @@ final class BendUnresolvedCallAnnotator extends Annotator:
                 s"Unresolved Bend name: ${call.callee}"
               )
               .range(TextRange.create(call.calleeFrom, call.calleeUntil))
-            val withImportFix =
-              if !call.callee.contains(".") then
-                annotation.withFix(new BendExplicitImportIntention)
-              else annotation
-            val _ = withImportFix.create()
+            val _ = annotation.create()
           }
         }
       case _ => ()

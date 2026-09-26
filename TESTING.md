@@ -31,4 +31,5 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 - [ ] Confirm the settings page detects and displays the Bend compiler version without blocking the UI; **Detect** refreshes the result after changing the executable.
 - [ ] Confirm Bend actions appear under **Tools → Bend**. Open Tools with `bend-idea/signatures.bend` active and from a tool window; opening **New → Bend Module** on `bend-idea/templates-output/` should not produce `virtualFile`/`psi.File` EDT access errors.
 - [ ] In `bend-idea/proofs/LAWS.bend`, place the caret on a law and confirm **Option+Enter** (macOS) / **Alt+Enter** (Windows/Linux) offers **Generate Bend Law Fill**.
+- [ ] In `bend-idea/imports/library.bend`, temporarily remove `import Base`, place the caret on `Nat` in the return type, and confirm **Option+Enter** (macOS) / **Alt+Enter** (Windows/Linux) offers **Import Bend symbol**. Choose it and confirm `import Base` returns; undo or restore the fixture afterward.
 - [ ] Right-click inside a `.bend` editor and confirm **Bend → Check Current Bend File**, **Next Bend Proof Hole**, and **Previous Bend Proof Hole** appear.

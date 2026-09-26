@@ -6,7 +6,7 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 
-/** The standard Context Actions entry point for an unresolved Bend call. */
+/** The standard Context Actions entry point for an unresolved Bend name. */
 final class BendExplicitImportIntention extends IntentionAction:
   private val flow = new BendExplicitImportFlow
 

@@ -91,6 +91,12 @@ Editing works without a Bend installation. Checking requires a configured Bend c
             <categoryKey>intention.category.other</categoryKey>
             <skipBeforeAfter>true</skipBeforeAfter>
         </intentionAction>
+        <intentionAction>
+            <className>com.dearlordylord.bend.idea.features.completion.BendExplicitImportIntention</className>
+            <bundleName>messages.LangBundle</bundleName>
+            <categoryKey>intention.category.other</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
         <codeInsight.parameterInfo language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.signatures.BendParameterInfoHandler"/>
         <codeInsight.parameterNameHints language="Bend"
