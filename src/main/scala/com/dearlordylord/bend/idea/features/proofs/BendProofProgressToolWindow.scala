@@ -62,7 +62,7 @@ final class BendProofProgressPanel(
   private val entries = new DefaultListModel[BendProofInventoryEntry]()
   private val list = new JBList[BendProofInventoryEntry](entries)
   private val summary = new JBLabel(
-    "Select a proof root to inspect source inventory."
+    "Choose a proof root above to see its laws, candidate fills, and holes."
   )
   private var allEntries = List.empty[BendProofInventoryEntry]
   @volatile private var latestSnapshot: Option[BendProofProgressSnapshot] = None
@@ -91,9 +91,11 @@ final class BendProofProgressPanel(
 
   private val top = new JPanel(new BorderLayout(6, 0))
   private val controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0))
+  private val rootLabel = new JBLabel("Proof root:")
   private val refreshButton = new JButton("Refresh")
   private val checkButton = new JButton("Check root")
 
+  controls.add(rootLabel)
   controls.add(roots)
   controls.add(checkButton)
   controls.add(refreshButton)
@@ -131,7 +133,9 @@ final class BendProofProgressPanel(
         Option(list.getSelectedValue).foreach(open))
   roots.addActionListener(new ActionListener:
     override def actionPerformed(event: ActionEvent): Unit =
-      if !updatingRoots then selectedRoot.foreach(loadRoot))
+      if !updatingRoots then
+        checkButton.setEnabled(selectedRoot.nonEmpty)
+        selectedRoot.foreach(loadRoot))
   refreshButton.addActionListener((_: ActionEvent) => refresh())
   checkButton.addActionListener((_: ActionEvent) => checkSelectedRoot())
   filter.getDocument.addDocumentListener(new SwingDocumentListener:
@@ -157,12 +161,15 @@ final class BendProofProgressPanel(
                   rootInventoryStatus = inventory.status
                   val next = previous
                     .filter(inventory.paths.contains)
-                    .orElse(inventory.paths.headOption)
+                    .orElse(
+                      Option.when(inventory.paths.size == 1)(inventory.paths.head)
+                    )
                   updatingRoots = true
                   roots.setModel(
                     new DefaultComboBoxModel[String](inventory.paths.toArray)
                   )
-                  next.foreach(roots.setSelectedItem)
+                  roots.setSelectedItem(next.orNull)
+                  checkButton.setEnabled(next.nonEmpty)
                   updatingRoots = false
                   next match
                     case Some(path) => loadRoot(path, ticket)
@@ -172,7 +179,10 @@ final class BendProofProgressPanel(
                       renderEntries()
                       summary.setText(
                         withRootInventoryNotice(
-                          "No Bend proof roots found. Use Check root to select one."
+                          if inventory.paths.isEmpty then
+                            "No proof roots found. Use Check Bend Proof Root to select a PROOF.bend file."
+                          else
+                            "Choose a proof root above to see its laws, candidate fills, and holes."
                         )
                       )
               ,

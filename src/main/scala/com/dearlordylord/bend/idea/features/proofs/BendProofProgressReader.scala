@@ -25,6 +25,7 @@ class BendProofProgressReader(project: Project):
   private val SourceFileLimit = 256
   private val SourceCharacterLimit = 250000
   private val TokenLimitPerFile = 25000
+  private val BaseLawLimit = 512
 
   def roots(): BendProofRootInventory =
     val saved = project.getService(classOf[BendProofRootStore]).selectedPaths
@@ -71,6 +72,16 @@ class BendProofProgressReader(project: Project):
           checkService.result(root.id)
         )
         val sourceFiles = graph.files.take(SourceFileLimit)
+        val importedBaseIds = graph.edges
+          .filter(_.importLine.spelling == "Base")
+          .flatMap(_.target)
+          .toSet - graph.root
+        val inventoryFiles = sourceFiles.filterNot(file =>
+          importedBaseIds.contains(file.source.id)
+        )
+        val baseFiles = sourceFiles.filter(file =>
+          importedBaseIds.contains(file.source.id)
+        )
         var limited =
           graph.sourceInventoryCapped || graph.files.size > SourceFileLimit
         val accepted =
@@ -78,7 +89,7 @@ class BendProofProgressReader(project: Project):
         val declarations = scala.collection.mutable.ListBuffer.empty[
           com.dearlordylord.bend.idea.symbols.api.BendSourceDeclarationFact
         ]
-        val sourceIterator = sourceFiles.iterator
+        val sourceIterator = inventoryFiles.iterator
         while sourceIterator.hasNext && declarations.size < EntryLimit &&
           !canceled()
         do
@@ -109,9 +120,31 @@ class BendProofProgressReader(project: Project):
         if declarations.size == EntryLimit then limited = true
         if canceled() then return None
 
+        // Base supports law/fill matching, but its library declarations are
+        // not work items for a selected proof root.
+        val baseLaws = baseFiles.flatMap { loaded =>
+          ReadAction.compute(() =>
+            BendSourceSymbols
+              .sourceDeclarationsBounded(
+                project,
+                loaded.source.id,
+                loaded.source.text,
+                BaseLawLimit,
+                SourceCharacterLimit,
+                Set(BendSymbolCategory.Law),
+                canceled
+              )
+              .map(result =>
+                if result.truncated then limited = true
+                result.symbols.map(BendSourceSymbols.declarationFact)
+              )
+          ).getOrElse(Nil)
+        }
+        if canceled() then return None
+
         val linkedFills = BendSourceDocumentation.linkedFills(
           graph,
-          declarations.toList
+          declarations.toList ++ baseLaws
         )
         val sourcesById =
           graph.files.map(file => file.source.id -> file.source).toMap
@@ -139,7 +172,7 @@ class BendProofProgressReader(project: Project):
         val holes = scala.collection.mutable.ListBuffer.empty[
           BendProofInventoryEntry
         ]
-        val fileIterator = sourceFiles.iterator
+        val fileIterator = inventoryFiles.iterator
         while fileIterator.hasNext && declarationEntries.size + holes.size < EntryLimit &&
           !canceled()
         do
