@@ -1,0 +1,310 @@
+package com.dearlordylord.bend.idea.features.proofs
+
+import com.dearlordylord.bend.idea.analysis.api.BendCheckService
+import com.dearlordylord.bend.idea.analysis.model.BendCheckResult
+import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.symbols.api.{
+  BendPhysicalTargets,
+  BendSourceDocumentation,
+  BendSourceSymbols,
+  BendSymbolCategory
+}
+import com.dearlordylord.bend.idea.syntax.psi.{BendProofForm, BendProofSurface}
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendLoadingConfiguration,
+  BendSourceCatalog,
+  BendWorkspaceGraph,
+  BendWorkspacePaths
+}
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import java.nio.file.Path
+
+/** Reads a root and its current imports through the shared workspace loader. */
+class BendProofProgressReader(project: Project):
+  private val RootLimit = 128
+  private val EntryLimit = 2048
+  private val SourceFileLimit = 256
+  private val SourceCharacterLimit = 250000
+  private val TokenLimitPerFile = 25000
+  private val BaseLawLimit = 512
+
+  /** Check state is read separately so status events never rescan source. */
+  def checkState(root: FileId): (String, Option[BendCheckResult]) =
+    val service = project.getService(classOf[BendCheckService])
+    val result = service.result(root)
+    BendProofProgressModel.checkedStatus(service.status(root), result) -> result
+
+  def roots(): BendProofRootInventory =
+    val saved = project.getService(classOf[BendProofRootStore]).selectedPaths
+    val discovered = project
+      .getService(classOf[BendWorkspacePaths])
+      .filesNamed("PROOF.bend", RootLimit)
+    BendProofRootSelection.inventory(saved, discovered, RootLimit)
+
+  def read(
+      rootPath: String,
+      canceled: () => Boolean
+  ): Option[BendProofProgressSnapshot] =
+    if canceled() then return None
+    val catalog = project.getService(classOf[BendSourceCatalog])
+    catalog.source(rootPath) match
+      case None =>
+        Some(
+          BendProofProgressSnapshot(
+            rootPath,
+            "Root source unavailable",
+            Nil,
+            observedPaths = Set(rootPath)
+          )
+        )
+      case Some(root) =>
+        val loadingConfiguration = project
+          .getService(classOf[BendLoadingConfiguration])
+          .snapshot
+        val graph = project
+          .getService(classOf[BendWorkspaceGraph])
+          .load(
+            root,
+            loadingConfiguration.baseSource,
+            loadingConfiguration.packageCache,
+            canceled
+          )
+        if canceled() ||
+          project
+            .getService(classOf[BendLoadingConfiguration])
+            .configurationRevision != loadingConfiguration.configurationRevision
+        then return None
+        val checked = checkState(root.id)._1
+        val sourceFiles = graph.files.take(SourceFileLimit)
+        val importedBaseIds = graph.edges
+          .filter(_.importLine.spelling == "Base")
+          .flatMap(_.target)
+          .toSet - graph.root
+        val inventoryFiles = sourceFiles.filterNot(file =>
+          importedBaseIds.contains(file.source.id)
+        )
+        val baseFiles =
+          sourceFiles.filter(file => importedBaseIds.contains(file.source.id))
+        var limited =
+          graph.sourceInventoryCapped || graph.files.size > SourceFileLimit
+        val holes = scala.collection.mutable.ListBuffer.empty[
+          BendProofInventoryEntry
+        ]
+        val fileIterator = inventoryFiles.iterator
+        while fileIterator.hasNext && holes.size < EntryLimit && !canceled() do
+          val loaded = fileIterator.next()
+          val remaining = EntryLimit - holes.size
+          BendProofSurface.holesBounded(
+            loaded.source.text,
+            0,
+            TokenLimitPerFile,
+            remaining,
+            canceled
+          ) match
+            case None       => ()
+            case Some(scan) =>
+              if scan.truncated then limited = true
+              scan.forms
+                .collect { case hole: BendProofForm.Hole => hole }
+                .foreach { hole =>
+                  holes += BendProofInventoryEntry(
+                    BendProofInventoryKind.Hole,
+                    if hole.name.isEmpty then "?" else s"?${hole.name}",
+                    loaded.source.path,
+                    hole.from,
+                    loaded.source.id,
+                    loaded.source.revision,
+                    loadingConfiguration.configurationRevision
+                  )
+                }
+        if holes.size == EntryLimit then limited = true
+        if canceled() then return None
+
+        val accepted =
+          Set(BendSymbolCategory.Law, BendSymbolCategory.Definition)
+        val declarations = scala.collection.mutable.ListBuffer.empty[
+          com.dearlordylord.bend.idea.symbols.api.BendSourceDeclarationFact
+        ]
+        val sourceIterator = inventoryFiles.iterator
+        while sourceIterator.hasNext && declarations.size < EntryLimit &&
+          !canceled()
+        do
+          val loaded = sourceIterator.next()
+          val remaining = EntryLimit - declarations.size
+          val scan = ReadAction.compute(() =>
+            BendSourceSymbols
+              .sourceDeclarationsBounded(
+                project,
+                loaded.source.id,
+                loaded.source.text,
+                remaining,
+                SourceCharacterLimit,
+                accepted,
+                canceled
+              )
+              .map(result =>
+                (
+                  result.symbols.map(BendSourceSymbols.declarationFact),
+                  result.truncated
+                )
+              )
+          )
+          scan.foreach { case (facts, truncated) =>
+            declarations ++= facts
+            if truncated then limited = true
+          }
+        if declarations.size == EntryLimit then limited = true
+        if canceled() then return None
+
+        // Base supports law/fill matching, but its library declarations are
+        // not work items for a selected proof root.
+        val baseLaws = baseFiles.flatMap { loaded =>
+          ReadAction
+            .compute(() =>
+              BendSourceSymbols
+                .sourceDeclarationsBounded(
+                  project,
+                  loaded.source.id,
+                  loaded.source.text,
+                  BaseLawLimit,
+                  SourceCharacterLimit,
+                  Set(BendSymbolCategory.Law),
+                  canceled
+                )
+                .map(result =>
+                  if result.truncated then limited = true
+                  result.symbols.map(BendSourceSymbols.declarationFact)
+                )
+            )
+            .getOrElse(Nil)
+        }
+        if canceled() then return None
+
+        val linkedFills = BendSourceDocumentation.linkedFills(
+          graph,
+          declarations.toList ++ baseLaws
+        )
+        val sourcesById =
+          graph.files.map(file => file.source.id -> file.source).toMap
+        val declarationEntriesByHandle = declarations.toList.flatMap {
+          declaration =>
+            val linkedLaw = linkedFills.get(declaration.handle)
+            val kind = if declaration.category == BendSymbolCategory.Law then
+              Some(BendProofInventoryKind.Law)
+            else linkedLaw.map(_ => BendProofInventoryKind.CandidateFill)
+            kind.map { inventoryKind =>
+              val label = linkedLaw match
+                case Some(law) => s"${declaration.name} → ${law.name}"
+                case None      => declaration.name
+              val source = sourcesById.get(declaration.handle.file)
+              declaration.handle -> BendProofInventoryEntry(
+                inventoryKind,
+                label,
+                source.fold(rootPath)(_.path),
+                declaration.handle.nameOffset,
+                declaration.handle.file,
+                source.fold(root.revision)(_.revision),
+                loadingConfiguration.configurationRevision
+              )
+            }
+        }
+        val declarationEntries = declarationEntriesByHandle.map(_._2)
+        val entriesByHandle = declarationEntriesByHandle.toMap
+        val fillsByLaw = linkedFills.toList.groupMap(_._2.handle)(_._1)
+        val lawGroups = declarations.toList
+          .filter(_.category == BendSymbolCategory.Law)
+          .flatMap(law =>
+            entriesByHandle
+              .get(law.handle)
+              .map(lawEntry =>
+                BendProofLawGroup(
+                  lawEntry,
+                  fillsByLaw
+                    .getOrElse(law.handle, Nil)
+                    .flatMap(entriesByHandle.get)
+                    .sortBy(entry => (entry.path, entry.offset))
+                )
+              )
+          )
+          .sortBy(group => (group.law.path, group.law.offset))
+        if canceled() ||
+          project
+            .getService(classOf[BendLoadingConfiguration])
+            .configurationRevision != loadingConfiguration.configurationRevision
+        then return None
+        val roomForDeclarations = EntryLimit - holes.size
+        if declarationEntries.size > roomForDeclarations then limited = true
+        val entries =
+          holes.toList.sortBy(entry => (entry.path, entry.offset)) ++
+            declarationEntries.take(roomForDeclarations)
+        val inventoryLimited = limited
+        val graphState =
+          if graph.problems.isEmpty then ""
+          else s"; ${graph.problems.size} loading issue(s)"
+        val sourceNotice = graphState +
+          (if inventoryLimited then "; inventory capped" else "")
+        val sourcePaths = graph.files.map(_.source.path).toSet
+        Some(
+          BendProofProgressSnapshot(
+            rootPath,
+            checked + sourceNotice,
+            entries,
+            lawGroups,
+            inventoryLimited,
+            Some(root.id),
+            sourcePaths,
+            sourceNotice,
+            sourcePaths ++
+              graph.edges.map(_.requestedPath) ++
+              Option.when(
+                Path.of(rootPath).getFileName.toString == "PROOF.bend"
+              )(
+                Path.of(rootPath).resolveSibling("LAWS.bend").toString
+              ),
+            loadingConfiguration.configurationRevision
+          )
+        )
+
+  /** Revalidate a displayed row against the current source before opening its
+    * snapshot-local offset.
+    */
+  def navigationTarget(
+      entry: BendProofInventoryEntry
+  ): Option[BendNavigationTarget] =
+    val configuration = project.getService(classOf[BendLoadingConfiguration])
+    if configuration.configurationRevision != entry.loadingConfigurationRevision
+    then None
+    else
+      project
+        .getService(classOf[BendSourceCatalog])
+        .source(entry.path)
+        .filter(source =>
+          source.id == entry.sourceId &&
+            source.revision == entry.sourceRevision &&
+            entry.offset >= 0 && entry.offset <= source.text.length
+        )
+        .flatMap(source =>
+          ReadAction.compute(() =>
+            if configuration.configurationRevision != entry.loadingConfigurationRevision
+            then None
+            else
+              BendPhysicalTargets
+                .file(project, source.id)
+                .filter(_.isValid)
+                .flatMap(file =>
+                  Option(file.getVirtualFile).flatMap { virtual =>
+                    val document = FileDocumentManager
+                      .getInstance()
+                      .getDocument(virtual)
+                    val currentText =
+                      if document == null then file.getText
+                      else document.getText
+                    Option.when(currentText == source.text)(
+                      BendNavigationTarget(virtual, entry.offset)
+                    )
+                  }
+                )
+          )
+        )

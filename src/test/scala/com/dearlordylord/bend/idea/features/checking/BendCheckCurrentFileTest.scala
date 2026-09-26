@@ -1,18 +1,28 @@
 package com.dearlordylord.bend.idea.features.checking
 
 import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
-import com.dearlordylord.bend.idea.analysis.api.BendCheckService
+import com.dearlordylord.bend.idea.analysis.api.{
+  BendCheckService,
+  BendExplicitCheckOutcome,
+  BendExplicitCheckRunner
+}
 import com.dearlordylord.bend.idea.analysis.model.{
   BendCheckOutcome,
+  BendCheckResult,
   BendCheckSnapshot,
   BendCompleteness
 }
 import com.dearlordylord.bend.idea.analysis.model.BendReliance
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.features.proofs.{
+  BendProofRootState,
+  BendProofRootStore
+}
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
   BendToolchainSettings
 }
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -20,6 +30,7 @@ import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 final class BendCheckCurrentFileTest extends BasePlatformTestCase:
   private var original: BendToolchainChoices = null
@@ -27,6 +38,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
 
   override def setUp(): Unit =
     super.setUp()
+    VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable)
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )
@@ -479,3 +491,148 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       "Sibling LAWS edit must stale a PROOF guard result",
       service.resultsFor(proofId).head.fresh
     )
+
+  def testSelectedRootChecksIndependentlyAndKeepsOtherRootResult(): Unit =
+    myFixture.configureByText("active.bend", "def main() -> U32:\n  0\n")
+    val good = myFixture.addFileToProject(
+      "roots/good.bend",
+      "import Base\ndef main() -> U32:\n  0\n"
+    )
+    val bad = myFixture.addFileToProject(
+      "roots/bad.bend",
+      "import Base\ndef main() -> U32:\n  missing_name\n"
+    )
+    val goodPath = good.getVirtualFile.getPath
+    val badPath = bad.getVirtualFile.getPath
+    val roots = getProject.getService(classOf[BendProofRootStore])
+    roots.loadState(new BendProofRootState)
+    roots.select(goodPath)
+    val runner = getProject.getService(classOf[BendExplicitCheckRunner])
+
+    def check(path: String): BendExplicitCheckOutcome =
+      val completed = new CountDownLatch(1)
+      var outcome: Option[BendExplicitCheckOutcome] = None
+      runner.check(path, "Checking test root") { value =>
+        outcome = Some(value)
+        completed.countDown()
+      }
+      assertTrue(
+        "Root check did not finish",
+        completed.await(30, TimeUnit.SECONDS)
+      )
+      outcome.getOrElse(
+        throw new AssertionError("Root check returned no result")
+      )
+
+    val first = check(goodPath) match
+      case BendExplicitCheckOutcome.Published(result) => result
+      case other                                      =>
+        throw new AssertionError(s"Expected published good root, got $other")
+    val firstId = first.key.root
+    assertEquals(BendCheckOutcome.Success, first.outcome)
+    assertEquals(List(goodPath), roots.selectedPaths)
+
+    val second = check(badPath) match
+      case BendExplicitCheckOutcome.Published(result) => result
+      case other                                      =>
+        throw new AssertionError(s"Expected published bad root, got $other")
+    assertNotEquals(firstId, second.key.root)
+    assertEquals(BendCheckOutcome.Failed, second.outcome)
+    assertTrue(
+      "Checking another root must not replace or stale the first result",
+      getProject
+        .getService(classOf[BendCheckService])
+        .result(firstId)
+        .exists(_.fresh)
+    )
+
+  def testLawAndTwoDifferentProofRootsHaveIndependentCompilerResults(): Unit =
+    val laws = myFixture.addFileToProject(
+      "proofs/LAWS.bend",
+      "import Base\nlaw claim:\n  {0n == 0n : Nat}\n"
+    )
+    val firstProof = myFixture.addFileToProject(
+      "proofs/one/PROOF.bend",
+      "import Base\nimport ../LAWS.bend as Laws\ndef Laws.claim():\n  {==}\n"
+    )
+    val secondProof = myFixture.addFileToProject(
+      "proofs/two/PROOF.bend",
+      "import Base\nimport ../LAWS.bend as Laws\ndef refl() -> {0n == 0n : Nat}:\n  {==}\ndef Laws.claim():\n  refl()\n"
+    )
+    val roots = getProject.getService(classOf[BendProofRootStore])
+    roots.loadState(new BendProofRootState)
+    val runner = getProject.getService(classOf[BendExplicitCheckRunner])
+    val service = getProject.getService(classOf[BendCheckService])
+
+    def check(file: com.intellij.psi.PsiFile): BendCheckResult =
+      val path = file.getVirtualFile.getPath
+      roots.select(path)
+      val completed = new CountDownLatch(1)
+      var outcome: Option[BendExplicitCheckOutcome] = None
+      runner.check(path, "Checking selected law/proof root") { value =>
+        outcome = Some(value)
+        completed.countDown()
+      }
+      assertTrue(
+        s"Compiler check did not finish for $path",
+        completed.await(30, TimeUnit.SECONDS)
+      )
+      outcome.getOrElse(
+        throw new AssertionError(s"Compiler check returned no result for $path")
+      ) match
+        case BendExplicitCheckOutcome.Published(result) => result
+        case other                                      =>
+          throw new AssertionError(
+            s"Expected a published result for $path, got $other"
+          )
+
+    val lawResult = check(laws)
+    assertEquals(BendCompleteness.Incomplete, lawResult.completeness)
+    assertEquals("Check incomplete", lawResult.status)
+    val firstResult = check(firstProof)
+    assertEquals(BendCheckOutcome.Success, firstResult.outcome)
+    assertEquals(BendCompleteness.Complete, firstResult.completeness)
+    val secondResult = check(secondProof)
+    assertEquals(BendCheckOutcome.Success, secondResult.outcome)
+    assertEquals(BendCompleteness.Complete, secondResult.completeness)
+    List(lawResult, firstResult, secondResult).foreach { result =>
+      assertTrue(
+        s"Published result ${result.key.root} should be current before edits",
+        service.isCurrent(result)
+      )
+    }
+
+    List(lawResult, firstResult, secondResult).foreach { expected =>
+      assertTrue(
+        s"Checking another selected root must preserve ${expected.key.root}",
+        service
+          .result(expected.key.root)
+          .exists(result =>
+            result.fresh && result.outcome == expected.outcome &&
+              result.completeness == expected.completeness
+          )
+      )
+    }
+
+    myFixture.openFileInEditor(laws.getVirtualFile)
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit = myFixture.getEditor.getDocument.setText(
+          "import Base\nlaw claim:\n  {1n == 1n : Nat}\n"
+        )
+    )
+    assertTrue(
+      "Editing the shared law must stale its own result",
+      service.result(lawResult.key.root).exists(result => !result.fresh)
+    )
+    assertFalse(service.isCurrent(lawResult))
+    List(firstResult, secondResult).foreach { proofResult =>
+      assertTrue(
+        s"Editing LAWS.bend must stale dependent root ${proofResult.key.root}",
+        service
+          .result(proofResult.key.root)
+          .exists(result => !result.fresh)
+      )
+      assertFalse(service.isCurrent(proofResult))
+    }

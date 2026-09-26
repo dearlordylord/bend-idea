@@ -38,7 +38,17 @@ final class BendColorSettingsPage extends ColorSettingsPage:
     AttributesDescriptor("Operator", BendColors.Operator),
     AttributesDescriptor("Bracket", BendColors.Bracket),
     AttributesDescriptor("Separator", BendColors.Separator),
-    AttributesDescriptor("Invalid character", BendColors.Bad)
+    AttributesDescriptor("Invalid character", BendColors.Bad),
+    AttributesDescriptor("Resolved local", BendColors.SemanticLocal),
+    AttributesDescriptor("Resolved parameter", BendColors.SemanticParameter),
+    AttributesDescriptor(
+      "Resolved constructor",
+      BendColors.SemanticConstructor
+    ),
+    AttributesDescriptor("Resolved datatype", BendColors.SemanticDatatype),
+    AttributesDescriptor("Resolved law", BendColors.SemanticLaw),
+    AttributesDescriptor("Resolved definition", BendColors.SemanticDefinition),
+    AttributesDescriptor("Resolved import alias", BendColors.SemanticAlias)
   )
   override def getColorDescriptors: Array[ColorDescriptor] =
     ColorDescriptor.EMPTY_ARRAY

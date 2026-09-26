@@ -4,6 +4,7 @@ import com.dearlordylord.bend.idea.symbols.api.*
 import com.dearlordylord.bend.idea.syntax.psi.{
   BendAlias,
   BendDeclaration,
+  BendForeignPaths,
   BendName,
   BendReferenceElement
 }
@@ -28,22 +29,30 @@ final class BendReferenceContributor extends PsiReferenceContributor:
             element: PsiElement,
             context: ProcessingContext
         ): Array[PsiReference] =
-          val file = element.asInstanceOf[PsiFile]
+          val file = element match
+            case psiFile: PsiFile => psiFile
+            case _                => return PsiReference.EMPTY_ARRAY
           val source = file.getText
-          com.dearlordylord.bend.idea.workspace.api.BendImportLines
-            .parse(source)
-            .flatMap { imp =>
-              com.dearlordylord.bend.idea.workspace.api.BendImportLines
-                .pathRange(source, imp)
-                .map { case (start, end) =>
-                  new BendModulePathReference(
-                    file,
-                    new TextRange(start, end),
-                    imp.offset
-                  ): PsiReference
-                }
-            }
-            .toArray
+          val modulePaths =
+            com.dearlordylord.bend.idea.workspace.api.BendImportLines
+              .parse(source)
+              .flatMap { imp =>
+                com.dearlordylord.bend.idea.workspace.api.BendImportLines
+                  .pathRange(source, imp)
+                  .map { case (start, end) =>
+                    new BendModulePathReference(
+                      file,
+                      new TextRange(start, end),
+                      imp.offset
+                    ): PsiReference
+                  }
+              }
+          val foreignPaths = BendForeignPaths
+            .in(file)
+            .map(path => new BendForeignPathReference(file, path): PsiReference)
+          (modulePaths.map(reference =>
+            reference: PsiReference
+          ) ++ foreignPaths).toArray
     )
     val provider = new PsiReferenceProvider:
       override def getReferencesByElement(
@@ -75,52 +84,20 @@ final class BendReferenceContributor extends PsiReferenceContributor:
         val dot = word.indexOf('.')
         if dot < 0 then Array(full)
         else
-          val alias = word.substring(0, dot)
           val (basePath, packageCache) =
             file.getProject.getService(classOf[BendLoadingConfiguration]).paths
           val catalog =
             file.getProject.getService(classOf[BendImportedSymbolCatalog])
-          val resolution = catalog.resolveForNavigation(
+          val snapshot = catalog.navigationSnapshot(
             file,
-            offset,
-            word,
             basePath,
             packageCache
           )
-          val aliases = catalog
-            .loaded(file, basePath, packageCache)
-            .edges
-            .filter(e =>
-              e.from == BendSourceSymbols.fileId(file) && e.importLine.alias
-                .contains(alias)
-            )
-          def aliasOwns(symbol: BendSourceSymbol): Boolean =
-            aliases.exists(_.target.contains(symbol.handle.file))
-          val resolvedThroughAlias = resolution.target match
-            case BendSourceResolution.Resolved(symbol)   => aliasOwns(symbol)
-            case BendSourceResolution.Ambiguous(symbols) =>
-              symbols.nonEmpty && symbols.forall(aliasOwns)
-            case _ => false
-          if aliases.nonEmpty && (resolvedThroughAlias || resolution.target == BendSourceResolution.Unresolved)
-          then
-            val prefix = new BendNameReference(
-              element,
-              new TextRange(0, dot),
-              alias,
-              Some(true)
-            )
-            if dot == word.length - 1 then Array(prefix)
-            else
-              Array(
-                prefix,
-                new BendNameReference(
-                  element,
-                  new TextRange(dot + 1, word.length),
-                  word,
-                  None
-                )
-              )
-          else Array(full)
+          file.getProject
+            .getService(classOf[BendSnapshotAwareReferenceFactory])
+            .referencesFor(element, snapshot)
+            .map(reference => reference: PsiReference)
+            .toArray
     registrar.registerReferenceProvider(
       psiElement(classOf[BendReferenceElement]),
       provider
@@ -135,7 +112,10 @@ final class BendNameReference(
     range: TextRange,
     spelling: String,
     alias: Option[Boolean]
-) extends PsiPolyVariantReferenceBase[PsiElement](element, range, true):
+) extends PsiPolyVariantReferenceBase[PsiElement](element, range, true)
+    with BendSnapshotAwareReference:
+  override def semanticSpelling: String = spelling
+
   override def isReferenceTo(target: PsiElement): Boolean =
     val ownName = getElement match
       case name: BendName => Some(name)
@@ -185,6 +165,46 @@ final class BendNameReference(
       .map(target => new PsiElementResolveResult(target): ResolveResult)
       .toArray
 
+  /** Resolve a lexical application using a captured source snapshot. Dependency
+    * inspection uses this same native reference implementation so it does not
+    * invent a second call-resolution policy or rebuild the import graph for
+    * every call site.
+    */
+  override def resolveAgainst(
+      snapshot: BendSourceNavigationSnapshot
+  ): BendNavigationResolution =
+    val element = getElement
+    val file = element.getContainingFile
+    val offset = element.getTextOffset
+    val own = PsiTreeUtil.getParentOfType(element, classOf[BendName], false)
+    val ownDeclaration = Option(own)
+      .filter(name =>
+        PsiTreeUtil.getParentOfType(name, classOf[BendDeclaration]) != null
+      )
+      .flatMap(name =>
+        snapshot.declarations.find(symbol =>
+          symbol.handle.nameOffset == name.getTextOffset &&
+            symbol.name == spelling
+        )
+      )
+    ownDeclaration match
+      case Some(symbol) =>
+        BendNavigationResolution(
+          BendSourceResolution.Resolved(symbol),
+          true
+        )
+      case None =>
+        val category = BendSourceSymbols.referenceCategory(
+          file,
+          offset,
+          spelling,
+          snapshot.declarations,
+          snapshot.logicalLaws
+        )
+        file.getProject
+          .getService(classOf[BendImportedSymbolCatalog])
+          .resolveForNavigation(snapshot, offset, spelling, category)
+
   override def handleElementRename(newElementName: String): PsiElement =
     val element = getElement
     val current = element.getText
@@ -222,7 +242,6 @@ final class BendNameReference(
 
   private def navigationResolution: BendNavigationResolution =
     val file = getElement.getContainingFile
-    val offset = getElement.getTextOffset
     // A declaration name is an IntelliJ navigation origin in its own right.
     val own = PsiTreeUtil.getParentOfType(getElement, classOf[BendName], false)
     if own != null then
@@ -241,17 +260,10 @@ final class BendNameReference(
           )
     val (basePath, packageCache) =
       file.getProject.getService(classOf[BendLoadingConfiguration]).paths
-    val category = BendSourceSymbols.referenceCategory(file, offset, spelling)
-    file.getProject
-      .getService(classOf[BendImportedSymbolCatalog])
-      .resolveForNavigation(
-        file,
-        offset,
-        spelling,
-        basePath,
-        packageCache,
-        category
-      )
+    val catalog =
+      file.getProject.getService(classOf[BendImportedSymbolCatalog])
+    val snapshot = catalog.navigationSnapshot(file, basePath, packageCache)
+    resolveAgainst(snapshot)
 
   private def aliasTarget: Option[PsiElement] =
     val file = getElement.getContainingFile

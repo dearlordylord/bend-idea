@@ -2,6 +2,10 @@ package com.dearlordylord.bend.idea.adapters.cli
 
 import com.dearlordylord.bend.idea.adapters.process.BendProcessOutcome
 import com.dearlordylord.bend.idea.analysis.model.*
+import com.dearlordylord.bend.idea.toolchain.api.{
+  BendCompilerInfo,
+  BendCompilerInfoResult
+}
 
 /** Classifies only complete, documented Bend CLI reports. Unknown text has no
   * semantic facts.
@@ -9,6 +13,7 @@ import com.dearlordylord.bend.idea.analysis.model.*
 private[cli] object BendCliVerdictDecoder:
   private val CheckOnlyHelpLine =
     "  bend <file.bend> --check-only check the file and its imports; run nothing"
+  private val VersionHelpLine = "^Bend ([0-9]+\\.[0-9]+\\.[0-9]+):.*$".r
   private val UnsafeHeader =
     "^All terms check, but ([1-9][0-9]*) (defs?) (relies|rely) on unsafe or foreign code:$".r
   private val UnsafeDefinition = "- [A-Za-z_][A-Za-z0-9_.]*".r
@@ -34,8 +39,7 @@ private[cli] object BendCliVerdictDecoder:
   def capability(process: BendProcessOutcome): Capability = process match
     case BendProcessOutcome.Exited(0, output) =>
       val help = normalize(output)
-      if help.split("\n", -1).contains(CheckOnlyHelpLine) then
-        Capability.Supported(help)
+      if supportsCheckOnly(help) then Capability.Supported(help)
       else
         Capability.Unavailable(
           "This Bend compiler does not document --check-only; no source was checked."
@@ -66,6 +70,31 @@ private[cli] object BendCliVerdictDecoder:
       Capability.Unavailable(
         "Could not start Bend capability probe: " + message + "; no source was checked."
       )
+
+  def compilerInfo(process: BendProcessOutcome): BendCompilerInfoResult =
+    process match
+      case BendProcessOutcome.Exited(0, output) =>
+        val help = normalize(output)
+        val version = help
+          .split("\\n", -1)
+          .iterator
+          .collectFirst { case VersionHelpLine(value) => value }
+        BendCompilerInfoResult.Detected(BendCompilerInfo(version))
+      case BendProcessOutcome.Exited(code, _) =>
+        BendCompilerInfoResult.Unavailable(
+          s"Bend --help exited with code $code."
+        )
+      case BendProcessOutcome.TimedOut(_)    => BendCompilerInfoResult.TimedOut
+      case BendProcessOutcome.Canceled(_)    => BendCompilerInfoResult.Canceled
+      case BendProcessOutcome.OutputLimit(_) =>
+        BendCompilerInfoResult.Unavailable(
+          "Bend help output exceeded the limit."
+        )
+      case BendProcessOutcome.StartFailed(message) =>
+        BendCompilerInfoResult.Unavailable(message)
+
+  private def supportsCheckOnly(help: String): Boolean =
+    help.split("\n", -1).contains(CheckOnlyHelpLine)
 
   def check(process: BendProcessOutcome): Check = process match
     case BendProcessOutcome.Exited(code, output) =>

@@ -83,20 +83,21 @@ sealed abstract class BendDeclaration(
         .substring(lineStart, start)
         .takeWhile(c => c == ' ' || c == '\t')
         .length
-      val lines = source
-        .substring(0, start)
-        .split("\\r?\\n", -1)
-        .toList
-        .dropRight(1)
-        .reverse
-      lines
-        .takeWhile { line =>
+      @scala.annotation.tailrec
+      def adjacentComments(lineEnd: Int, lines: List[String]): List[String] =
+        if lineEnd < 0 then lines
+        else
+          val previousStart = source.lastIndexOf('\n', lineEnd) + 1
+          val line =
+            source.substring(previousStart, lineEnd + 1).stripSuffix("\r")
           val spaces = line.takeWhile(c => c == ' ' || c == '\t').length
-          spaces == indent && line.drop(spaces).startsWith("#")
-        }
-        .reverse
-        .map(_.trim.stripPrefix("#").stripPrefix(" "))
-        .mkString("\n")
+          if spaces == indent && line.drop(spaces).startsWith("#") then
+            adjacentComments(
+              previousStart - 2,
+              line.trim.stripPrefix("#").stripPrefix(" ") :: lines
+            )
+          else lines
+      adjacentComments(lineStart - 2, Nil).mkString("\n")
 
   def parameters: List[BendSourceParameter] =
     BendSourceParameter.fromHeader(headerText, this.isInstanceOf[BendDatatype])
@@ -179,7 +180,8 @@ final class BendLaw private (stub: BendDeclarationStub, node: ASTNode)
   def this(node: ASTNode) = this(null, node)
   def this(stub: BendDeclarationStub) = this(stub, null)
   override def headerText: String = getText.trim
-  override def parameters: List[BendSourceParameter] = Nil
+  override def parameters: List[BendSourceParameter] =
+    BendSourceParameter.fromLaw(getText)
 
 final class BendConstructor private (stub: BendDeclarationStub, node: ASTNode)
     extends BendDeclaration(stub, BendElements.Constructor, node):
@@ -189,36 +191,86 @@ final class BendConstructor private (stub: BendDeclarationStub, node: ASTNode)
   override def parameters: List[BendSourceParameter] =
     BendSourceParameter.fromConstructor(getText)
 
-/** Text is retained exactly for later source signature and binder consumers. */
-final case class BendSourceParameter(name: String, source: String)
+/** Source-declared parameter facts; these are never compiler-inferred types. */
+final case class BendSourceParameter(
+    name: String,
+    source: String,
+    quantity: Option[Char] = None,
+    template: Boolean = false,
+    implicitQuantity: Boolean = false
+)
 
 object BendSourceParameter:
   def fromHeader(header: String, datatype: Boolean): List[BendSourceParameter] =
     val open = if datatype then '<' else '('
     val close = if datatype then '>' else ')'
     val at = header.indexOf(open)
-    if at < 0 then Nil else parseDelimited(header, at, open, close)
+    if at < 0 then Nil
+    else parseDelimited(header, at, open, close, datatype)
 
   def fromConstructor(source: String): List[BendSourceParameter] =
     val at = source.indexOf('{')
     if at < 0 then Nil else parseDelimited(source, at, '{', '}')
 
+  /** Laws express their binders with one or more leading `for` clauses. */
+  def fromLaw(source: String): List[BendSourceParameter] =
+    source.linesIterator
+      .takeWhile { line =>
+        val content = line.dropWhile(c => c == ' ' || c == '\t')
+        content != "exs" && !content.startsWith("exs ")
+      }
+      .flatMap { line =>
+        val content = line.dropWhile(c => c == ' ' || c == '\t')
+        Option.when(content.startsWith("for "))(content.drop(4))
+      }
+      .flatMap(parseBindings)
+      .toList
+
   private def parseDelimited(
       source: String,
       at: Int,
       open: Char,
-      close: Char
+      close: Char,
+      datatype: Boolean = false
   ): List[BendSourceParameter] =
-    val parts = scala.collection.mutable.ListBuffer.empty[String]
-    val current = new StringBuilder
+    val until = matchingClose(source, at, close).getOrElse(source.length)
+    val inside = source.substring(math.min(at + 1, until), until)
+    parseBindings(inside).zipWithIndex.map { case (parameter, index) =>
+      if datatype && index == 0 && !parameter.source.contains(':') then
+        parameter.copy(implicitQuantity = true)
+      else parameter
+    }
+
+  private def matchingClose(
+      source: String,
+      at: Int,
+      close: Char
+  ): Option[Int] =
     val closes = scala.collection.mutable.ArrayBuffer(close)
     var p = at + 1
     while p < source.length && closes.nonEmpty do
       val c = source.charAt(p)
-      if c == close && closes.size == 1 then
-        parts += current.toString
-        closes.clear()
-      else if c == ',' && closes.size == 1 then
+      if c == closes.last then
+        val _ = closes.remove(closes.size - 1)
+      else
+        val _ = c match
+          case '(' => closes += ')'
+          case '{' => closes += '}'
+          case '[' => closes += ']'
+          case '<' => closes += '>'
+          case _   => ()
+      if closes.isEmpty then return Some(p)
+      p += 1
+    None
+
+  private def parseBindings(source: String): List[BendSourceParameter] =
+    val parts = scala.collection.mutable.ListBuffer.empty[String]
+    val current = new StringBuilder
+    val closes = scala.collection.mutable.ArrayBuffer.empty[Char]
+    var p = 0
+    while p < source.length do
+      val c = source.charAt(p)
+      val _ = if closes.isEmpty && c == ',' then
         parts += current.toString
         current.clear()
       else
@@ -232,14 +284,24 @@ object BendSourceParameter:
           case _ => ()
         current.append(c)
       p += 1
-    if closes.nonEmpty && current.nonEmpty then parts += current.toString
-    parts.toList.flatMap { raw =>
-      val sourceText = raw.trim
-      val beforeColon = sourceText.takeWhile(_ != ':').trim
+    if current.nonEmpty then parts += current.toString
+    parts.toList.flatMap(parseBinding)
+
+  private def parseBinding(raw: String): Option[BendSourceParameter] =
+    val sourceText = raw.trim
+    if sourceText.isEmpty then None
+    else
+      val body = sourceText.dropWhile(c => c == '~' || c == '+' || c == '-')
+      val beforeColon = body.takeWhile(_ != ':').trim
       val name = beforeColon.reverse
         .takeWhile(c => c.isLetterOrDigit || c == '_' || c == '.')
         .reverse
+      val quantity = sourceText.headOption.filter(c => c == '+' || c == '-')
       Option.when(name.nonEmpty && name != "_")(
-        BendSourceParameter(name, sourceText)
+        BendSourceParameter(
+          name,
+          sourceText,
+          quantity,
+          sourceText.startsWith("~")
+        )
       )
-    }

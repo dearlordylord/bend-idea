@@ -6,6 +6,7 @@ import com.dearlordylord.bend.idea.toolchain.api.{
 }
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.psi.{PsiDocumentManager, PsiManager}
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
@@ -22,6 +23,11 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     )
     original = settings.choices
     temporary = Files.createTempDirectory("bend-docs")
+    VfsRootAccess.allowRootAccess(
+      getTestRootDisposable,
+      temporary.toString,
+      temporary.toRealPath().toString
+    )
     settings.update(
       BendToolchainChoices(baseSource = temporary.resolve("base.bend").toString)
     )
@@ -116,6 +122,13 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     )
     assertTrue(datatype.contains("Datatype"))
     assertTrue(constructor.contains("Constructor"))
+
+  def testForeignDefinitionKeepsItsSourceSignatureInDocumentation(): Unit =
+    val html = docs(
+      "def foreign(value: U32) -> U32:\n  import \"foreign.c\"\ndef main() -> U32:\n  <caret>foreign(1)\n"
+    )
+    assertNotNull(html)
+    assertTrue(html.contains("def foreign(value: U32) -&gt; U32"))
 
   def testLawFillShowsSpecificationAndImplementationNames(): Unit =
     val html = docs(
@@ -293,13 +306,17 @@ final class BendDocumentationTest extends BasePlatformTestCase:
       temporary.resolve("base.bend"),
       "# Base law\nlaw word:\n  for x: Nat\n  {x == x : Nat}\n# Base fill\ndef word(value):\n  value\n"
     )
-    com.intellij.openapi.vfs.LocalFileSystem
+    val baseFile = com.intellij.openapi.vfs.LocalFileSystem
       .getInstance()
       .refreshAndFindFileByPath(temporary.resolve("base.bend").toString)
+    assertNotNull(
+      "Configured base source should be visible in the VFS",
+      baseFile
+    )
     val html = docs("import Base\ndef main():\n  <caret>word(1)\n")
     assertTrue(html.contains("Base law"))
-    assertTrue(html.contains("Base fill"))
-    assertTrue(html.contains("def word(value)"))
+    assertTrue(html, html.contains("Base fill"))
+    assertTrue(html, html.contains("def word(value)"))
     assertTrue(html.contains("for x: Nat"))
     assertTrue(html.contains("Implementation</a>"))
 

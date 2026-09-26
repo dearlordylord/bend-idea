@@ -44,33 +44,39 @@ final class BendChooseByNameContributor extends ChooseByNameContributorEx:
     var continue = true
     if !DumbService.getInstance(project).isDumb then
       try
-        continue = StubIndex.getInstance.processAllKeys(
+        val indexedNames = mutable.ArrayBuffer.empty[String]
+        val _ = StubIndex.getInstance.processAllKeys(
           BendSymbolNameIndex.Key,
           new Processor[String]:
             override def process(name: String): Boolean =
-              // All-key enumeration can yield keys that have no declaration in a narrowed scope.
-              var existsInScope = false
-              StubIndex.getInstance.processElements(
-                BendSymbolNameIndex.Key,
-                name,
-                project,
-                searchScope,
-                indexFilter,
-                classOf[BendDeclaration],
-                new Processor[BendDeclaration]:
-                  override def process(declaration: BendDeclaration): Boolean =
-                    val file = declaration.getContainingFile
-                    val virtual =
-                      if file == null then null else file.getVirtualFile
-                    existsInScope = declaration.isValid && virtual != null &&
-                      searchScope.contains(virtual)
-                    !existsInScope
-              )
-              !existsInScope || emit(name)
+              indexedNames += name
+              true
           ,
           searchScope,
           indexFilter
         )
+        // A per-name stub lookup can repair a stale index. Do it after key
+        // enumeration releases its index read lock, or the repair can wait on
+        // the write lock held behind that same enumeration.
+        val namesToCheck = indexedNames.iterator
+        while namesToCheck.hasNext && continue do
+          val name = namesToCheck.next()
+          val existsInScope = !StubIndex.getInstance.processElements(
+            BendSymbolNameIndex.Key,
+            name,
+            project,
+            searchScope,
+            indexFilter,
+            classOf[BendDeclaration],
+            new Processor[BendDeclaration]:
+              override def process(declaration: BendDeclaration): Boolean =
+                val file = declaration.getContainingFile
+                val virtual = if file == null then null else file.getVirtualFile
+                val isInScope = declaration.isValid && virtual != null &&
+                  searchScope.contains(virtual)
+                !isInScope
+          )
+          if existsInScope then continue = emit(name)
       catch case _: IndexNotReadyException => ()
     if continue then
       val openDeclarations = openFiles.iterator.flatMap(file =>

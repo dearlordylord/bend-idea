@@ -3,7 +3,7 @@ package com.dearlordylord.bend.idea.workspace.loading
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.workspace.model.*
 import com.dearlordylord.bend.idea.workspace.api.BendImportPaths
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
+import com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog
 import scala.collection.mutable
 
 /** Ordered, bounded traversal matching book_load's realpath and namespace
@@ -23,6 +23,7 @@ object BendGraphLoader:
     val files = mutable.ListBuffer.empty[BendLoadedFile]
     val edges = mutable.ListBuffer.empty[BendLoadedEdge]
     val problems = mutable.ListBuffer.empty[BendGraphProblem]
+    val sourceInventoryLimits = mutable.Set.empty[BendGraphLimit]
     val seen = mutable.Map.empty[FileId, Option[String]]
     // Bound catalog access, including failed lookups, before doing I/O. Reuse
     // one capture per requested path within this load, never across revisions.
@@ -38,6 +39,7 @@ object BendGraphLoader:
               problems += BendGraphProblem.InvalidImport(source.id, imp, reason)
             case Right((path, _))
                 if !sources.contains(path) && sources.size >= maxFiles =>
+              sourceInventoryLimits += BendGraphLimit.SourceLookups
               problems += BendGraphProblem.InvalidImport(
                 source.id,
                 imp,
@@ -73,6 +75,7 @@ object BendGraphLoader:
                       )
                     case Some(Some(_))                 => ()
                     case None if seen.size >= maxFiles =>
+                      sourceInventoryLimits += BendGraphLimit.GraphFiles
                       problems += BendGraphProblem.InvalidImport(
                         source.id,
                         imp,
@@ -83,7 +86,13 @@ object BendGraphLoader:
       seen(source.id) = Some(namespace)
       files += BendLoadedFile(source, namespace)
     visit(root, "")
-    BendLoadedGraph(root.id, files.toList, edges.toList, problems.toList)
+    BendLoadedGraph(
+      root.id,
+      files.toList,
+      edges.toList,
+      problems.toList,
+      sourceInventoryLimits.toSet
+    )
 
   private def target(
       source: BendSourceRecord,
@@ -98,28 +107,6 @@ object BendGraphLoader:
     else if !imp.spelling.endsWith(".bend") then
       Left("an import of a .bend file")
     else
-      val rel = normalize(imp.spelling)
-      val hash = rel.matches("^0x[0-9a-f]+/.*")
       val resolved =
         BendImportPaths.target(source.path, paths.packageCache, imp.spelling)
-      val sub = if hash || rel.startsWith("/") then rel
-      else if parent(namespace).isEmpty then normalize(rel)
-      else normalize(parent(namespace) + "/" + rel)
-      Right((resolved, sub.stripSuffix(".bend")))
-
-  private def parent(path: String): String =
-    val slash = path.lastIndexOf('/')
-    if slash < 0 then "" else path.substring(0, slash)
-
-  private def normalize(path: String): String =
-    val absolute = path.startsWith("/")
-    val stack = mutable.ArrayBuffer.empty[String]
-    path.split('/').foreach {
-      case "" | "."                                     => ()
-      case ".." if stack.nonEmpty && stack.last != ".." =>
-        stack.remove(stack.size - 1)
-      case ".." if !absolute => stack += ".."
-      case ".."              => ()
-      case segment           => stack += segment
-    }
-    (if absolute then "/" else "") + stack.mkString("/")
+      Right((resolved, BendImportPaths.namespace(namespace, imp.spelling)))

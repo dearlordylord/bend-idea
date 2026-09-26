@@ -44,6 +44,8 @@ final class BendCompletionContributor extends CompletionContributor:
         then return
         val source = parameters.getEditor.getDocument.getText
         val offset = parameters.getEditor.getCaretModel.getOffset
+        if BendForeignPathCompletion.add(parameters, result, source, offset)
+        then return
         if BendImportPathCompletion.add(parameters, result, source, offset) then
           return
         BendCompletionContributor.context(source, offset).foreach { site =>

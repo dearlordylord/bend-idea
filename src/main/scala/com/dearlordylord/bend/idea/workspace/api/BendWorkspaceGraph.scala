@@ -5,7 +5,6 @@ import com.dearlordylord.bend.idea.workspace.model.{
   BendSourceRecord
 }
 import com.dearlordylord.bend.idea.workspace.loading.BendGraphLoader
-import com.dearlordylord.bend.idea.workspace.ports.BendSourceCatalog
 
 /** Read-only graph query used by source symbols and later checker snapshots. */
 trait BendWorkspaceGraph:

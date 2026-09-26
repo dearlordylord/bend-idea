@@ -39,13 +39,19 @@ enum BendGraphProblem:
       requested: String
   )
 
+enum BendGraphLimit:
+  case SourceLookups, GraphFiles
+
 /** Root-specific loading facts. Source identity is not a compiler namespace. */
 final case class BendLoadedGraph(
     root: FileId,
     files: List[BendLoadedFile],
     edges: List[BendLoadedEdge],
-    problems: List[BendGraphProblem]
+    problems: List[BendGraphProblem],
+    sourceInventoryLimits: Set[BendGraphLimit] = Set.empty
 ):
+  def sourceInventoryCapped: Boolean = sourceInventoryLimits.nonEmpty
+
   def source(id: FileId): Option[BendSourceRecord] =
     files.find(_.source.id == id).map(_.source)
 
