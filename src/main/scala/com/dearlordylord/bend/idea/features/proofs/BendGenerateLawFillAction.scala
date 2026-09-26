@@ -156,8 +156,7 @@ final class BendGenerateLawFillAction
               "The law changed while finding proof roots; run generation again",
               NotificationType.WARNING
             )
-          case Some(discovery)
-              if discovery.fillSearch.existing.nonEmpty =>
+          case Some(discovery) if discovery.fillSearch.existing.nonEmpty =>
             val fills = discovery.fillSearch.existing
             if fills.size == 1 then openExisting(project, fills.head)
             else
@@ -285,6 +284,8 @@ final class BendGenerateLawFillAction
               "The law, proof-root imports, or loading settings changed; generate the fill again",
               NotificationType.WARNING
             )
+          case Some(search) if search.existing.nonEmpty =>
+            openExisting(project, search.existing.head)
           case Some(search) if search.targets.isEmpty =>
             BendGenerateLawFillAction.this.notify(
               project,

@@ -26,7 +26,10 @@ final class BendFileTemplatesTest extends BasePlatformTestCase:
       editor.getCaretModel.getOffset
     )
     assertTrue(BendFileTemplates.createModule(directory, "Arithmetic").isLeft)
-    assertEquals("import Base\n\ndef Arithmetic() -> U32:\n  0\n", module.getText)
+    assertEquals(
+      "import Base\n\ndef Arithmetic() -> U32:\n  0\n",
+      module.getText
+    )
 
   def testLawProofPairLinksImportsAndLeavesNavigableHole(): Unit =
     val context = myFixture.addFileToProject("proofs/context.bend", "")

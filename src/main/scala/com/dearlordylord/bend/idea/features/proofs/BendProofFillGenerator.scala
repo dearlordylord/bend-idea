@@ -27,6 +27,7 @@ import com.intellij.psi.{
   SmartPointerManager
 }
 import com.intellij.psi.util.PsiModificationTracker
+import com.intellij.psi.util.PsiTreeUtil
 
 final case class BendProofFillTarget(
     path: String,
@@ -72,6 +73,10 @@ final case class BendProofExistingFill(
 
 /** Root-aware fill planning and one-command source insertion. */
 object BendProofFillGenerator:
+  private val GraphFileLimit = 256
+  private val SourceCharacterLimit = 250000
+  private val SourceDeclarationLimit = 1024
+  private val RootDeclarationLimit = 4096
   private val ValidQualifiedName =
     "[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*".r
 
@@ -345,6 +350,16 @@ object BendProofFillGenerator:
           )
           if canceled() then return None
           if snapshot.graph.sourceInventoryCapped then cappedRoots += path
+          val linked = linkedExistingFills(
+            captured.project,
+            snapshot,
+            captured.handle,
+            canceled
+          )
+          if linked.isEmpty then return None
+          val (linkedFills, linkedCapped) = linked.get
+          existing ++= linkedFills
+          if linkedCapped then cappedRoots += path
           val targets = ReadAction.compute(() =>
             if !inputsCurrent(captured) || !rootFile.isValid ||
               rootFile.getModificationStamp != snapshot.revision
@@ -354,52 +369,30 @@ object BendProofFillGenerator:
                 snapshot,
                 snapshot.sourceLength
               )
-              val existingFills = BendSourceSymbols
-                .declarations(rootFile)
-                .filter(symbol =>
-                  symbol.category == BendSymbolCategory.Definition &&
-                    visible.exists { case (visibleName, lawSymbol) =>
-                      visibleName == symbol.name &&
-                      lawSymbol.category == BendSymbolCategory.Law &&
-                      lawSymbol.handle == captured.handle
-                    }
-                )
-              if existingFills.nonEmpty then
-                existing ++= existingFills.map(symbol =>
-                  BendProofExistingFill(
-                    path,
-                    symbol.name,
-                    SmartPointerManager
-                      .getInstance(captured.project)
-                      .createSmartPsiElementPointer(symbol.declaration)
-                  )
-                )
-                Some(Nil)
+              if linkedFills.nonEmpty then Some(Nil)
               else
-                Some(
-                  visible.collect {
-                    case (visibleName, symbol)
-                        if symbol.category == BendSymbolCategory.Law &&
-                          symbol.handle == captured.handle &&
-                          ValidQualifiedName.matches(visibleName) =>
-                      BendProofFillTarget(
-                        path,
-                        visibleName,
-                        SmartPointerManager
-                          .getInstance(captured.project)
-                          .createSmartPsiElementPointer(rootFile),
-                        captured.handle,
-                        captured.name,
-                        captured.parameters,
-                        captured.source,
-                        revision(captured.project, rootFile),
-                        captured.sourceRevision,
-                        captured.sourceModificationCount,
-                        captured.loadingConfigurationRevision,
-                        captured.loadingPaths
-                      )
-                  }
-                )
+                Some(visible.collect {
+                  case (visibleName, symbol)
+                      if symbol.category == BendSymbolCategory.Law &&
+                        symbol.handle == captured.handle &&
+                        ValidQualifiedName.matches(visibleName) =>
+                    BendProofFillTarget(
+                      path,
+                      visibleName,
+                      SmartPointerManager
+                        .getInstance(captured.project)
+                        .createSmartPsiElementPointer(rootFile),
+                      captured.handle,
+                      captured.name,
+                      captured.parameters,
+                      captured.source,
+                      revision(captured.project, rootFile),
+                      captured.sourceRevision,
+                      captured.sourceModificationCount,
+                      captured.loadingConfigurationRevision,
+                      captured.loadingPaths
+                    )
+                })
           )
           targets match
             case None         => return None
@@ -413,6 +406,84 @@ object BendProofFillGenerator:
           existing.toList.distinctBy(fill => (fill.path, fill.name))
         )
       )
+
+  private def linkedExistingFills(
+      project: Project,
+      snapshot: BendSourceNavigationSnapshot,
+      lawHandle: BendSourceHandle,
+      canceled: () => Boolean
+  ): Option[(List[BendProofExistingFill], Boolean)] =
+    val graph = snapshot.graph
+    if !graph.files.exists(_.source.id == lawHandle.file) then
+      return Some((Nil, graph.sourceInventoryCapped))
+    val relevantIds = BendSourceDocumentation.relevantSourceIds(graph)
+    val relevant =
+      graph.files.filter(file => relevantIds.contains(file.source.id))
+    val facts =
+      scala.collection.mutable.ListBuffer.empty[BendSourceDeclarationFact]
+    var capped = graph.sourceInventoryCapped || relevant.size > GraphFileLimit
+    val sources = relevant.take(GraphFileLimit).iterator
+    while sources.hasNext && facts.size < RootDeclarationLimit && !canceled() do
+      val source = sources.next().source
+      val remaining = math.min(
+        SourceDeclarationLimit,
+        RootDeclarationLimit - facts.size
+      )
+      val scanned = ReadAction.compute(() =>
+        BendSourceSymbols.sourceDeclarationsBounded(
+          project,
+          source.id,
+          source.text,
+          remaining,
+          SourceCharacterLimit,
+          Set(BendSymbolCategory.Law, BendSymbolCategory.Definition),
+          canceled
+        )
+      )
+      if scanned.isEmpty then return None
+      facts ++= scanned.get.symbols.map(BendSourceSymbols.declarationFact)
+      if scanned.get.truncated then capped = true
+    if canceled() then None
+    else
+      if facts.size == RootDeclarationLimit then capped = true
+      val fillFacts = BendSourceDocumentation
+        .linkedFills(graph, facts.toList)
+        .collect { case (fill, law) if law.handle == lawHandle => fill }
+        .toList
+      val factsByHandle = facts.iterator.map(fact => fact.handle -> fact).toMap
+      val fills =
+        scala.collection.mutable.ListBuffer.empty[BendProofExistingFill]
+      val pending = fillFacts.iterator
+      while pending.hasNext && !canceled() do
+        val handle = pending.next()
+        ReadAction
+          .compute(() =>
+            factsByHandle.get(handle).flatMap { fact =>
+              BendPhysicalTargets.file(project, handle.file).flatMap { file =>
+                BendPhysicalTargets
+                  .declaration(file, fact)
+                  .flatMap(element =>
+                    Option(
+                      PsiTreeUtil.getParentOfType(
+                        element,
+                        classOf[BendDeclaration]
+                      )
+                    )
+                  )
+                  .map(declaration =>
+                    BendProofExistingFill(
+                      file.getVirtualFile.getPath,
+                      fact.name,
+                      SmartPointerManager
+                        .getInstance(project)
+                        .createSmartPsiElementPointer(declaration)
+                    )
+                  )
+              }
+            }
+          )
+          .foreach(fills += _)
+      if canceled() then None else Some((fills.toList, capped))
 
   /** Rebuild a selected candidate against current imports before insertion. The
     * final write command still checks source/configuration revisions to close

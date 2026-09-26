@@ -50,7 +50,15 @@ final class BendMoveFileHandler extends MoveFileHandler:
         message => throw new IncorrectOperationException(message),
         identity
       )
-    val references = (incoming ++ file.getReferences.toList).distinct
+    val references =
+      (incoming ++ file.getReferences.toList).distinct.filterNot {
+        case path: BendSourcePathReference
+            if path.getElement.getContainingFile == file &&
+              path.pathKind == BendSourcePathKind.Module &&
+              (path.spelling == "Base" || path.spelling.startsWith("0x")) =>
+          true
+        case _ => false
+      }
     val planned = references.flatMap { reference =>
       val source = reference.getElement.getContainingFile
       if source == null || source.getVirtualFile == null then Nil
@@ -112,19 +120,44 @@ final class BendMoveFileHandler extends MoveFileHandler:
       destination: PsiDirectory
   ): Unit =
     super.detectConflicts(conflicts, elements, usages, destination)
-    elements
+    if elements.exists(_.isInstanceOf[PsiDirectory]) &&
+      usages.exists(_.isInstanceOf[BendMoveReferenceUsage])
+    then
+      throw new IncorrectOperationException(
+        "Move Bend sources with path references individually; directory moves cannot safely rewrite their final relative paths."
+      )
+    val moving = elements
       .collect { case file: PsiFile =>
         file
       }
-      .foreach { file =>
-        val destinationPath =
-          destination.getVirtualFile.getPath + "/" + file.getName
-        if exists(destinationPath) then
-          conflicts.putValue(
-            file,
-            "A source already exists at " + destinationPath
-          )
-      }
+    moving.foreach { file =>
+      val destinationPath =
+        destination.getVirtualFile.getPath + "/" + file.getName
+      if exists(destinationPath) then
+        conflicts.putValue(
+          file,
+          "A source already exists at " + destinationPath
+        )
+    }
+    val movingPaths =
+      moving.flatMap(file => Option(file.getVirtualFile).map(_.getPath)).toSet
+    if movingPaths.size > 1 then
+      usages
+        .collect { case usage: BendMoveReferenceUsage => usage.reference }
+        .foreach { reference =>
+          val source = reference.getElement.getContainingFile
+          Option(source)
+            .flatMap(file => Option(file.getVirtualFile).map(_.getPath))
+            .filter(movingPaths.contains)
+            .foreach { sourcePath =>
+              if resolvedTargetPath(reference, sourcePath)
+                  .exists(movingPaths.contains)
+              then
+                throw new IncorrectOperationException(
+                  "Move dependent Bend sources separately so each relative import can be updated against its final location."
+                )
+            }
+        }
 
   override def retargetUsages(
       usages: java.util.List[? <: UsageInfo],
