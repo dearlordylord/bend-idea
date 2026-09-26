@@ -4,7 +4,10 @@ import com.dearlordylord.bend.idea.analysis.api.{
   BendExplicitCheckOutcome,
   BendExplicitCheckRunner
 }
-import com.dearlordylord.bend.idea.analysis.model.BendCheckOutcome
+import com.dearlordylord.bend.idea.analysis.model.{
+  BendCheckOutcome,
+  BendCompleteness
+}
 import com.dearlordylord.bend.idea.workspace.api.{
   BendPathInventoryStatus,
   BendWorkspacePaths
@@ -87,17 +90,24 @@ final class BendCheckProofRootAction extends AnAction("Check Bend Proof Root"):
       .check(path, "Checking Bend proof root") {
         case outcome @ BendExplicitCheckOutcome.Published(result) =>
           val detail = result.details.trim
+          val completeSuccess =
+            result.outcome == BendCheckOutcome.Success &&
+              result.completeness == BendCompleteness.Complete
           val message =
-            if result.outcome == BendCheckOutcome.Unavailable && detail.nonEmpty
+            if !completeSuccess && detail.nonEmpty
             then s"${result.status}\n$detail"
             else result.status
+          val kind =
+            if completeSuccess then NotificationType.INFORMATION
+            else if result.outcome == BendCheckOutcome.Failed &&
+              result.completeness != BendCompleteness.Incomplete
+            then NotificationType.ERROR
+            else NotificationType.WARNING
           notify(
             project,
             path,
             message,
-            if result.outcome == BendCheckOutcome.Unavailable then
-              NotificationType.WARNING
-            else NotificationType.INFORMATION
+            kind
           )
           completed(outcome)
         case outcome @ BendExplicitCheckOutcome.Rejected(_, reason) =>

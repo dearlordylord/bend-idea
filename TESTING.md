@@ -1,4 +1,4 @@
-# Manual test guide: issues #31–#40
+# Manual test guide: issues #32–#40
 
 This guide covers the features in [PR #60](https://github.com/dearlordylord/bend-idea/pull/60).
 
@@ -21,7 +21,6 @@ build output only there. Paths in the table are relative to `/Users/firfi/work/b
 
 | Issue                                                       | Feature | Files to open/check | Manual test | Feedback |
 |-------------------------------------------------------------|---|---|---|---|
-| [#31](https://github.com/dearlordylord/bend-idea/issues/31) | Generate match cases | `bend-idea/match/Maybe.bend`; `bend-idea/match/main.bend` (currently missing the `Some` branch) | Put the caret in `inspect`'s match and invoke **Option+Enter** (macOS) / **Alt+Enter** (Windows/Linux); choose **Generate Match Cases**. Check that the missing constructor is added without duplicating `None`, the `?TODO` body is selected, and Undo restores the original match. Also confirm **Tools → Bend → Generate Match Cases** remains available. |
 | [#32](https://github.com/dearlordylord/bend-idea/issues/32) | Browse proof progress | `bend-idea/proofs/PROOF.bend`, `bend-idea/proofs/LAWS.bend`, and imported `bend-idea/proofs/holes.bend`; full-project alternative: `PROOF.bend` and `proofs/core.bend` | Select the small root with **Check Bend Proof Root**, then open **View → Tool Windows → Bend Proof Progress**. Check that the panel lists its law, missing fill, and holes from `holes.bend`; click entries to navigate to their source. Use the full root for a larger progress view. |
 | [#33](https://github.com/dearlordylord/bend-idea/issues/33) | Run Bend explicitly | `bend-idea/run/main.bend`; larger real demo: `battle.bend` | Open **Run → Edit Configurations** and add **Bend Run**. Use the browse button to select `bend-idea/run/main.bend`; the root field should not accept manual typing. Run it and inspect the Run console output. |
 | [#34](https://github.com/dearlordylord/bend-idea/issues/34) | Build and inspect generated output | Source: `bend-idea/run/main.bend`; output directory: `bend-idea/generated/` | Add **Bend Build**, use its browse button to select the fixture root, and set output path under `bend-idea/generated/`. Try C or JavaScript output, then open the generated source from the console link. Native output requires the compiler's native backend and `clang`. |
