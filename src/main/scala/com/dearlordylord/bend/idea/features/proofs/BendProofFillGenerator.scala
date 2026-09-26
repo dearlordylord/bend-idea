@@ -3,8 +3,17 @@ package com.dearlordylord.bend.idea.features.proofs
 import com.dearlordylord.bend.idea.features.templates.api.BendSnippets
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.symbols.api.*
-import com.dearlordylord.bend.idea.syntax.psi.{BendLaw, BendSourceParameter}
-import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
+import com.dearlordylord.bend.idea.syntax.BendLanguage
+import com.dearlordylord.bend.idea.syntax.psi.{
+  BendDeclaration,
+  BendLaw,
+  BendSourceParameter
+}
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendImportLines,
+  BendImportPaths,
+  BendLoadingConfiguration
+}
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Document
@@ -13,6 +22,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.{
   PsiDocumentManager,
   PsiFile,
+  PsiFileFactory,
   SmartPsiElementPointer,
   SmartPointerManager
 }
@@ -48,14 +58,202 @@ final case class BendProofFillInsertion(
 
 final case class BendProofFillSearch(
     targets: List[BendProofFillTarget],
-    cappedRootPaths: List[String]
+    cappedRootPaths: List[String],
+    existing: List[BendProofExistingFill] = Nil
 ):
   def sourceInventoryCapped: Boolean = cappedRootPaths.nonEmpty
+
+final case class BendProofExistingFill(
+    path: String,
+    name: String,
+    declaration: SmartPsiElementPointer[BendDeclaration]
+):
+  override def toString: String = s"def $name — $path"
 
 /** Root-aware fill planning and one-command source insertion. */
 object BendProofFillGenerator:
   private val ValidQualifiedName =
     "[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*".r
+
+  /** Complete the conventional sibling from a law source. This path is used
+    * only when root-aware discovery found no imported target or existing fill.
+    * It never treats a copied law as the selected source law.
+    */
+  private[proofs] def insertConventional(
+      project: Project,
+      law: SmartPsiElementPointer[BendLaw],
+      expectedModificationCount: Long
+  ): Either[String, BendProofFillInsertion] =
+    WriteCommandAction
+      .writeCommandAction(project)
+      .withName("Generate Bend Law Fill")
+      .compute[Either[String, BendProofFillInsertion], RuntimeException](() =>
+        Option
+          .when(
+            PsiModificationTracker
+              .getInstance(project)
+              .getModificationCount == expectedModificationCount
+          )(law.getElement)
+          .flatMap(Option(_))
+          .filter(_.isValid) match
+          case None =>
+            Left("The selected law changed; generate the fill again")
+          case Some(selectedLaw) =>
+            val source = selectedLaw.getContainingFile
+            val sourceVirtual = Option(source.getVirtualFile)
+            val directory = Option(source.getContainingDirectory)
+            if source.getName != "LAWS.bend" || sourceVirtual.isEmpty ||
+              directory.isEmpty
+            then Left("Select a proof root that imports this law source")
+            else if !sourceVirtual.get.isValid ||
+              !directory.get.isWritable
+            then Left("The sibling proof directory is read-only")
+            else
+              val manager = PsiDocumentManager.getInstance(project)
+              val sourceDocument = manager.getDocument(source)
+              if sourceDocument != null && !manager
+                  .isCommitted(sourceDocument)
+              then
+                Left(
+                  "The law source is still changing; generate the fill again"
+                )
+              else
+                BendSourceSymbols
+                  .declarations(source)
+                  .find(symbol =>
+                    symbol.category == BendSymbolCategory.Law &&
+                      symbol.handle.nameOffset ==
+                      selectedLaw.getNameIdentifier.getTextOffset
+                  ) match
+                  case None =>
+                    Left("The selected law changed; generate the fill again")
+                  case Some(symbol) =>
+                    val root = Option(directory.get.findFile("PROOF.bend"))
+                    val rootPath =
+                      sourceVirtual.get.getParent.getPath + "/PROOF.bend"
+                    if root.exists(file => !writable(file)) then
+                      Left("The sibling PROOF.bend is read-only")
+                    else if root
+                        .exists(_.getLanguage != BendLanguage.instance)
+                    then Left("The sibling PROOF.bend is not a Bend source")
+                    else
+                      val document =
+                        root
+                          .flatMap(file => Option(manager.getDocument(file)))
+                      if root.nonEmpty && document.isEmpty then
+                        Left("Could not open the sibling PROOF.bend document")
+                      else if document
+                          .exists(doc => !manager.isCommitted(doc))
+                      then
+                        Left(
+                          "The proof root is still changing; generate the fill again"
+                        )
+                      else
+                        val existingText = document.fold("")(_.getText)
+                        val imports = BendImportLines.parse(existingText)
+                        val sourcePath = sourceVirtual.get.getPath
+                        val packageCache = project
+                          .getService(classOf[BendLoadingConfiguration])
+                          .paths
+                          ._2
+                        val alreadyImported = imports.exists(imp =>
+                          BendImportPaths.target(
+                            rootPath,
+                            packageCache,
+                            imp.spelling
+                          ) == sourcePath
+                        )
+                        if alreadyImported then
+                          Left(
+                            "This proof root already imports LAWS.bend, but the selected law is not a new fill target; check its import and existing definitions"
+                          )
+                        else
+                          val definitions = root.toList.flatMap(file =>
+                            BendSourceSymbols
+                              .declarations(file)
+                              .filter(
+                                _.category == BendSymbolCategory.Definition
+                              )
+                          )
+                          val orphanFills = definitions.filter(entry =>
+                            entry.name.matches(
+                              s"Laws[0-9]*\\.${java.util.regex.Pattern.quote(symbol.name)}"
+                            ) &&
+                              !imports
+                                .flatMap(_.alias)
+                                .contains(
+                                  entry.name.takeWhile(_ != '.')
+                                )
+                          )
+                          if orphanFills.nonEmpty then
+                            Left(
+                              "PROOF.bend contains a similarly named definition without an import of LAWS.bend; link the intended source explicitly before generating another fill"
+                            )
+                          else
+                            val used = imports.flatMap(_.alias).toSet ++
+                              root.toList.flatMap(file =>
+                                BendSourceSymbols
+                                  .declarations(file)
+                                  .map(_.name.takeWhile(_ != '.'))
+                              )
+                            val alias = Iterator
+                              .from(1)
+                              .map(index =>
+                                if index == 1 then "Laws"
+                                else s"Laws$index"
+                              )
+                              .find(name => !used(name))
+                              .get
+                            val importText = s"import ./LAWS.bend as $alias\n"
+                            val afterImport = importText + existingText
+                            val rendered = BendSnippets.renderLawFill(
+                              s"$alias.${symbol.name}",
+                              symbol.signature.parameters
+                            )
+                            val separatorText =
+                              if afterImport.endsWith("\n\n") then ""
+                              else if afterImport.endsWith("\n") then "\n"
+                              else "\n\n"
+                            val fullText =
+                              afterImport + separatorText + rendered
+                            val placeholder =
+                              afterImport.length + separatorText.length +
+                                rendered.indexOf("?TODO")
+                            val created = root match
+                              case Some(existing) =>
+                                document.get.insertString(0, importText)
+                                document.get.insertString(
+                                  document.get.getTextLength,
+                                  separatorText + rendered
+                                )
+                                manager.commitDocument(document.get)
+                                existing
+                              case None =>
+                                val pending = PsiFileFactory
+                                  .getInstance(project)
+                                  .createFileFromText(
+                                    "PROOF.bend",
+                                    BendLanguage.instance,
+                                    fullText
+                                  )
+                                directory.get.add(pending) match
+                                  case file: PsiFile => file
+                                  case _             =>
+                                    throw new IllegalStateException(
+                                      "Creating PROOF.bend did not return a PSI file"
+                                    )
+                            Option(created.getVirtualFile) match
+                              case None =>
+                                Left("Could not open the created PROOF.bend")
+                              case Some(file) =>
+                                Right(
+                                  BendProofFillInsertion(
+                                    file,
+                                    placeholder,
+                                    placeholder + "?TODO".length
+                                  )
+                                )
+      )
 
   private final case class LawCapture(
       project: Project,
@@ -126,6 +324,8 @@ object BendProofFillGenerator:
     val catalog =
       captured.project.getService(classOf[BendImportedSymbolCatalog])
     val result = scala.collection.mutable.ListBuffer.empty[BendProofFillTarget]
+    val existing =
+      scala.collection.mutable.ListBuffer.empty[BendProofExistingFill]
     val cappedRoots = scala.collection.mutable.ListBuffer.empty[String]
     val paths = rootPaths.iterator
     while paths.hasNext && !canceled() do
@@ -154,9 +354,9 @@ object BendProofFillGenerator:
                 snapshot,
                 snapshot.sourceLength
               )
-              val hasExistingFill = BendSourceSymbols
+              val existingFills = BendSourceSymbols
                 .declarations(rootFile)
-                .exists(symbol =>
+                .filter(symbol =>
                   symbol.category == BendSymbolCategory.Definition &&
                     visible.exists { case (visibleName, lawSymbol) =>
                       visibleName == symbol.name &&
@@ -164,7 +364,17 @@ object BendProofFillGenerator:
                       lawSymbol.handle == captured.handle
                     }
                 )
-              if hasExistingFill then Some(Nil)
+              if existingFills.nonEmpty then
+                existing ++= existingFills.map(symbol =>
+                  BendProofExistingFill(
+                    path,
+                    symbol.name,
+                    SmartPointerManager
+                      .getInstance(captured.project)
+                      .createSmartPsiElementPointer(symbol.declaration)
+                  )
+                )
+                Some(Nil)
               else
                 Some(
                   visible.collect {
@@ -199,7 +409,8 @@ object BendProofFillGenerator:
       Some(
         BendProofFillSearch(
           result.toList.distinctBy(target => (target.path, target.name)),
-          cappedRoots.toList.distinct
+          cappedRoots.toList.distinct,
+          existing.toList.distinctBy(fill => (fill.path, fill.name))
         )
       )
 

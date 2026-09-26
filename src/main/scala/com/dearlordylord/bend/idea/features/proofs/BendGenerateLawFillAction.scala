@@ -2,6 +2,7 @@ package com.dearlordylord.bend.idea.features.proofs
 
 import com.dearlordylord.bend.idea.workspace.api.BendPathInventoryStatus
 import com.dearlordylord.bend.idea.syntax.BendLanguage
+import com.dearlordylord.bend.idea.syntax.psi.{BendProofForm, BendProofSurface}
 import com.intellij.notification.{NotificationGroupManager, NotificationType}
 import com.intellij.codeInsight.intention.IntentionAction
 import com.intellij.openapi.actionSystem.{
@@ -18,6 +19,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.{PsiFile, SmartPsiElementPointer, SmartPointerManager}
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.PsiModificationTracker
 import com.dearlordylord.bend.idea.syntax.psi.BendLaw
 import scala.jdk.CollectionConverters.*
 
@@ -27,7 +29,8 @@ final class BendGenerateLawFillAction
     with IntentionAction:
   private final case class Discovery(
       roots: BendProofRootInventory,
-      fillSearch: BendProofFillSearch
+      fillSearch: BendProofFillSearch,
+      sourceModificationCount: Long
   )
 
   override def getActionUpdateThread: ActionUpdateThread =
@@ -59,7 +62,7 @@ final class BendGenerateLawFillAction
     event.getPresentation.setVisible(true)
     event.getPresentation.setEnabled(enabled)
     event.getPresentation.setDescription(
-      if enabled then "Insert an incomplete law fill into a selected proof root"
+      if enabled then "Generate a law fill or open its existing proof hole"
       else "Place the caret on a law declaration to enable law-fill generation"
     )
 
@@ -120,6 +123,11 @@ final class BendGenerateLawFillAction
           Option(law.getElement).filter(_.isValid).map(_.getContainingFile)
         )
         file.filter(_ => stillCurrent()).foreach { sourceFile =>
+          val modificationCount = ReadAction.compute(() =>
+            PsiModificationTracker
+              .getInstance(project)
+              .getModificationCount
+          )
           val roots = selectedRoot match
             case Some(path) =>
               BendProofRootInventory(
@@ -134,7 +142,9 @@ final class BendGenerateLawFillAction
             () => indicator.isCanceled || !stillCurrent()
           )
           if !indicator.isCanceled && stillCurrent() then
-            targets.foreach(values => result = Some(Discovery(roots, values)))
+            targets.foreach(values =>
+              result = Some(Discovery(roots, values, modificationCount))
+            )
         }
 
       override def onSuccess(): Unit =
@@ -146,16 +156,48 @@ final class BendGenerateLawFillAction
               "The law changed while finding proof roots; run generation again",
               NotificationType.WARNING
             )
+          case Some(discovery)
+              if discovery.fillSearch.targets.isEmpty &&
+                discovery.fillSearch.existing.nonEmpty =>
+            val fills = discovery.fillSearch.existing
+            if fills.size == 1 then openExisting(project, fills.head)
+            else
+              val popup = JBPopupFactory
+                .getInstance()
+                .createPopupChooserBuilder(fills.asJava)
+                .setTitle("Open existing Bend law fill")
+                .setItemChosenCallback(fill => openExisting(project, fill))
+                .createPopup()
+              editor match
+                case Some(value) => popup.showInBestPositionFor(value)
+                case None        => popup.showInFocusCenter()
           case Some(discovery) if discovery.fillSearch.targets.isEmpty =>
-            val notice = BendPathInventoryStatus
-              .notice(discovery.roots.status)
-              .fold("")(message => s" $message")
-            val capNotice = sourceInventoryNotice(discovery.fillSearch)
-            BendGenerateLawFillAction.this.notify(
-              project,
-              s"No writable proof root exposes this law without an existing fill.$notice$capNotice",
-              NotificationType.WARNING
-            )
+            if selectedRoot.isEmpty && !discovery.fillSearch.sourceInventoryCapped &&
+              discovery.roots.status == BendPathInventoryStatus.Complete
+            then
+              BendProofFillGenerator
+                .insertConventional(
+                  project,
+                  law,
+                  discovery.sourceModificationCount
+                ) match
+                case Right(inserted) => openInserted(project, inserted)
+                case Left(reason)    =>
+                  BendGenerateLawFillAction.this.notify(
+                    project,
+                    reason,
+                    NotificationType.WARNING
+                  )
+            else
+              val notice = BendPathInventoryStatus
+                .notice(discovery.roots.status)
+                .fold("")(message => s" $message")
+              val capNotice = sourceInventoryNotice(discovery.fillSearch)
+              BendGenerateLawFillAction.this.notify(
+                project,
+                s"No writable proof root exposes this law without an existing fill.$notice$capNotice",
+                NotificationType.WARNING
+              )
           case Some(discovery)
               if shouldAutoInsert(
                 discovery.roots.status,
@@ -278,27 +320,75 @@ final class BendGenerateLawFillAction
   ): Unit =
     BendProofFillGenerator.insert(project, target) match
       case Left(reason)  => notify(project, reason, NotificationType.WARNING)
-      case Right(result) =>
-        Option(
-          FileEditorManager
-            .getInstance(project)
-            .openTextEditor(
-              new OpenFileDescriptor(
-                project,
-                result.file,
-                result.placeholderStart
-              ),
-              true
+      case Right(result) => openInserted(project, result)
+
+  private def openInserted(
+      project: Project,
+      result: BendProofFillInsertion
+  ): Unit =
+    Option(
+      FileEditorManager
+        .getInstance(project)
+        .openTextEditor(
+          new OpenFileDescriptor(
+            project,
+            result.file,
+            result.placeholderStart
+          ),
+          true
+        )
+    ).foreach { editor =>
+      editor.getSelectionModel.setSelection(
+        result.placeholderStart,
+        result.placeholderEnd
+      )
+    }
+    notify(
+      project,
+      "Law fill skeleton inserted; ?TODO remains incomplete until replaced",
+      NotificationType.INFORMATION
+    )
+
+  private def openExisting(
+      project: Project,
+      fill: BendProofExistingFill
+  ): Unit =
+    val location = ReadAction.compute(() =>
+      Option(fill.declaration.getElement).filter(_.isValid).flatMap { entry =>
+        Option(entry.getContainingFile.getVirtualFile).map { file =>
+          val hole = BendProofSurface
+            .holesBounded(
+              entry.getText,
+              entry.getTextOffset,
+              8192,
+              1,
+              () => false
             )
-        ).foreach { editor =>
-          editor.getSelectionModel.setSelection(
-            result.placeholderStart,
-            result.placeholderEnd
-          )
+            .flatMap(_.forms.collectFirst { case value: BendProofForm.Hole =>
+              value.from
+            })
+          (file, hole, entry.getTextOffset)
         }
+      }
+    )
+    location match
+      case None =>
         notify(
           project,
-          "Law fill skeleton inserted; ?TODO remains incomplete until replaced",
+          "The existing law fill changed; run generation again",
+          NotificationType.WARNING
+        )
+      case Some((file, hole, definitionOffset)) =>
+        new OpenFileDescriptor(
+          project,
+          file,
+          hole.getOrElse(definitionOffset)
+        ).navigate(true)
+        notify(
+          project,
+          s"${fill.name} already has a fill in ${fill.path}; opened ${
+              if hole.nonEmpty then "its first proof hole" else "the definition"
+            }",
           NotificationType.INFORMATION
         )
 
