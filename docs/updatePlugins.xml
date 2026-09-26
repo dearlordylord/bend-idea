@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugins>
+  <plugin id="com.dearlordylord.bend.idea"
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.4/bend-idea-0.1.4-signed.zip"
+          version="0.1.4">
+    <idea-version since-build="251"/>
+    <name>Bend2</name>
+  </plugin>
+</plugins>
