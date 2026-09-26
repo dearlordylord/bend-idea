@@ -29,7 +29,9 @@ The signed archive is `build/distributions/bend-idea-0.1.4-signed.zip` (SHA-256:
 
 ## Future updates
 
-The verified 0.1.4 signed archive is also available in the public [GitHub Release v0.1.4](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), tagged at tested candidate commit `6e91d38c3c6194b42cffe651594bf587a1748212`. The release asset was downloaded without authentication and matched the SHA-256 above. A public copy of the self-signed certificate is attached for users who choose to trust it in IDEA. The GitHub release does not establish Marketplace approval, and there is no custom plugin update feed yet.
+The verified 0.1.4 signed archive is also available in the public [GitHub Release v0.1.4](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), tagged at tested candidate commit `6e91d38c3c6194b42cffe651594bf587a1748212`. The release asset was downloaded without authentication and matched the SHA-256 above. A public copy of the self-signed certificate is attached for users who choose to trust it in IDEA. The GitHub release does not establish Marketplace approval.
+
+The [custom plugin repository feed](https://dearlordylord.github.io/bend-idea/updatePlugins.xml) is served by GitHub Pages from [`docs/updatePlugins.xml`](docs/updatePlugins.xml). For each future pre-Marketplace release, verify that the signed ZIP is publicly downloadable first, then update the feed's `version`, `url`, and `idea-version` to match the ZIP's packaged `plugin.xml`. Publish the feed change only after the release asset is live. The feed is currently maintained manually; there is no automatic release-to-feed workflow.
 
 Increment `pluginVersion` in `gradle.properties` and update the `<change-notes>` section in `src/main/resources/META-INF/plugin.xml`. Keep the open-ended IDE range and verify newer IDE releases before claiming support.
 
