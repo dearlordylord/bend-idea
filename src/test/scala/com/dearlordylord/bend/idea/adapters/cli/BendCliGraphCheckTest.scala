@@ -134,6 +134,11 @@ final class BendCliGraphCheckTest:
         .substring(rewrite.copiedStart, rewrite.copiedEnd)
         .endsWith("math.bend")
     )
+    assertTrue(
+      rootMap.copiedText
+        .substring(rewrite.copiedStart, rewrite.copiedEnd)
+        .startsWith("./")
+    )
     val afterImport = rootMap.copiedText.indexOf("def main")
     assertEquals(
       Some(rootMap.originalText.indexOf("def main")),
@@ -287,6 +292,19 @@ final class BendCliGraphCheckTest:
       )
       val result = check(dir, bend, root)
       assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
+      val copiedParents = result.mappings
+        .map(mapping => Path.of(mapping.copiedPath).getParent)
+        .distinct
+      assertEquals(1, copiedParents.size)
+      result.mappings.foreach { mapping =>
+        mapping.rewrites.foreach { rewrite =>
+          assertTrue(
+            mapping.copiedText
+              .substring(rewrite.copiedStart, rewrite.copiedEnd)
+              .startsWith("./")
+          )
+        }
+      }
     }
 
   @Test def identicalExcerptsStayOnRoot(): Unit = fixture { (dir, bend) =>

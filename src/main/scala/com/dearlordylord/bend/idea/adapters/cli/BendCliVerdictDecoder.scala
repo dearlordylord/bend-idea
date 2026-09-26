@@ -218,6 +218,8 @@ private[cli] object BendCliVerdictDecoder:
     val lines = report.split("\n", -1).toList
     val location = lines.indexWhere(_.startsWith("Location:"))
     val line = "^\\s*[0-9]+(?:>| )\\| ?.*$".r
+    val marked = "^\\s*[0-9]+>\\| ?.*$".r
+    val underline = "^\\s*\\|\\s*\\^+\\s*$".r
     def recognizedField(text: String, inContext: Boolean): Boolean =
       text.startsWith("- message  : ") || text.startsWith("- expected : ") ||
         text.startsWith("- observed : ") ||
@@ -243,8 +245,11 @@ private[cli] object BendCliVerdictDecoder:
     location >= 0 && location < lines.size - 1 && recognizedFields(
       beforeLocation
     ) &&
-    excerpts.forall(text => line.matches(text)) &&
-    excerpts.exists(_.matches("^\\s*[0-9]+>\\| ?.*$"))
+    excerpts.zipWithIndex.forall { (text, index) =>
+      line.matches(text) ||
+      (index > 0 && marked.matches(excerpts(index - 1)) &&
+        underline.matches(text))
+    } && excerpts.exists(marked.matches)
 
   private def unrecognized(exitCode: Int, report: String): String =
     val prefix = if exitCode == 0 then

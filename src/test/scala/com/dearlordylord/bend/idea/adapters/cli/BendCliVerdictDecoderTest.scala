@@ -129,6 +129,29 @@ final class BendCliVerdictDecoderTest:
     assertEquals(BendReliance.Unknown, error.reliance)
     assertTrue(error.sourceLocationAllowed)
 
+    val underlinedError = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(
+        1,
+        compilerError.replace(
+          "3>|   missing_name\n4 | ",
+          "3>|   missing_name\n  |   ^^^^^^^^^^^^\n4 | "
+        )
+      )
+    )
+    assertEquals(BendCheckOutcome.Failed, underlinedError.outcome)
+    assertTrue(underlinedError.sourceLocationAllowed)
+
+    val misplacedUnderline = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(
+        1,
+        compilerError.replace(
+          "3>|   missing_name\n4 | ",
+          "3>|   missing_name\n4 | \n  |   ^^^^^^^^^^^^"
+        )
+      )
+    )
+    assertFalse(misplacedUnderline.sourceLocationAllowed)
+
     val changedErrorTail = BendCliVerdictDecoder.check(
       BendProcessOutcome.Exited(
         1,
