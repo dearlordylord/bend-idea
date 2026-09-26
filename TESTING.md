@@ -1,6 +1,6 @@
-# Manual test guide: issue #34
+# Manual test guide: follow-up UI checks
 
-This guide covers the features in [PR #60](https://github.com/dearlordylord/bend-idea/pull/60).
+The numbered feature checklist for [PR #60](https://github.com/dearlordylord/bend-idea/pull/60) is complete. The UI regression checks below remain open.
 
 - Worktree: `/Users/firfi/work/formal-proofs/bend-idea-p4`
 - Branch: `codex/implement-through-p4`
@@ -8,20 +8,13 @@ This guide covers the features in [PR #60](https://github.com/dearlordylord/bend
 For concrete project examples, open `/Users/firfi/work/bend/dnd` as the project.
 Treat that project as read-only. All files under its `bend-idea/` directory are
 disposable manual-test fixtures; perform edits, refactors, generated fills, and
-build output only there. Paths in the table are relative to `/Users/firfi/work/bend/dnd`.
+build output only there. Paths below are relative to `/Users/firfi/work/bend/dnd`.
 
 ## Prepare the IDE
 
 1. Check out the branch above and launch the plugin sandbox with `./gradlew runIde` using JDK 21.
 2. In the sandbox, open a project containing `.bend` files. Editing features work without a Bend installation.
-3. For checking, running, and building, open **Settings → Languages & Frameworks → Bend** and configure the Bend executable and Base source. The page detects the compiler version in the background; use **Detect** after changing the executable. Proof-root checks require a compiler that supports `--check-only`.
-4. Native output requires the Bend compiler's native backend and `clang`; C and JavaScript source emission do not require that backend.
-
-## Feature checklist
-
-| Issue                                                       | Feature | Files to open/check | Manual test | Feedback |
-|-------------------------------------------------------------|---|---|---|---|
-| [#34](https://github.com/dearlordylord/bend-idea/issues/34) | Build and inspect generated output | Source: `bend-idea/run/main.bend`; output directory: `bend-idea/generated/` | Add **Bend Build**, use its browse button to select the fixture root, and set output path under `bend-idea/generated/`. Try C or JavaScript output, then open the generated source from the console link. Native output requires the compiler's native backend and `clang`. |
+3. Open **Settings → Languages & Frameworks → Bend** and configure the Bend executable and Base source for the checks below.
 
 ## Follow-up UI regression checks
 
