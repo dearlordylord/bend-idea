@@ -14,17 +14,14 @@ Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in In
   <li>Foreign source paths, previewable file refactoring, templates, and optional IDE spelling assistance</li>
 </ul>
 
-Editing works without a Bend installation. Checking requires a configured Bend compiler with
-<code>--check-only</code> support. See the
+Editing works without a Bend installation. Configure a Bend compiler to use checking and
+compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.5:</p>
+<p>Version 0.1.6:</p>
 <ul>
-  <li>Add parameter information, semantic selection, parameter hints, match-case generation, and explicit import actions</li>
-  <li>Select and check proof roots; navigate laws, fills, and holes; browse proof work and open or create law fills</li>
-  <li>Add Bend Run, Build, and Native configurations, foreign import navigation, file refactoring, dependency inspection, templates, and spelling support</li>
-  <li>Improve editor responsiveness, compiler result freshness, and proof workflow diagnostics</li>
+  <li>Clarify compiler setup in the plugin overview</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
