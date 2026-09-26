@@ -36,7 +36,7 @@ Installs on IntelliJ IDEA builds **2025.1 and newer**. Compatibility has been ve
 
 ## Getting started
 
-1. In IntelliJ IDEA 2025.1 or a verified newer version, open **Settings → Plugins → gear icon → Manage Plugin Repositories**, add `https://idea.dearlordylord.com/updatePlugins.xml`, then search for **Bend2** in the Marketplace tab and install it. Restart if prompted. Editing features work immediately.
+1. In IntelliJ IDEA 2025.1 or a verified newer version, open **Settings → Plugins → gear icon → Manage Plugin Repositories** and add `https://idea.dearlordylord.com/updatePlugins.xml`. If the new domain reports a connection error, use `https://bend-idea-plugins.pages.dev/updatePlugins.xml` instead. Then search for **Bend2** in the Marketplace tab and install it. Restart if prompted. Editing features work immediately.
 2. To use compiler checking or Base completion, search for **Bend** in IDE Settings and select your Bend executable and Base source. The settings also include the package cache and a background diagnostics toggle.
 3. Use **Tools → Check Current Bend File** for an immediate check, or enable background diagnostics for checks after edits. Use **Tools → Bend Check Status** to inspect the current result.
 
