@@ -628,6 +628,9 @@ object BendSourceSymbols:
       val after =
         source.substring(offset + spelling.length).dropWhile(_.isWhitespace)
       if after.startsWith("{") then Some(BendSymbolCategory.Constructor)
+      // A type position can apply a definition returning Type (for example,
+      // Base's IO(Unit)); restricting its callee to datatypes hides that name.
+      else if after.startsWith("(") then None
       else if visibleBindings(
           file,
           offset,

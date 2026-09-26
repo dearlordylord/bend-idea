@@ -57,9 +57,15 @@ private[completion] final class BendExplicitImportFlow:
       case Left(reason) => hint(editor, reason)
       case Right(all)   =>
         val current = BendSourceSymbols.fileId(file)
-        val candidates = all.filter(candidate =>
-          candidate.isBase || candidate.symbol.handle.file != current
-        )
+        val candidates = all
+          .filter(candidate =>
+            candidate.isBase || candidate.symbol.handle.file != current
+          )
+          // A law and its fill can share a spelling in one source. Importing
+          // either adds the same source, so show one choice per source.
+          .distinctBy(candidate =>
+            (candidate.isBase, candidate.symbol.handle.file)
+          )
         candidates match
           case Nil =>
             hint(editor, "No other Bend declaration has this name")

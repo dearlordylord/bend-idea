@@ -180,6 +180,52 @@ final class BendExplicitImportTest extends BasePlatformTestCase:
     assertTrue(root.getText.startsWith("import Base\n"))
     assertTrue(root.getText.contains("-> U32"))
 
+  def testBaseIoTypeResolvesWithoutAnotherImport(): Unit =
+    configureBase()
+    val root = myFixture.configureByText(
+      "main.bend",
+      "import Base\n\ndef main() -> <caret>IO(Unit):\n  IO.print(\"hello\")\n"
+    )
+    assertNotNull(
+      "Base IO should resolve in a return type",
+      referenceAtCaret(root).getReferences.head.resolve()
+    )
+    myFixture.testHighlighting(true, false, true)
+    assertFalse(
+      myFixture.getAvailableIntentions.asScala.exists(
+        _.getText == "Import Bend symbol"
+      )
+    )
+
+  def testMissingBaseIoTypeOffersWorkingImportFix(): Unit =
+    configureBase()
+    val root = myFixture.configureByText(
+      "main.bend",
+      "def main() -> <error descr=\"Unresolved Bend name: IO\"><caret>IO</error>(Unit):\n  ?TODO\n"
+    )
+    myFixture.testHighlighting(true, false, true)
+    val ioCandidates =
+      BendWorkspaceSymbolSearch.named(getProject, "IO").toOption.get
+    assertEquals(
+      "Base has a law and its fill for IO; one import should cover both",
+      2,
+      ioCandidates.count(_.isBase)
+    )
+    val intention = myFixture.getAvailableIntentions.asScala
+      .find(_.getText == "Import Bend symbol")
+      .getOrElse(
+        throw new AssertionError("Import context action was missing for IO")
+      )
+    myFixture.launchAction(intention)
+    assertTrue(root.getText, root.getText.startsWith("import Base\n"))
+    myFixture.getEditor.getCaretModel.moveToOffset(
+      root.getText.indexOf("IO(Unit)")
+    )
+    assertNotNull(
+      "Imported IO should resolve",
+      referenceAtCaret(root).getReferences.head.resolve()
+    )
+
   def testGeneratedImportPassesThePinnedCompiler(): Unit =
     val target = myFixture.addFileToProject(
       "library/functions.bend",
@@ -248,6 +294,16 @@ final class BendExplicitImportTest extends BasePlatformTestCase:
       .get
       .find(_.path.exists(_ == path))
       .getOrElse(throw new AssertionError("Workspace candidate was not found"))
+
+  private def configureBase(): Unit =
+    val base = RealBendCompilerFixture.inputs.base
+    VfsRootAccess.allowRootAccess(
+      getTestRootDisposable,
+      base.getParent.toString
+    )
+    ApplicationManager.getApplication
+      .getService(classOf[BendToolchainSettings])
+      .update(BendToolchainChoices(baseSource = base.toString))
 
   private def referenceAtCaret(
       file: com.intellij.psi.PsiFile
