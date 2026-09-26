@@ -3,15 +3,27 @@ package com.dearlordylord.bend.idea.features.proofs
 import com.intellij.openapi.actionSystem.{
   ActionManager,
   ActionGroup,
-  ActionUpdateThread
+  ActionPlaces,
+  ActionUiKind,
+  ActionUpdateThread,
+  AnActionEvent,
+  CommonDataKeys,
+  DataContext
 }
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.testFramework.ServiceContainerUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.dearlordylord.bend.idea.workspace.api.{
   BendNamedPathInventory,
-  BendPathInventoryStatus
+  BendPathInventoryStatus,
+  BendPathEntry,
+  BendWorkspacePaths
 }
 import org.junit.Assert.*
 import java.nio.file.Path
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.io.Source
 
 final class BendProofRootSelectionTest extends BasePlatformTestCase:
@@ -37,6 +49,79 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
     )
     assertEquals(List(Some(root), None), choices.map(_.path))
     assertEquals("Browse for a Bend proof root…", choices.last.toString)
+
+  def testMenuActionFindsProofRootsOutsideTheUiThread(): Unit =
+    val proof = myFixture.configureByText("PROOF.bend", "import Base\n")
+    val project = getProject
+    val editor = myFixture.getEditor
+    val reached = new CountDownLatch(1)
+    val searchedOnUiThread = new AtomicBoolean(true)
+    val hadTaskIndicator = new AtomicBoolean(false)
+    val paths = new BendWorkspacePaths:
+      override def children(path: String, limit: Int): List[BendPathEntry] =
+        Nil
+
+      override def filesNamed(
+          name: String,
+          limit: Int
+      ): BendNamedPathInventory =
+        val onUiThread = ApplicationManager.getApplication.isDispatchThread
+        searchedOnUiThread.set(onUiThread)
+        if onUiThread then
+          reached.countDown()
+          throw new AssertionError(
+            "Proof root inventory ran in the menu callback"
+          )
+        val indicator = Option(
+          ProgressManager.getInstance().getProgressIndicator
+        )
+        hadTaskIndicator.set(indicator.nonEmpty)
+        indicator.foreach(_.cancel())
+        reached.countDown()
+        BendNamedPathInventory(Nil, BendPathInventoryStatus.Complete)
+
+      override def filesWithExtension(
+          extension: String,
+          limit: Int
+      ): Either[String, List[String]] = Right(Nil)
+    ServiceContainerUtil.replaceService(
+      project,
+      classOf[BendWorkspacePaths],
+      paths,
+      getTestRootDisposable
+    )
+    val context = new DataContext:
+      override def getData(id: String): AnyRef =
+        if id == CommonDataKeys.PROJECT.getName then project
+        else if id == CommonDataKeys.VIRTUAL_FILE.getName then
+          proof.getVirtualFile
+        else if id == CommonDataKeys.EDITOR.getName then editor
+        else null
+    val action = new BendCheckProofRootAction
+    val event = AnActionEvent.createEvent(
+      action,
+      context,
+      action.getTemplatePresentation.clone(),
+      ActionPlaces.MAIN_MENU,
+      ActionUiKind.MAIN_MENU,
+      null
+    )
+
+    assertTrue(
+      "Menu action fixture must run on the UI thread",
+      ApplicationManager.getApplication.isDispatchThread
+    )
+    action.actionPerformed(event)
+
+    assertTrue("Root inventory should run", reached.await(5, TimeUnit.SECONDS))
+    assertFalse(
+      "Root inventory must be outside the UI thread",
+      searchedOnUiThread.get
+    )
+    assertTrue(
+      "Root inventory should belong to a cancellable task",
+      hadTaskIndicator.get
+    )
 
   def testPartialRootInventoryKeepsSavedAndOpenCandidatesAndStatus(): Unit =
     val inventory = BendProofRootSelection.inventory(

@@ -9,6 +9,7 @@ import com.dearlordylord.bend.idea.analysis.model.{
   BendCompleteness
 }
 import com.dearlordylord.bend.idea.workspace.api.{
+  BendNamedPathInventory,
   BendPathInventoryStatus,
   BendWorkspacePaths
 }
@@ -18,7 +19,9 @@ import com.intellij.openapi.actionSystem.{
   AnActionEvent,
   CommonDataKeys
 }
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileChooser.{FileChooser, FileChooserDescriptor}
+import com.intellij.openapi.progress.{ProgressIndicator, Task}
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import scala.jdk.CollectionConverters.*
@@ -38,13 +41,36 @@ final class BendCheckProofRootAction extends AnAction("Check Bend Proof Root"):
     val current = Option(event.getData(CommonDataKeys.VIRTUAL_FILE))
       .filter(file => file.isValid && !file.isDirectory)
       .map(_.getPath)
-    val store = project.getService(classOf[BendProofRootStore])
-    val conventional = project
-      .getService(classOf[BendWorkspacePaths])
-      .filesNamed("PROOF.bend", SuggestionLimit)
+    val editor = Option(event.getData(CommonDataKeys.EDITOR))
+    val selected = project
+      .getService(classOf[BendProofRootStore])
+      .selectedPaths
+    new Task.Backgroundable(project, "Finding Bend proof roots", true):
+      private var discovered: Option[BendNamedPathInventory] = None
+
+      override def run(indicator: ProgressIndicator): Unit =
+        val inventory = project
+          .getService(classOf[BendWorkspacePaths])
+          .filesNamed("PROOF.bend", SuggestionLimit)
+        if !indicator.isCanceled then discovered = Some(inventory)
+
+      override def onSuccess(): Unit =
+        if !project.isDisposed then
+          discovered.foreach(conventional =>
+            showChooser(project, current, selected, conventional, editor)
+          )
+    .queue()
+
+  private def showChooser(
+      project: Project,
+      current: Option[String],
+      selected: List[String],
+      conventional: BendNamedPathInventory,
+      editor: Option[Editor]
+  ): Unit =
     val roots = BendProofRootSelection.candidates(
       current,
-      store.selectedPaths,
+      selected,
       conventional.paths
     )
     val choices = BendProofRootSelection.choices(roots)
@@ -64,9 +90,10 @@ final class BendCheckProofRootAction extends AnAction("Check Bend Proof Root"):
           case None       => browse(project)
       }
       .createPopup()
-    Option(event.getData(CommonDataKeys.EDITOR)) match
-      case Some(editor) => popup.showInBestPositionFor(editor)
-      case None         => popup.showCenteredInCurrentWindow(project)
+    editor match
+      case Some(value) if !value.isDisposed =>
+        popup.showInBestPositionFor(value)
+      case _ => popup.showCenteredInCurrentWindow(project)
 
   private def browse(project: Project): Unit =
     val descriptor = new FileChooserDescriptor(
