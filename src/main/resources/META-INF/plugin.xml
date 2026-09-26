@@ -28,8 +28,9 @@ Editing works without a Bend installation. Checking requires a configured Bend c
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
-    <depends optional="true" config-file="com.dearlordylord.bend.idea-spellchecker.xml">com.intellij.modules.spellchecker</depends>
     <extensions defaultExtensionNs="com.intellij">
+        <spellchecker.support language="Bend"
+                              implementationClass="com.dearlordylord.bend.idea.features.spelling.BendSpellcheckingStrategy"/>
         <postStartupActivity implementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckingStartup"/>
         <toolWindow id="Bend Proof Progress"
                     anchor="right"

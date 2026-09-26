@@ -174,7 +174,7 @@ Static dependency inspection uses `symbols.api.BendSourceApplications` only to i
 
 The #39 actions use editable IntelliJ file templates for one Bend module or the conventional sibling `LAWS.bend`/`PROOF.bend` pair. The pair shares the `Laws` alias, refuses either filename collision before creating files, and places the caret in its explicit `?TODO` hole. These files remain ordinary editable source; the hole is source inventory, never evidence of proof completion.
 
-The #40 spelling extension is optional on the IDE spellchecker plugin and uses its standard dictionaries, text splitters and fixes. It tokenizes `PsiComment` text and `STRING_CONTENT` leaves only, excluding identifiers, operators, escape tokens, module imports and recognized foreign asset paths. Corrections stay within each literal-content leaf, so quote and escape spelling remain outside the edit range.
+The #40 spelling extension uses the IDE platform spellchecker API and its standard dictionaries, text splitters and fixes. The API is present in the supported 2025.1 platform; no separate spellchecker module exists there, so the strategy is registered in the main plugin descriptor. It tokenizes `PsiComment` text and `STRING_CONTENT` leaves only, excluding identifiers, operators, escape tokens, module imports and recognized foreign asset paths. Corrections stay within each literal-content leaf, so quote and escape spelling remain outside the edit range.
 
 ### A source signature is not a compiler type — #5, #8 and #18
 

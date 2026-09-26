@@ -7,7 +7,7 @@ import com.intellij.psi.{
   PsiElement,
   PsiRecursiveElementWalkingVisitor
 }
-import com.intellij.spellchecker.inspections.Splitter
+import com.intellij.spellchecker.inspections.{SpellCheckingInspection, Splitter}
 import com.intellij.spellchecker.tokenizer.{
   SpellcheckingStrategy,
   TokenConsumer,
@@ -20,6 +20,25 @@ import scala.jdk.CollectionConverters.*
 import org.junit.Assert.*
 
 final class BendSpellcheckingTest extends BasePlatformTestCase:
+  def testRegisteredInspectionHighlightsCommentAndStringTypos(): Unit =
+    myFixture.enableInspections(new SpellCheckingInspection)
+    val file = myFixture.configureByText(
+      "spellcheck.bend",
+      "import Base\n\n# A commment with a mispeled word.\n" +
+        "def spellcheck_text() -> String:\n" +
+        "  \"This strng has an intentional spelling error.\"\n"
+    )
+    val highlighted = myFixture.doHighlighting().asScala.toList.map { info =>
+      file.getText.substring(info.getStartOffset, info.getEndOffset)
+    }
+    List("commment", "mispeled", "strng").foreach { typo =>
+      assertTrue(
+        s"Missing spelling highlight for $typo: $highlighted",
+        highlighted.contains(typo)
+      )
+    }
+    assertFalse(highlighted.contains("spellcheck_text"))
+
   def testCommentsAndOrdinaryStringTextUseIDETextTokenizers(): Unit =
     val file = myFixture.configureByText(
       "spell.bend",

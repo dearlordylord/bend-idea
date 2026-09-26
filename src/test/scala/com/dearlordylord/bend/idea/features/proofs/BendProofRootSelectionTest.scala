@@ -268,11 +268,12 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
       xml.contains("group id=\"Bend.Tools\" text=\"Bend\" popup=\"true\"")
     )
     assertTrue(
-      "spellchecking descriptor follows the Spellchecker module when available",
+      "Bend spellchecking strategy is registered in the platform descriptor",
       xml.contains(
-        "config-file=\"com.dearlordylord.bend.idea-spellchecker.xml\">com.intellij.modules.spellchecker"
+        "<spellchecker.support language=\"Bend\""
       )
     )
+    assertFalse(xml.contains("com.intellij.modules.spellchecker"))
     List("Bend.CreateModule", "Bend.CreateLawProofPair").foreach { id =>
       val action = xml.split("<action id=\"" + id + "\"", 2).last
       assertTrue(

@@ -1,6 +1,0 @@
-<idea-plugin>
-    <extensions defaultExtensionNs="com.intellij">
-        <spellchecker.support language="Bend"
-                              implementationClass="com.dearlordylord.bend.idea.features.spelling.BendSpellcheckingStrategy"/>
-    </extensions>
-</idea-plugin>
