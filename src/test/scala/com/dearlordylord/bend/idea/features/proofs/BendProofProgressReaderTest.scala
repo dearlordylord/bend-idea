@@ -136,6 +136,18 @@ final class BendProofProgressReaderTest extends BasePlatformTestCase:
       .get
     val panel = new BendProofProgressPanel(getProject)
     try
+      panel.refresh()
+      PlatformTestUtil.waitWithEventsDispatching(
+        "Progress panel loads the selected proof root",
+        () => panel.snapshotForTests.exists(_.rootPath == secondPath),
+        10
+      )
+      panel.selectRootForTests(firstPath)
+      PlatformTestUtil.waitWithEventsDispatching(
+        "Progress panel loads the requested proof root",
+        () => panel.snapshotForTests.exists(_.rootPath == firstPath),
+        10
+      )
       myFixture.getEditor.getCaretModel.moveToOffset(0)
       panel.openEntry(refreshed)
       PlatformTestUtil.waitWithEventsDispatching(
@@ -145,7 +157,7 @@ final class BendProofProgressReaderTest extends BasePlatformTestCase:
             FileEditorManager.getInstance(getProject).getSelectedTextEditor
           )
             .exists(_.getCaretModel.getOffset == refreshed.offset),
-        5000
+        10
       )
       assertEquals(
         refreshed.offset,
