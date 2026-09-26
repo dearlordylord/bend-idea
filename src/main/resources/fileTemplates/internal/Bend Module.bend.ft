@@ -1,2 +1,4 @@
+import Base
+
 def ${NAME}() -> U32:
   0

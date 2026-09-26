@@ -15,7 +15,7 @@ final class BendFileTemplatesTest extends BasePlatformTestCase:
       BendFileTemplates.createModule(directory, "Arithmetic").toOption.get
     assertEquals("Arithmetic.bend", module.getName)
     assertEquals(
-      "def Arithmetic() -> U32:\n  0\n",
+      "import Base\n\ndef Arithmetic() -> U32:\n  0\n",
       module.getText
     )
     BendFileTemplates.openAt(module, module.getText.indexOf("Arithmetic"))
@@ -26,7 +26,7 @@ final class BendFileTemplatesTest extends BasePlatformTestCase:
       editor.getCaretModel.getOffset
     )
     assertTrue(BendFileTemplates.createModule(directory, "Arithmetic").isLeft)
-    assertEquals("def Arithmetic() -> U32:\n  0\n", module.getText)
+    assertEquals("import Base\n\ndef Arithmetic() -> U32:\n  0\n", module.getText)
 
   def testLawProofPairLinksImportsAndLeavesNavigableHole(): Unit =
     val context = myFixture.addFileToProject("proofs/context.bend", "")
@@ -38,11 +38,11 @@ final class BendFileTemplatesTest extends BasePlatformTestCase:
     PsiDocumentManager.getInstance(getProject).commitAllDocuments()
     assertEquals("LAWS.bend", laws.getName)
     assertEquals(
-      "law claim:\n  {1 == 1 : U32}\n",
+      "import Base\n\nlaw claim:\n  {1 == 1 : U32}\n",
       laws.getText
     )
     assertEquals(
-      "import ./LAWS.bend as Laws\ndef Laws.claim():\n  ?TODO\n",
+      "import Base\nimport ./LAWS.bend as Laws\n\ndef Laws.claim():\n  ?TODO\n",
       proof.getText
     )
     assertTrue(
