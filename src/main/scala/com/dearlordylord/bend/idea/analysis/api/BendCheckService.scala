@@ -39,7 +39,10 @@ trait BendBackgroundCheckControl:
   def backgroundConfigurationChanged(enabled: Boolean): Unit
   def backgroundSchedulerDisposed(): Unit
   def backgroundAffectedRoots(source: FileId): Set[FileId]
-  /** Roots whose captured inputs or unresolved paths may change at these VFS paths. */
+
+  /** Roots whose captured inputs or unresolved paths may change at these VFS
+    * paths.
+    */
   def backgroundAffectedPaths(paths: Set[String]): Set[FileId]
 
 /** Explicit root check and last published root result, consumed by the editor.

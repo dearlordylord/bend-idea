@@ -400,7 +400,8 @@ final class BendCheckSession(project: Project)
         case (root, rootState)
             if (rootState.snapshot.toList ++ rootState.pending.toList.map(
               _.snapshot
-            )).exists(snapshotAffectedBy(_, paths)) => root
+            )).exists(snapshotAffectedBy(_, paths)) =>
+          root
       }.toSet
     }
 

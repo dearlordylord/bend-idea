@@ -5,10 +5,17 @@ import com.dearlordylord.bend.idea.analysis.api.{
   BendExplicitCheckOutcome,
   BendExplicitCheckRunner
 }
-import com.dearlordylord.bend.idea.analysis.model.{BendCheckOutcome, BendCheckResult}
+import com.dearlordylord.bend.idea.analysis.model.{
+  BendCheckOutcome,
+  BendCheckResult
+}
 import com.dearlordylord.bend.idea.model.FileId
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.{ApplicationManager, ModalityState, ReadAction}
+import com.intellij.openapi.application.{
+  ApplicationManager,
+  ModalityState,
+  ReadAction
+}
 import com.intellij.openapi.editor.{EditorFactory, event}
 import com.intellij.openapi.fileEditor.{
   FileDocumentManager,
@@ -86,7 +93,8 @@ final class BendProofProgressPanel(
   private val entries = new DefaultListModel[BendProofInventoryEntry]()
   private val list = new JBList[BendProofInventoryEntry](entries)
   private val inventoryEntries = new DefaultListModel[BendProofInventoryEntry]()
-  private val inventoryList = new JBList[BendProofInventoryEntry](inventoryEntries)
+  private val inventoryList =
+    new JBList[BendProofInventoryEntry](inventoryEntries)
   private val tabs = new JTabbedPane()
   private val counts = new JBLabel("Select a proof root to find source work.")
   private val summary = new JBLabel(
@@ -137,7 +145,9 @@ final class BendProofProgressPanel(
         val changed = events.asScala.map(_.getPath).toSet
         if observed.exists(path =>
             changed.exists(eventPath =>
-              path == eventPath || path.startsWith(eventPath.stripSuffix("/") + "/")
+              path == eventPath || path.startsWith(
+                eventPath.stripSuffix("/") + "/"
+              )
             )
           )
         then
@@ -241,11 +251,13 @@ final class BendProofProgressPanel(
         Option(inventoryList.getSelectedValue).foreach(open))
   list.addListSelectionListener(_ => updateWorkSelection())
   openButton.addActionListener((_: ActionEvent) =>
-    Option(list.getSelectedValue).foreach(open))
+    Option(list.getSelectedValue).foreach(open)
+  )
   generateButton.addActionListener((_: ActionEvent) =>
     Option(list.getSelectedValue)
       .filter(_.kind == BendProofInventoryKind.Law)
-      .foreach(generateFill))
+      .foreach(generateFill)
+  )
   nextHoleButton.addActionListener((_: ActionEvent) => openNextHole())
   roots.addActionListener(new ActionListener:
     override def actionPerformed(event: ActionEvent): Unit =
@@ -258,7 +270,10 @@ final class BendProofProgressPanel(
     latestCheckResult
       .map(checkOutput)
       .filter(_.nonEmpty)
-      .foreach(output => Messages.showInfoMessage(project, output, "Bend check output")))
+      .foreach(output =>
+        Messages.showInfoMessage(project, output, "Bend check output")
+      )
+  )
   filter.getDocument.addDocumentListener(new SwingDocumentListener:
     override def insertUpdate(change: SwingDocumentEvent): Unit = applyFilter()
     override def removeUpdate(change: SwingDocumentEvent): Unit = applyFilter()
@@ -449,35 +464,40 @@ final class BendProofProgressPanel(
       status: String,
       result: Option[BendCheckResult]
   ): Unit =
-    latestSnapshot = Some(snapshot.copy(
-      checkedStatus = status + snapshot.sourceNotice
-    ))
+    latestSnapshot = Some(
+      snapshot.copy(
+        checkedStatus = status + snapshot.sourceNotice
+      )
+    )
     latestCheckResult = result
     summary.setText(withRootInventoryNotice(status + snapshot.sourceNotice))
     summary.setToolTipText(snapshot.rootPath)
     showOutputButton.setEnabled(
-      status != "Checking" && result.exists(value => checkOutput(value).nonEmpty)
+      status != "Checking" && result.exists(value =>
+        checkOutput(value).nonEmpty
+      )
     )
-    checkExplanation.setText(if status == "Checking" then
-      "Checking this proof root…"
-    else if result.exists(!_.fresh) then
-      "The source changed since the last check. Check root to get a current result."
-    else if status == "Not checked" ||
-      status == "Background checking disabled"
-    then
-      "Select Check root to run the Bend compiler on this proof root."
-    else result match
-      case Some(value) if value.outcome == BendCheckOutcome.Failed =>
-        val firstError = value.diagnostics.headOption.map(_.message)
-          .orElse(value.details.linesIterator.map(_.trim).find(_.nonEmpty))
-          .map(_.take(220))
-          .getOrElse("Open the check output for the compiler error.")
-        s"First error: $firstError  Fix it in the source, then Check root."
-      case Some(value) if value.outcome == BendCheckOutcome.Unavailable =>
-        "The compiler could not check this root. Show check output for the reason."
-      case Some(value) if value.outcome == BendCheckOutcome.TimedOut =>
-        "The root check timed out. Show check output for details."
-      case _ => ""
+    checkExplanation.setText(
+      if status == "Checking" then "Checking this proof root…"
+      else if result.exists(!_.fresh) then
+        "The source changed since the last check. Check root to get a current result."
+      else if status == "Not checked" ||
+        status == "Background checking disabled"
+      then "Select Check root to run the Bend compiler on this proof root."
+      else
+        result match
+          case Some(value) if value.outcome == BendCheckOutcome.Failed =>
+            val firstError = value.diagnostics.headOption
+              .map(_.message)
+              .orElse(value.details.linesIterator.map(_.trim).find(_.nonEmpty))
+              .map(_.take(220))
+              .getOrElse("Open the check output for the compiler error.")
+            s"First error: $firstError  Fix it in the source, then Check root."
+          case Some(value) if value.outcome == BendCheckOutcome.Unavailable =>
+            "The compiler could not check this root. Show check output for the reason."
+          case Some(value) if value.outcome == BendCheckOutcome.TimedOut =>
+            "The root check timed out. Show check output for details."
+          case _ => ""
     )
 
   private def checkOutput(result: BendCheckResult): String =
@@ -508,7 +528,8 @@ final class BendProofProgressPanel(
   private def applyFilter(): Unit = renderEntries()
 
   private def renderEntries(): Unit =
-    val selectedWork = Option(list.getSelectedValue).orElse(pendingWorkSelection)
+    val selectedWork =
+      Option(list.getSelectedValue).orElse(pendingWorkSelection)
     entries.clear()
     BendProofProgressModel
       .filtered(workItems, filter.getText)
@@ -519,7 +540,7 @@ final class BendProofProgressPanel(
       val candidates = (0 until entries.size()).filter(index =>
         val current = entries.getElementAt(index)
         current.kind == previous.kind && current.path == previous.path &&
-          current.name == previous.name
+        current.name == previous.name
       )
       candidates
         .find(index =>
@@ -536,7 +557,10 @@ final class BendProofProgressPanel(
         val _ = inventoryEntries.addElement(entry)
       }
     tabs.setTitleAt(0, s"Work to do (${entries.getSize})")
-    tabs.setTitleAt(1, s"Laws and candidate fills (${inventoryEntries.getSize})")
+    tabs.setTitleAt(
+      1,
+      s"Laws and candidate fills (${inventoryEntries.getSize})"
+    )
     updateWorkSelection()
 
   private def renderer(work: Boolean): DefaultListCellRenderer =
@@ -590,13 +614,14 @@ final class BendProofProgressPanel(
         "No candidate fill found in this capped source inventory. Generation rechecks the selected root before inserting."
       case Some(_) =>
         "Generate an incomplete fill in this root, edit its ?TODO hole, then check the root."
-      case None if workItems.isEmpty &&
-          latestSnapshot.exists(_.checkedStatus.contains("failed")) =>
+      case None
+          if workItems.isEmpty &&
+            latestSnapshot.exists(_.checkedStatus.contains("failed")) =>
         "No source work items found. The root check failed; inspect its compiler diagnostics."
       case None if workItems.isEmpty && latestSnapshot.nonEmpty =>
         "No source holes or unmatched laws found. Check the root for the compiler verdict."
-      case None => "Select a work item to open it or generate an incomplete fill."
-    )
+      case None =>
+        "Select a work item to open it or generate an incomplete fill.")
 
   private def openNextHole(): Unit =
     val visible = (0 until entries.getSize)
@@ -611,67 +636,72 @@ final class BendProofProgressPanel(
   private def generateFill(entry: BendProofInventoryEntry): Unit =
     selectedRoot.foreach { rootPath =>
       val ticket = selectionGeneration.get()
-      ProgressManager.getInstance().run(
-        new Task.Backgroundable(project, "Finding selected Bend law", true):
-          private var lawPointer: Option[SmartPsiElementPointer[BendLaw]] = None
+      ProgressManager
+        .getInstance()
+        .run(
+          new Task.Backgroundable(project, "Finding selected Bend law", true):
+            private var lawPointer: Option[SmartPsiElementPointer[BendLaw]] =
+              None
 
-          override def run(indicator: ProgressIndicator): Unit =
-            if !indicator.isCanceled then
-              val sourceModificationCount = ReadAction.compute(() =>
-                PsiModificationTracker
-                  .getInstance(project)
-                  .getModificationCount
-              )
-              reader.navigationTarget(entry).foreach { _ =>
-                lawPointer = ReadAction.compute(() =>
-                  if PsiModificationTracker
-                      .getInstance(project)
-                      .getModificationCount != sourceModificationCount
-                  then None
-                  else
-                    BendPhysicalTargets
-                      .file(project, entry.sourceId)
-                      .filter(file =>
-                        file.isValid && entry.offset < file.getTextLength
-                      )
-                      .flatMap(file =>
-                        Option(file.findElementAt(entry.offset))
-                          .flatMap(element =>
-                            Option(PsiTreeUtil.getParentOfType(
-                              element,
-                              classOf[BendLaw]
-                            ))
-                          )
-                      )
-                      .filter(law =>
-                        law.getNameIdentifier.getTextOffset == entry.offset &&
-                          law.getName == entry.name
-                      )
-                      .map(law =>
-                        SmartPointerManager
-                          .getInstance(project)
-                          .createSmartPsiElementPointer(law)
-                      )
+            override def run(indicator: ProgressIndicator): Unit =
+              if !indicator.isCanceled then
+                val sourceModificationCount = ReadAction.compute(() =>
+                  PsiModificationTracker
+                    .getInstance(project)
+                    .getModificationCount
                 )
-              }
+                reader.navigationTarget(entry).foreach { _ =>
+                  lawPointer = ReadAction.compute(() =>
+                    if PsiModificationTracker
+                        .getInstance(project)
+                        .getModificationCount != sourceModificationCount
+                    then None
+                    else
+                      BendPhysicalTargets
+                        .file(project, entry.sourceId)
+                        .filter(file =>
+                          file.isValid && entry.offset < file.getTextLength
+                        )
+                        .flatMap(file =>
+                          Option(file.findElementAt(entry.offset))
+                            .flatMap(element =>
+                              Option(
+                                PsiTreeUtil.getParentOfType(
+                                  element,
+                                  classOf[BendLaw]
+                                )
+                              )
+                            )
+                        )
+                        .filter(law =>
+                          law.getNameIdentifier.getTextOffset == entry.offset &&
+                            law.getName == entry.name
+                        )
+                        .map(law =>
+                          SmartPointerManager
+                            .getInstance(project)
+                            .createSmartPsiElementPointer(law)
+                        )
+                  )
+                }
 
-          override def onSuccess(): Unit =
-            if selectionCurrent(rootPath, ticket) &&
-              selectedRoot.contains(rootPath)
-            then
-              lawPointer match
-                case Some(pointer) =>
-                  new BendGenerateLawFillAction().generateForRoot(
-                    project,
-                    pointer,
-                    rootPath,
-                    () => selectionCurrent(rootPath, ticket)
-                  )
-                case None =>
-                  detail.setText(
-                    "The law changed; refresh proof work before generating a fill."
-                  )
-      )
+            override def onSuccess(): Unit =
+              if selectionCurrent(rootPath, ticket) &&
+                selectedRoot.contains(rootPath)
+              then
+                lawPointer match
+                  case Some(pointer) =>
+                    new BendGenerateLawFillAction().generateForRoot(
+                      project,
+                      pointer,
+                      rootPath,
+                      () => selectionCurrent(rootPath, ticket)
+                    )
+                  case None =>
+                    detail.setText(
+                      "The law changed; refresh proof work before generating a fill."
+                    )
+        )
     }
 
   private def open(entry: BendProofInventoryEntry): Unit =
@@ -695,30 +725,37 @@ final class BendProofProgressPanel(
                           detail.setText(
                             "Source changed; refresh proof progress before opening this row."
                           )
-                        else target match
-                          case Some(value) =>
-                            val editor = FileEditorManager
-                              .getInstance(project)
-                              .openTextEditor(new OpenFileDescriptor(
-                              project,
-                              value.file,
-                              value.offset
-                            ), true)
-                            if entry.kind == BendProofInventoryKind.Hole then
-                              Option(editor).foreach { opened =>
-                                val end = value.offset + entry.name.length
-                                val document = opened.getDocument
-                                if end <= document.getTextLength &&
-                                  document.getText
-                                    .substring(value.offset, end) == entry.name
-                                then
-                                  opened.getSelectionModel
-                                    .setSelection(value.offset, end)
-                              }
-                          case None =>
-                            detail.setText(
-                              "Source changed; refresh proof progress before opening this row."
-                            )
+                        else
+                          target match
+                            case Some(value) =>
+                              val editor = FileEditorManager
+                                .getInstance(project)
+                                .openTextEditor(
+                                  new OpenFileDescriptor(
+                                    project,
+                                    value.file,
+                                    value.offset
+                                  ),
+                                  true
+                                )
+                              if entry.kind == BendProofInventoryKind.Hole then
+                                Option(editor).foreach { opened =>
+                                  val end = value.offset + entry.name.length
+                                  val document = opened.getDocument
+                                  if end <= document.getTextLength &&
+                                    document.getText
+                                      .substring(
+                                        value.offset,
+                                        end
+                                      ) == entry.name
+                                  then
+                                    opened.getSelectionModel
+                                      .setSelection(value.offset, end)
+                                }
+                            case None =>
+                              detail.setText(
+                                "Source changed; refresh proof progress before opening this row."
+                              )
                   ,
                   ModalityState.any()
                 )

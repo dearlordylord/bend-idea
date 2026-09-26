@@ -43,19 +43,22 @@ final case class BendProofLawGroup(
 )
 
 object BendProofProgressModel:
-  def workItems(snapshot: BendProofProgressSnapshot): List[BendProofInventoryEntry] =
+  def workItems(
+      snapshot: BendProofProgressSnapshot
+  ): List[BendProofInventoryEntry] =
     snapshot.entries.filter(_.kind == BendProofInventoryKind.Hole) ++
       snapshot.lawGroups.filter(_.candidateFills.isEmpty).map(_.law)
 
   def inventoryItems(
       snapshot: BendProofProgressSnapshot
   ): List[BendProofInventoryEntry] =
-    val grouped = snapshot.lawGroups.flatMap(group =>
-      group.law :: group.candidateFills
-    )
-    val groupedFills = grouped.filter(
-      _.kind == BendProofInventoryKind.CandidateFill
-    ).toSet
+    val grouped =
+      snapshot.lawGroups.flatMap(group => group.law :: group.candidateFills)
+    val groupedFills = grouped
+      .filter(
+        _.kind == BendProofInventoryKind.CandidateFill
+      )
+      .toSet
     grouped ++ snapshot.entries.filter(entry =>
       entry.kind == BendProofInventoryKind.CandidateFill &&
         !groupedFills.contains(entry)
@@ -84,10 +87,12 @@ object BendProofProgressModel:
           case BendCheckOutcome.Unavailable => "Checker unavailable"
           case BendCheckOutcome.TimedOut    => "Compiler check timed out"
       case None => BendCheckingStatus.label(status)
-    val reliance = result.filter(value =>
-      value.outcome == BendCheckOutcome.Success ||
-        value.completeness == BendCompleteness.Incomplete
-    ).map(_.reliance) match
+    val reliance = result
+      .filter(value =>
+        value.outcome == BendCheckOutcome.Success ||
+          value.completeness == BendCompleteness.Incomplete
+      )
+      .map(_.reliance) match
       case Some(BendReliance.UnsafeOrForeign) => "; unsafe or foreign reliance"
       case Some(BendReliance.Unknown)         => "; reliance unknown"
       case _                                  => ""

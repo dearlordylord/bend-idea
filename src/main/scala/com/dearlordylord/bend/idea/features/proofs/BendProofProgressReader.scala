@@ -85,9 +85,8 @@ class BendProofProgressReader(project: Project):
         val inventoryFiles = sourceFiles.filterNot(file =>
           importedBaseIds.contains(file.source.id)
         )
-        val baseFiles = sourceFiles.filter(file =>
-          importedBaseIds.contains(file.source.id)
-        )
+        val baseFiles =
+          sourceFiles.filter(file => importedBaseIds.contains(file.source.id))
         var limited =
           graph.sourceInventoryCapped || graph.files.size > SourceFileLimit
         val holes = scala.collection.mutable.ListBuffer.empty[
@@ -162,22 +161,24 @@ class BendProofProgressReader(project: Project):
         // Base supports law/fill matching, but its library declarations are
         // not work items for a selected proof root.
         val baseLaws = baseFiles.flatMap { loaded =>
-          ReadAction.compute(() =>
-            BendSourceSymbols
-              .sourceDeclarationsBounded(
-                project,
-                loaded.source.id,
-                loaded.source.text,
-                BaseLawLimit,
-                SourceCharacterLimit,
-                Set(BendSymbolCategory.Law),
-                canceled
-              )
-              .map(result =>
-                if result.truncated then limited = true
-                result.symbols.map(BendSourceSymbols.declarationFact)
-              )
-          ).getOrElse(Nil)
+          ReadAction
+            .compute(() =>
+              BendSourceSymbols
+                .sourceDeclarationsBounded(
+                  project,
+                  loaded.source.id,
+                  loaded.source.text,
+                  BaseLawLimit,
+                  SourceCharacterLimit,
+                  Set(BendSymbolCategory.Law),
+                  canceled
+                )
+                .map(result =>
+                  if result.truncated then limited = true
+                  result.symbols.map(BendSourceSymbols.declarationFact)
+                )
+            )
+            .getOrElse(Nil)
         }
         if canceled() then return None
 
@@ -187,26 +188,27 @@ class BendProofProgressReader(project: Project):
         )
         val sourcesById =
           graph.files.map(file => file.source.id -> file.source).toMap
-        val declarationEntriesByHandle = declarations.toList.flatMap { declaration =>
-          val linkedLaw = linkedFills.get(declaration.handle)
-          val kind = if declaration.category == BendSymbolCategory.Law then
-            Some(BendProofInventoryKind.Law)
-          else linkedLaw.map(_ => BendProofInventoryKind.CandidateFill)
-          kind.map { inventoryKind =>
-            val label = linkedLaw match
-              case Some(law) => s"${declaration.name} → ${law.name}"
-              case None      => declaration.name
-            val source = sourcesById.get(declaration.handle.file)
-            declaration.handle -> BendProofInventoryEntry(
-              inventoryKind,
-              label,
-              source.fold(rootPath)(_.path),
-              declaration.handle.nameOffset,
-              declaration.handle.file,
-              source.fold(root.revision)(_.revision),
-              loadingConfiguration.configurationRevision
-            )
-          }
+        val declarationEntriesByHandle = declarations.toList.flatMap {
+          declaration =>
+            val linkedLaw = linkedFills.get(declaration.handle)
+            val kind = if declaration.category == BendSymbolCategory.Law then
+              Some(BendProofInventoryKind.Law)
+            else linkedLaw.map(_ => BendProofInventoryKind.CandidateFill)
+            kind.map { inventoryKind =>
+              val label = linkedLaw match
+                case Some(law) => s"${declaration.name} → ${law.name}"
+                case None      => declaration.name
+              val source = sourcesById.get(declaration.handle.file)
+              declaration.handle -> BendProofInventoryEntry(
+                inventoryKind,
+                label,
+                source.fold(rootPath)(_.path),
+                declaration.handle.nameOffset,
+                declaration.handle.file,
+                source.fold(root.revision)(_.revision),
+                loadingConfiguration.configurationRevision
+              )
+            }
         }
         val declarationEntries = declarationEntriesByHandle.map(_._2)
         val entriesByHandle = declarationEntriesByHandle.toMap
@@ -214,15 +216,17 @@ class BendProofProgressReader(project: Project):
         val lawGroups = declarations.toList
           .filter(_.category == BendSymbolCategory.Law)
           .flatMap(law =>
-            entriesByHandle.get(law.handle).map(lawEntry =>
-              BendProofLawGroup(
-                lawEntry,
-                fillsByLaw
-                  .getOrElse(law.handle, Nil)
-                  .flatMap(entriesByHandle.get)
-                  .sortBy(entry => (entry.path, entry.offset))
+            entriesByHandle
+              .get(law.handle)
+              .map(lawEntry =>
+                BendProofLawGroup(
+                  lawEntry,
+                  fillsByLaw
+                    .getOrElse(law.handle, Nil)
+                    .flatMap(entriesByHandle.get)
+                    .sortBy(entry => (entry.path, entry.offset))
+                )
               )
-            )
           )
           .sortBy(group => (group.law.path, group.law.offset))
         if canceled() ||
@@ -232,8 +236,9 @@ class BendProofProgressReader(project: Project):
         then return None
         val roomForDeclarations = EntryLimit - holes.size
         if declarationEntries.size > roomForDeclarations then limited = true
-        val entries = holes.toList.sortBy(entry => (entry.path, entry.offset)) ++
-          declarationEntries.take(roomForDeclarations)
+        val entries =
+          holes.toList.sortBy(entry => (entry.path, entry.offset)) ++
+            declarationEntries.take(roomForDeclarations)
         val inventoryLimited = limited
         val graphState =
           if graph.problems.isEmpty then ""
@@ -253,7 +258,9 @@ class BendProofProgressReader(project: Project):
             sourceNotice,
             sourcePaths ++
               graph.edges.map(_.requestedPath) ++
-              Option.when(Path.of(rootPath).getFileName.toString == "PROOF.bend")(
+              Option.when(
+                Path.of(rootPath).getFileName.toString == "PROOF.bend"
+              )(
                 Path.of(rootPath).resolveSibling("LAWS.bend").toString
               ),
             loadingConfiguration.configurationRevision

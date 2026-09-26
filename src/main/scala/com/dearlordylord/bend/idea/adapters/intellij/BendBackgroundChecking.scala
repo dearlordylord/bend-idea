@@ -142,7 +142,8 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
             val candidates = synchronized {
               rootFiles.collect {
                 case (root, file)
-                    if affected.contains(root) || paths.contains(file.getPath) =>
+                    if affected.contains(root) || paths
+                      .contains(file.getPath) =>
                   file
               }.toList
             }

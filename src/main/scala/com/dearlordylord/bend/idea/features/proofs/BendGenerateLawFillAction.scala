@@ -121,7 +121,8 @@ final class BendGenerateLawFillAction
         )
         file.filter(_ => stillCurrent()).foreach { sourceFile =>
           val roots = selectedRoot match
-            case Some(path) => BendProofRootInventory(
+            case Some(path) =>
+              BendProofRootInventory(
                 List(path),
                 BendPathInventoryStatus.Complete
               )
