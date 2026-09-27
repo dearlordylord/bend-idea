@@ -100,6 +100,7 @@ tasks.test {
             }
         }
     } else {
+        exclude("**/BendReleaseEditorSmokeTest.class")
         systemProperty("bend.test.expectedBendCommit", expectedBendCommit)
         systemProperty("bend.test.expectedBunVersion", expectedBunVersion)
         systemProperty("bend.test.expectedBunRevision", expectedBunRevision)
