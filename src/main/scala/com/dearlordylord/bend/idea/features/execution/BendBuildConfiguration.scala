@@ -259,15 +259,16 @@ private object BendBuildConfiguration:
         )
       case BendBuildOutputKind.JavaScriptSource =>
         Either.cond(
-          name.endsWith(".js"),
+          name.endsWith(".js") || name.endsWith(".cjs"),
           (),
-          "JavaScript output must use the .js extension."
+          "JavaScript output must use the .js or .cjs extension."
         )
       case BendBuildOutputKind.Native =>
         Either.cond(
-          !name.endsWith(".c") && !name.endsWith(".js"),
+          !name.endsWith(".c") && !name.endsWith(".js") &&
+            !name.endsWith(".cjs"),
           (),
-          "Native output cannot use the .c or .js extension."
+          "Native output cannot use the .c, .js, or .cjs extension."
         )
 
   def samePath(output: Path, input: Path): Boolean =
