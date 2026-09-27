@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.7
+
 ### Improved
 
 - Build configurations recognize `.cjs` as JavaScript output and reject it for

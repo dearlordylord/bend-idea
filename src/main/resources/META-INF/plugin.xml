@@ -20,9 +20,13 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.6:</p>
+<p>Version 0.1.7:</p>
 <ul>
-  <li>Tested with Bend 2.0.25</li>
+  <li>Checks recognize Bend 2.0.32 CLI verdicts and capture one current root graph across explicit, background, and proof-preview work.</li>
+  <li>With the compatible pinned helper, editor actions show exact first-error ranges, goals, expression types, resource details, normalization, and validated reflexivity steps.</li>
+  <li>Semantic actions reject stale editor locations and changed source before showing or applying results.</li>
+  <li>Expand Selection handles more Bend expressions, collections, nested bodies, and literals.</li>
+  <li>Build configurations accept .cjs JavaScript output and reject it for native builds.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
