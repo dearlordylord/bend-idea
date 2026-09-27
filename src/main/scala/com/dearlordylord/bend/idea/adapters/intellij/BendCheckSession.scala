@@ -15,8 +15,6 @@ import com.dearlordylord.bend.idea.analysis.checking.BendCheckEvent.*
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
-import com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog
-import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
@@ -534,33 +532,9 @@ final class BendCheckSession(project: Project)
       )
 
   private def graphCurrent(snapshot: BendCheckSnapshot): Boolean =
-    snapshot.graph match
-      case None        => true
-      case Some(graph) =>
-        val catalog = project.getService(classOf[BendSourceCatalog])
-        def read(path: String): Option[BendSourceRecord] = catalog.source(path)
-        val dependencies =
-          graph.files.filterNot(_.source.id == snapshot.root).forall { file =>
-            read(file.source.path).exists(current =>
-              current.id == file.source.id && current.revision == file.source.revision &&
-                current.text == file.source.text
-            )
-          }
-        val observed = graph.edges
-          .filter(_.target.isEmpty)
-          .forall(edge => read(edge.requestedPath).isEmpty)
-        val laws =
-          if Path.of(snapshot.path).getFileName.toString == "PROOF.bend" then
-            val current = read(
-              Path.of(snapshot.path).resolveSibling("LAWS.bend").toString
-            )
-            (snapshot.siblingLaws, current) match
-              case (None, None)                => true
-              case (Some(before), Some(after)) =>
-                before.id == after.id && before.revision == after.revision && before.text == after.text
-              case _ => false
-          else true
-        dependencies && observed && laws
+    snapshot.graph.isEmpty || new BendRootSnapshotCapture(project).current(
+      snapshot
+    )
 
   override def busy: Boolean = synchronized { policyState.active.nonEmpty }
 

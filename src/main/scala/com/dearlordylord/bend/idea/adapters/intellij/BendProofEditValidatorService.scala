@@ -33,7 +33,6 @@ import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
-import java.nio.file.Path
 import scala.util.control.NonFatal
 
 /** Validates reflexivity against a derived, isolated complete-root snapshot. No
@@ -80,8 +79,7 @@ final class BendProofEditValidatorService(project: Project)
       source: com.dearlordylord.bend.idea.analysis.model.BendCheckedSource,
       root: BendSourceRecord,
       selection: BendToolchainSelection,
-      catalog: BendSourceCatalog,
-      siblingPath: Option[String],
+      snapshot: BendCheckSnapshot,
       obsolete: () => Boolean
   )
 
@@ -112,64 +110,25 @@ final class BendProofEditValidatorService(project: Project)
         check.key.basePath
       ) != check.key.externalStamp
     then return Left("Bend toolchain changed before validation")
-    val catalog = project.getService(classOf[BendSourceCatalog])
+    val capture = new BendRootSnapshotCapture(project)
     val rootPathOption = check.sources.find(_.id == check.key.root).map(_.path)
     if rootPathOption.isEmpty then
       return Left("Checked root source is unavailable")
     val rootPath = rootPathOption.get
-    val rootOption = catalog.source(rootPath)
+    val original = capture.capture(rootPath, selection, () => baseObsolete)
+    if original.isEmpty then return Left("Goal validation canceled")
+    val originalSnapshot = original.get
+    if originalSnapshot.root != check.key.root then
+      return Left("Selected root identity changed before validation")
+    val rootOption =
+      originalSnapshot.graph.flatMap(_.source(originalSnapshot.root))
     if rootOption.isEmpty then
       return Left("Checked root is no longer available")
     val root = rootOption.get
-    val currentSourceOption = catalog.source(source.path)
-    if currentSourceOption.isEmpty then
-      return Left("Goal source is no longer available")
-    val currentSource = currentSourceOption.get
-    if currentSource.id != source.id || currentSource.revision != source.revision ||
-      currentSource.text != source.text
+    val currentSource = originalSnapshot.graph.flatMap(_.source(source.id))
+    if currentSource.isEmpty || currentSource.get.revision != source.revision ||
+      currentSource.get.text != source.text
     then return Left("Goal source changed before validation")
-    def sourceCurrent: Boolean = catalog
-      .source(source.path)
-      .exists(current =>
-        current.id == source.id && current.revision == source.revision &&
-          current.text == source.text
-      )
-    def rootCurrent: Boolean = catalog
-      .source(root.path)
-      .exists(current =>
-        current.id == root.id && current.revision == root.revision &&
-          current.text == root.text
-      )
-    def obsolete: Boolean =
-      baseObsolete || !sourceCurrent || !rootCurrent ||
-        ApplicationManager.getApplication
-          .getService(classOf[BendToolchainSettings])
-          .selection
-          .configurationRevision != selection.configurationRevision
-    val siblingPath = Option(Path.of(rootPath).getFileName)
-      .map(_.toString)
-      .filter(_ == "PROOF.bend")
-      .map(_ => Path.of(rootPath).resolveSibling("LAWS.bend").toString)
-    val originalSibling = siblingPath.flatMap(catalog.source)
-    val originalGraph = BendWorkspaceGraph.load(
-      root,
-      selection.baseSource,
-      selection.packageCache,
-      catalog,
-      () => obsolete
-    )
-    if obsolete then return Left("Goal validation canceled")
-    val originalSnapshot = BendGraphSnapshot.attach(
-      BendCheckSnapshot(
-        root.id,
-        root.path,
-        root.text,
-        root.revision,
-        selection
-      ),
-      originalGraph,
-      originalSibling
-    )
     if originalSnapshot.inputFingerprint != check.key.snapshotProvenance.graphFingerprint ||
       BendAnalysisKey.sourceDigest(root.text) != check.key.sourceFingerprint
     then return Left("Checked root or dependencies changed before validation")
@@ -180,36 +139,13 @@ final class BendProofEditValidatorService(project: Project)
         source,
         root,
         selection,
-        catalog,
-        siblingPath,
-        () => obsolete
+        originalSnapshot,
+        () => baseObsolete || !capture.current(originalSnapshot)
       )
     )
 
   private def inputsCurrent(prepared: Prepared): Boolean =
-    if prepared.obsolete() then false
-    else
-      val graph = BendWorkspaceGraph.load(
-        prepared.root,
-        prepared.selection.baseSource,
-        prepared.selection.packageCache,
-        prepared.catalog,
-        prepared.obsolete
-      )
-      val sibling = prepared.siblingPath.flatMap(prepared.catalog.source)
-      val snapshot = BendGraphSnapshot.attach(
-        BendCheckSnapshot(
-          prepared.root.id,
-          prepared.root.path,
-          prepared.root.text,
-          prepared.root.revision,
-          prepared.selection
-        ),
-        graph,
-        sibling
-      )
-      !prepared.obsolete() &&
-      snapshot.inputFingerprint == prepared.originalCheck.key.snapshotProvenance.graphFingerprint &&
+    !prepared.obsolete() &&
       BendExternalInputs.stamp(
         prepared.selection.executable,
         prepared.originalCheck.key.basePath
@@ -232,10 +168,21 @@ final class BendProofEditValidatorService(project: Project)
       source.revision,
       BendImportLines.parse(proposed)
     )
+    val frozen = prepared.snapshot.graph.toList.flatMap(_.files.map(_.source))
+    val byId = frozen.map(record => record.id -> record).toMap
+    val requested = prepared.snapshot.graph.toList
+      .flatMap(_.edges)
+      .flatMap(edge =>
+        edge.target
+          .flatMap(byId.get)
+          .map(record => edge.requestedPath -> record)
+      )
+    val records = ((frozen ++ prepared.snapshot.siblingLaws.toList)
+      .map(record => record.path -> record) ++ requested).toMap
     val overlay = new BendSourceCatalog:
       override def source(path: String): Option[BendSourceRecord] =
-        prepared.catalog
-          .source(path)
+        records
+          .get(path)
           .map(record => if record.id == changed.id then changed else record)
     val candidateRoot = if prepared.root.id == changed.id then changed
     else prepared.root
@@ -246,14 +193,17 @@ final class BendProofEditValidatorService(project: Project)
       overlay,
       () => canceled
     )
-    val candidateSibling = prepared.siblingPath.flatMap(overlay.source)
+    val candidateSibling = prepared.snapshot.siblingLaws.map(record =>
+      if record.id == changed.id then changed else record
+    )
     val candidateSnapshot = BendGraphSnapshot.attach(
       BendCheckSnapshot(
         candidateRoot.id,
         candidateRoot.path,
         candidateRoot.text,
         candidateRoot.revision,
-        prepared.selection
+        prepared.selection,
+        selectedPath = prepared.snapshot.selectedPath
       ),
       candidateGraph,
       candidateSibling

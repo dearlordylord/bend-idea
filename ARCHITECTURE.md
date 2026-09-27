@@ -131,6 +131,7 @@ The dependency restrictions are more precise than the drawing:
 - `workspace.api.BendSourceCatalog` is the shared read-only current-source contract: open document text wins over persisted VFS text. Workspace graph loading, explicit checks and proof inventory consume this API; only the IntelliJ adapter reads platform files/documents.
 - `analysis` does not call a completion contributor or proof panel. Features consume results; they never parse CLI output.
 - IntelliJ analysis adapters may apply the pure `analysis.checking` publication policy after capturing current revision, generation, toolchain and external-input facts. Feature handlers consume the `analysis.api` service and `analysis.model` status; they do not own publication decisions.
+- `adapters.intellij.BendRootSnapshotCapture` owns current root capture and source freshness for explicit checks, background checks and compiler-validated candidates. It reads the shared catalog and graph loader, retries a capture when sources or loading observations change during traversal, and retains canonical source IDs separately from the selected root and compiler copies. Freshness compares every observed import path with its captured target identity, including missing and retargeted paths. Candidate overlays read only captured source records; the checking session applies the same freshness owner before publication. The captured external stamp includes the executable and configured Base even when Base is not reached, so replacement during capture cannot be accepted.
 - `symbols.api.BendPhysicalTargets` reacquires a loaded source declaration from current physical PSI for references, documentation and proof links. Its consumers share the same canonical identity, declaration category, name offset and spelling recheck; feature slices do not search files or rebuild symbol resolution.
 - Feature slices do not import one another's handlers. Shared signature rendering belongs in `symbols`; reusable source skeleton rendering belongs in a narrow templates API. Share these APIs explicitly when a second consumer exists.
 - The process adapter is reused by checking and explicit execution, but `CheckBackend` accepts only a check request. Run/build have separate operations; no caller-provided arbitrary mode flag can turn a background check into Run.
@@ -335,6 +336,9 @@ This table describes contribution to the proposed architecture; it does not repl
 | #49 | Module-path navigation | `symbols.references`, `workspace` | Leading-import ranges, validated graph edges, current physical file PSI |
 | #52 | Explicit checking policy | `analysis.checking`, `analysis.api`, `adapters.intellij` | Shared immutable transitions, result provenance and current-only publication |
 | #53 | Background checking scheduler | `analysis.checking`, `analysis.api`, `adapters.intellij` | Policy-owned debounce tokens, worker priority, bounded retries and root eviction; adapter-owned handles |
+| #70 | Explicit root capture | `adapters.intellij`, `analysis.model` | One source snapshot capture and freshness owner over the catalog, loaded graph and external inputs |
+| #71 | Background snapshot migration | `adapters.intellij`, `analysis.checking` | Background reservations and publication consume the shared capture while retaining scheduler policy |
+| #72 | Candidate snapshot migration | `adapters.intellij`, `analysis.api` | Immutable overlays from captured sources with original-root freshness and undo preconditions |
 
 ## Implementation order without a large framework phase
 

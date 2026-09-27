@@ -13,6 +13,7 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ### Improved
 
+- Explicit and background checks now capture one current selected-root graph, including unsaved dependencies and sibling laws, and reject results after source or loading inputs change. Proof and resource previews validate isolated candidates against that captured graph. (#70–#72)
 - Compatible Bend 2.0.25 helper installations can highlight the compiler's
   first error at its exact source range in a checked dependency. CLI check
   verdicts and conservative fallback remain available. (#41)

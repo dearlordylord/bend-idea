@@ -2,19 +2,12 @@ package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.analysis.api.{
   BendBackgroundCheckTicket,
-  BendCheckService,
-  BendGraphSnapshot
+  BendCheckService
 }
 import com.dearlordylord.bend.idea.analysis.checking.BendCheckAction
 import com.dearlordylord.bend.idea.analysis.checking.BendCheckAction.*
-import com.dearlordylord.bend.idea.analysis.model.BendCheckSnapshot
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
-import com.dearlordylord.bend.idea.workspace.api.{
-  BendImportLines,
-  BendWorkspaceGraph
-}
-import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.{ApplicationManager, ReadAction}
 import com.intellij.openapi.editor.EditorFactory
@@ -241,36 +234,25 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       return
     val selection = settings.selection
     if !selection.diagnosticsEnabled then return
-    val captured = ReadAction.compute(() => {
-      if !file.isValid then None
-      else
-        Option(FileDocumentManager.getInstance().getDocument(file)).map {
-          document =>
-            (
-              document,
-              BendCheckSnapshot(
-                ticket.root,
-                file.getPath,
-                document.getText,
-                document.getModificationStamp,
-                selection
-              ),
-              file.getName == "PROOF.bend"
-            )
-        }
-    })
-    if captured.isEmpty then
+    val capture = new BendRootSnapshotCapture(project)
+    val initial = capture.initial(file.getPath, selection)
+    val document = ReadAction.compute(() =>
+      Option
+        .when(file.isValid)(file)
+        .flatMap(file =>
+          Option(FileDocumentManager.getInstance().getDocument(file))
+        )
+    )
+    if initial.isEmpty || document.isEmpty || initial.get.root != ticket.root
+    then
       control.backgroundAttemptFailed(ticket)
       return
-    val (document, initial, proof) = captured.get
+    val root = initial.get
+    val rootDocument = document.get
     def current: Boolean = !disposed && !project.isDisposed &&
-      control.backgroundCurrent(ticket) &&
-      ReadAction.compute(() =>
-        file.isValid &&
-          document.getModificationStamp == initial.sourceRevision
-      ) &&
-      settings.selection.configurationRevision == selection.configurationRevision &&
-      settings.selection.executable == selection.executable
+      control.backgroundCurrent(ticket) && file.isValid && capture.rootCurrent(
+        root
+      )
     if !current then
       if control.backgroundCurrent(ticket) then
         control.backgroundAttemptFailed(ticket)
@@ -278,41 +260,26 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
 
     val reservation = control.beginBackground(
       ticket,
-      initial,
+      root,
       callback => {
         val listener = new DocumentListener:
           override def documentChanged(event: DocumentEvent): Unit = callback()
-        document.addDocumentListener(listener)
-        () => document.removeDocumentListener(listener)
+        rootDocument.addDocumentListener(listener)
+        () => rootDocument.removeDocumentListener(listener)
       },
       () => current
     )
     if reservation.isEmpty then return
     var enteredCheck = false
     try
-      val source = BendSourceRecord(
-        ticket.root,
-        initial.path,
-        initial.text,
-        initial.sourceRevision,
-        BendImportLines.parse(initial.text)
+      val snapshot = capture.capture(
+        file.getPath,
+        selection,
+        () => !current
       )
-      val graph = project
-        .getService(classOf[BendWorkspaceGraph])
-        .load(
-          source,
-          selection.baseSource,
-          selection.packageCache,
-          () => !current
-        )
-      val laws = if proof then
-        project
-          .getService(classOf[BendWorkspaceGraph])
-          .siblingLaws(initial.path)
-      else None
-      val snapshot = BendGraphSnapshot.attach(initial, graph, laws)
+      if snapshot.isEmpty then return
       enteredCheck = true
-      val checked = service.check(snapshot, reservation.get, () => !current)
+      val checked = service.check(snapshot.get, reservation.get, () => !current)
       if checked.isEmpty && current then control.backgroundAttemptFailed(ticket)
     catch case NonFatal(_) => control.backgroundAttemptFailed(ticket)
     finally

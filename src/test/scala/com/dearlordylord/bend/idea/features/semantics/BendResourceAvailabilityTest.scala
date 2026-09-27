@@ -311,6 +311,38 @@ final class BendResourceAvailabilityTest extends BasePlatformTestCase:
       myFixture.getEditor.getDocument.getText
     )
 
+  def testUnsavedDependencyEditMakesCandidateUnavailable(): Unit =
+    val dependencyPath = directory.resolve("candidate-dependency.bend")
+    Files.writeString(dependencyPath, "# initial dependency\n")
+    val dependency = LocalFileSystem
+      .getInstance()
+      .refreshAndFindFileByNioFile(dependencyPath)
+    assertNotNull(dependency)
+    val source =
+      "import Base\nimport ./candidate-dependency.bend as Dep\n" +
+        "def test(x: U32) -> U32:\n  ?need\n"
+    val (check, goal) = goalCheck(source)
+    myFixture.openFileInEditor(dependency)
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit = myFixture.getEditor.getDocument.setText(
+          "# unsaved dependency edit\n"
+        )
+    )
+    val completed = new AtomicReference[BendResourceReportOutcome]()
+    getProject
+      .getService(classOf[BendProofEditValidator])
+      .probeGoalResources(check, goal)(value => completed.set(value))
+    val deadline = System.nanoTime() + 20_000_000_000L
+    while completed.get() == null && System.nanoTime() < deadline do
+      UIUtil.dispatchAllInvocationEvents()
+      Thread.sleep(50)
+    assertTrue(
+      "Edited dependency must make the candidate unavailable",
+      completed.get().isInstanceOf[BendResourceReportOutcome.Unavailable]
+    )
+
   def testEditorActionProbesCandidateWithoutEditingSource(): Unit =
     val armed = directory.resolve("arm-action")
     val marker = directory.resolve("action-candidate-started")

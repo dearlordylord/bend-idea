@@ -5,6 +5,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
 import java.nio.file.{Files, Path}
+import scala.jdk.CollectionConverters.*
 
 final class ArchitectureTest:
   @Test def productionRespectsBoundaries(): Unit =
@@ -98,6 +99,37 @@ final class ArchitectureTest:
         "com.dearlordylord.bend.idea.adapters.intellij.BendExplicitCheckRunnerService"
       )
     )
+    assertTrue(
+      "All compiler paths must include the shared root snapshot capture owner",
+      classes.contain(
+        "com.dearlordylord.bend.idea.adapters.intellij.BendRootSnapshotCapture"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.intellij.BendBackgroundChecking"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.intellij.BendProofEditValidatorService"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.intellij.BendCheckSession"
+      )
+    )
+    val captureOwner =
+      "com.dearlordylord.bend.idea.adapters.intellij.BendRootSnapshotCapture"
+    Seq(
+      "BendExplicitCheckRunnerService",
+      "BendBackgroundChecking",
+      "BendProofEditValidatorService",
+      "BendCheckSession"
+    ).foreach { name =>
+      val owner = s"com.dearlordylord.bend.idea.adapters.intellij.$name"
+      assertTrue(
+        s"$name must depend on the compiled shared capture owner",
+        classes.asScala.exists(cls =>
+          cls.getName.startsWith(owner) &&
+            cls.getDirectDependenciesFromSelf.asScala.exists(
+              _.getTargetClass.getName == captureOwner
+            )
+        )
+      )
+    }
     assertTrue(
       "Compiler goals and proof edit previews must keep analysis contracts separate from editor actions",
       classes.contain(

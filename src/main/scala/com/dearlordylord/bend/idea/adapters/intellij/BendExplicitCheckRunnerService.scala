@@ -4,12 +4,6 @@ import com.dearlordylord.bend.idea.analysis.api.*
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
-import com.dearlordylord.bend.idea.workspace.api.{
-  BendImportLines,
-  BendSourceCatalog,
-  BendWorkspaceGraph
-}
-import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.intellij.openapi.application.{ApplicationManager, ReadAction}
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
@@ -76,11 +70,11 @@ final class BendExplicitCheckRunnerService(project: Project)
         override def onCancel(): Unit = checkService.cancel(requestedId)
 
         override def run(indicator: ProgressIndicator): Unit =
-          val catalog = project.getService(classOf[BendSourceCatalog])
+          val capture = new BendRootSnapshotCapture(project)
           val selection = ApplicationManager.getApplication
             .getService(classOf[BendToolchainSettings])
             .selection
-          val initial = catalog.source(initialPath)
+          val initial = capture.initial(initialPath, selection)
           if initial.isEmpty then
             finish(
               BendExplicitCheckOutcome
@@ -88,21 +82,12 @@ final class BendExplicitCheckRunnerService(project: Project)
             )
             return
           val root = initial.get
-          val snapshot = BendCheckSnapshot(
-            root.id,
-            root.path,
-            root.text,
-            root.revision,
-            selection,
+          val snapshot = root.copy(
             goalRequested = goalRequested,
             normalizationRequest = normalizationRequest
           )
           val document = documentAt(Path.of(initialPath))
-          def sourceCurrent: Boolean = catalog
-            .source(initialPath)
-            .exists(current =>
-              current.id == root.id && current.revision == root.revision && current.text == root.text
-            )
+          def sourceCurrent: Boolean = capture.rootCurrent(root)
           val reservation = checkService.begin(
             snapshot,
             callback => subscribe(document, callback),
@@ -111,34 +96,33 @@ final class BendExplicitCheckRunnerService(project: Project)
           if reservation.isEmpty then
             finish(
               BendExplicitCheckOutcome.Rejected(
-                root.id,
+                root.root,
                 "A Bend check is already running"
               )
             )
             return
           try
-            val graphService = project.getService(classOf[BendWorkspaceGraph])
-            val rootSource = BendSourceRecord(
-              root.id,
-              root.path,
-              root.text,
-              root.revision,
-              BendImportLines.parse(root.text)
+            val captured = capture.capture(
+              initialPath,
+              selection,
+              () =>
+                indicator.isCanceled || project.isDisposed || !sourceCurrent,
+              _.copy(
+                goalRequested = goalRequested,
+                normalizationRequest = normalizationRequest
+              )
             )
-            val graph = graphService.load(
-              rootSource,
-              selection.baseSource,
-              selection.packageCache,
-              () => indicator.isCanceled || project.isDisposed
-            )
-            val siblingLaws = Option(Path.of(root.path).getFileName)
-              .map(_.toString)
-              .filter(_ == "PROOF.bend")
-              .flatMap(_ => graphService.siblingLaws(root.path))
-            val captured =
-              BendGraphSnapshot.attach(snapshot, graph, siblingLaws)
+            if captured.isEmpty then
+              checkService.cancel(root.root)
+              finish(
+                BendExplicitCheckOutcome.Rejected(
+                  root.root,
+                  "Source snapshot became unavailable during capture"
+                )
+              )
+              return
             val result = checkService.check(
-              captured,
+              captured.get,
               reservation.get,
               () => indicator.isCanceled || project.isDisposed || !sourceCurrent
             )
@@ -149,18 +133,18 @@ final class BendExplicitCheckRunnerService(project: Project)
               case None                         =>
                 finish(
                   BendExplicitCheckOutcome
-                    .Rejected(root.id, "Check result is no longer current")
+                    .Rejected(root.root, "Check result is no longer current")
                 )
           catch
             case NonFatal(_) if indicator.isCanceled =>
-              checkService.cancel(root.id)
+              checkService.cancel(root.root)
             case NonFatal(error) =>
-              checkService.cancel(root.id)
+              checkService.cancel(root.root)
               val detail =
                 Option(error.getMessage).getOrElse(error.getClass.getSimpleName)
               finish(
                 BendExplicitCheckOutcome.Rejected(
-                  root.id,
+                  root.root,
                   s"Could not check selected root: $detail"
                 )
               ))

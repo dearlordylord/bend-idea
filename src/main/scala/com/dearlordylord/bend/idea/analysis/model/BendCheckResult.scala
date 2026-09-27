@@ -19,7 +19,9 @@ final case class BendCheckSnapshot(
     graph: Option[BendLoadedGraph] = None,
     siblingLaws: Option[BendSourceRecord] = None,
     goalRequested: Boolean = false,
-    normalizationRequest: Option[BendNormalizationRequest] = None
+    normalizationRequest: Option[BendNormalizationRequest] = None,
+    externalInputStamp: String = "",
+    selectedPath: String = ""
 ):
   def selectedBasePath: Option[String] =
     val importsBase = graph.fold(
