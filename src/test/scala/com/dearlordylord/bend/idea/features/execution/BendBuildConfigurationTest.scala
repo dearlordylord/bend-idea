@@ -136,6 +136,18 @@ final class BendBuildConfigurationTest extends BasePlatformTestCase:
       foreignBuild.left.toOption.exists(_.contains("foreign source"))
     )
 
+    configuration.rootPath = rootPath.toString
+    configuration.outputPath = directory.resolve("wrong-native.cjs").toString
+    configuration.outputKind = BendBuildOutputKind.Native
+    assertTrue(
+      "Bend emits JavaScript for .cjs even when a native build was requested",
+      configuration
+        .buildRequest()
+        .left
+        .toOption
+        .exists(_.contains("Native output"))
+    )
+
   def testPinnedCompilerEmitsCAndJavaScriptAndReportsErrors(): Unit =
     val rootPath = writeRoot("emission.bend")
     val configuration = configuredBuild(rootPath)
@@ -160,6 +172,16 @@ final class BendBuildConfigurationTest extends BasePlatformTestCase:
     assertEquals(Int.box(0), jsResult._1)
     assertTrue(Files.isRegularFile(jsOutput))
     assertTrue(Files.readString(jsOutput).contains("function"))
+
+    val cjsOutput = directory.resolve("generated.cjs")
+    configuration.outputPath = cjsOutput.toString
+    val cjsResult = run(
+      getProject
+        .getService(classOf[BendBuildProcessFactory])
+        .start(configuration.buildRequest().toOption.get)
+    )
+    assertEquals(Int.box(0), cjsResult._1)
+    assertTrue(Files.readString(cjsOutput).contains("function"))
 
     val invalid = directory.resolve("invalid.bend")
     Files.writeString(invalid, "def main( -> U32:\n  1\n")

@@ -15,6 +15,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ### Improved
 
+- Build configurations recognize `.cjs` as JavaScript output and reject it for
+  native builds. (#34)
 - Compiler checks now recognize Bend 2.0.32's check-only capability and proof
   verdicts, including complete, incomplete, failed, and unsafe/foreign results.
 - Expand Selection shares syntax tokens and angle context per invocation, making large and
