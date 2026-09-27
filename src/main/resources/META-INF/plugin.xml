@@ -116,6 +116,8 @@ compiler-backed features. See the
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckSession"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.analysis.api.BendExplicitCheckRunner"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendExplicitCheckRunnerService"/>
+        <projectService serviceInterface="com.dearlordylord.bend.idea.features.semantics.api.BendCurrentLocationInquiry"
+                        serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendCurrentLocationInquiryService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.analysis.api.BendProofEditValidator"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendProofEditValidatorService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.features.execution.api.BendExecutionProcessFactory"

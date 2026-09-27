@@ -23,6 +23,7 @@ import com.intellij.util.ui.UIUtil
 import java.nio.file.{Files, Path}
 import org.junit.Assert.*
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 final class BendTryReflexivityActionTest extends BasePlatformTestCase:
   private var original: BendToolchainChoices = null
@@ -185,5 +186,25 @@ final class BendTryReflexivityActionTest extends BasePlatformTestCase:
         "// edit\n" + source,
         myFixture.getEditor.getDocument.getText
       )
+    finally
+      val _ = TestDialogManager.setTestDialog(previous)
+
+  def testMovedCaretAtConfirmationNeverEditsTheProof(): Unit =
+    val source =
+      "import Base\ndef refl(x: U32) -> {x == x : U32}:\n  ?need\n"
+    val dialogShown = new AtomicBoolean(false)
+    val previous = TestDialogManager.setTestDialog(new TestDialog:
+      override def show(message: String): Int =
+        dialogShown.set(true)
+        myFixture.getEditor.getCaretModel.moveToOffset(0)
+        com.intellij.openapi.ui.Messages.YES)
+    try
+      perform(source)
+      val deadline = System.nanoTime() + 20_000_000_000L
+      while !dialogShown.get() && System.nanoTime() < deadline do
+        UIUtil.dispatchAllInvocationEvents()
+        Thread.sleep(50)
+      assertTrue("validated confirmation was not offered", dialogShown.get())
+      assertEquals(source, myFixture.getEditor.getDocument.getText)
     finally
       val _ = TestDialogManager.setTestDialog(previous)

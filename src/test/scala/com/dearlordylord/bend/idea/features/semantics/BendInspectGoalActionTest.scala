@@ -3,11 +3,16 @@ package com.dearlordylord.bend.idea.features.semantics
 import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.analysis.api.{
   BendCheckService,
+  BendExplicitCheckRunner,
   BendGoalAvailability,
   BendGoalQuery
 }
-import com.dearlordylord.bend.idea.analysis.model.BendCompleteness
+import com.dearlordylord.bend.idea.analysis.model.{BendCompleteness, BendGoal}
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.features.semantics.api.{
+  BendCurrentLocationInquiry,
+  BendInquiryOutcome
+}
 import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
@@ -15,9 +20,12 @@ import com.dearlordylord.bend.idea.toolchain.api.{
 }
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.editor.EditorFactory
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.nio.file.{Files, Path}
 import org.junit.Assert.*
+import com.intellij.util.ui.UIUtil
+import java.util.concurrent.atomic.AtomicReference
 
 final class BendInspectGoalActionTest extends BasePlatformTestCase:
   private var original: BendToolchainChoices = null
@@ -143,6 +151,108 @@ final class BendInspectGoalActionTest extends BasePlatformTestCase:
         .result(id)
         .exists(result => result.fresh && result.goal.nonEmpty)
     )
+
+  def testMovedCaretInvalidatesPublishedGoalLocation(): Unit =
+    val source = "def choose(A: Type, x: A) -> A:\n  ?need\n"
+    myFixture.configureByText("moved.bend", source)
+    val editor = myFixture.getEditor
+    editor.getCaretModel.moveToOffset(source.indexOf("?need") + 2)
+    val file = myFixture.getFile.getVirtualFile
+    val id = new FileId(file.getCanonicalPath, true)
+    myFixture.performEditorAction("Bend.InspectGoal")
+    val checks = getProject.getService(classOf[BendCheckService])
+    val deadline = System.nanoTime() + 20_000_000_000L
+    while checks.result(id).flatMap(_.goal).isEmpty &&
+      System.nanoTime() < deadline
+    do Thread.sleep(50)
+    val result = checks
+      .result(id)
+      .getOrElse(
+        throw new AssertionError("goal check did not finish")
+      )
+    val location =
+      com.dearlordylord.bend.idea.features.semantics.api.BendInquiryLocation(
+        id,
+        source,
+        editor.getDocument.getModificationStamp,
+        editor.getCaretModel.getOffset
+      )
+    val inquiry = getProject.getService(classOf[BendCurrentLocationInquiry])
+    assertTrue(inquiry.isCurrent(editor, result, location))
+    editor.getCaretModel.moveToOffset(0)
+    assertFalse(inquiry.isCurrent(editor, result, location))
+    val extraEditor = EditorFactory
+      .getInstance()
+      .createEditor(
+        editor.getDocument,
+        getProject
+      )
+    try
+      extraEditor.getCaretModel.moveToOffset(location.offset)
+      assertTrue(inquiry.isCurrent(extraEditor, result, location))
+    finally EditorFactory.getInstance().releaseEditor(extraEditor)
+    assertFalse(inquiry.isCurrent(extraEditor, result, location))
+
+  def testLaterHoleReportsUnavailableAtItsCaret(): Unit =
+    val source =
+      "def first() -> U32:\n  ?first\ndef second() -> U32:\n  ?second\n"
+    myFixture.configureByText("later.bend", source)
+    val editor = myFixture.getEditor
+    editor.getCaretModel.moveToOffset(source.indexOf("?second") + 2)
+    val outcome = new AtomicReference[BendInquiryOutcome[BendGoal]]()
+    getProject
+      .getService(classOf[BendCurrentLocationInquiry])
+      .goal(editor, myFixture.getFile.getVirtualFile, "Inspecting Bend goal")(
+        value => outcome.set(value)
+      )
+    val deadline = System.nanoTime() + 20_000_000_000L
+    while outcome.get() == null && System.nanoTime() < deadline do
+      UIUtil.dispatchAllInvocationEvents()
+      Thread.sleep(50)
+    assertTrue(
+      s"later hole should be unavailable, got ${outcome.get()}",
+      outcome.get().isInstanceOf[BendInquiryOutcome.Unavailable]
+    )
+
+  def testSharedSourceRequiresAnExplicitRootChoice(): Unit =
+    val shared = myFixture.addFileToProject(
+      "shared.bend",
+      "def value() -> U32:\n  0\n"
+    )
+    val first = myFixture.addFileToProject(
+      "first.bend",
+      "import ./shared.bend as Shared\ndef first() -> U32:\n  Shared.value()\n"
+    )
+    val second = myFixture.addFileToProject(
+      "second.bend",
+      "import ./shared.bend as Shared\ndef second() -> U32:\n  Shared.value()\n"
+    )
+    val checks = getProject.getService(classOf[BendCheckService])
+    val runner = getProject.getService(classOf[BendExplicitCheckRunner])
+    for root <- List(first, second) do
+      val file = root.getVirtualFile
+      val id = new FileId(file.getCanonicalPath, true)
+      runner.check(file.getPath, "Checking Bend root")(_ => ())
+      val deadline = System.nanoTime() + 20_000_000_000L
+      while checks.result(id).isEmpty && System.nanoTime() < deadline do
+        UIUtil.dispatchAllInvocationEvents()
+        Thread.sleep(50)
+      assertTrue(
+        s"root check did not publish: ${file.getPath}",
+        checks.result(id).nonEmpty
+      )
+    myFixture.openFileInEditor(shared.getVirtualFile)
+    val sharedId = new FileId(shared.getVirtualFile.getCanonicalPath, true)
+    assertEquals(2, checks.resultsFor(sharedId).size)
+    val outcome = new AtomicReference[BendInquiryOutcome[BendGoal]]()
+    getProject
+      .getService(classOf[BendCurrentLocationInquiry])
+      .goal(myFixture.getEditor, shared.getVirtualFile, "Inspecting Bend goal")(
+        value => outcome.set(value)
+      )
+    assertEquals(BendInquiryOutcome.AmbiguousRoots, outcome.get())
+    myFixture.performEditorAction("Bend.InspectGoal")
+    assertEquals(2, checks.resultsFor(sharedId).size)
 
   def testCompatibleLocalRanksFirstAndReplacesOnlySelectedHole(): Unit =
     val source = "def choose(A: Type, x: A) -> A:\n  ?need\n"

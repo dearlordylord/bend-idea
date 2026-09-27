@@ -1,18 +1,16 @@
 package com.dearlordylord.bend.idea.features.semantics
 
 import com.dearlordylord.bend.idea.analysis.api.{
-  BendCheckService,
-  BendExplicitCheckOutcome,
-  BendExplicitCheckRunner,
-  BendGoalAvailability,
-  BendGoalQuery,
   BendProofEditValidator,
   BendResourceCandidateStatus,
   BendResourceReport,
   BendResourceReportOutcome
 }
 import com.dearlordylord.bend.idea.analysis.model.BendReliance
-import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.features.semantics.api.{
+  BendCurrentLocationInquiry,
+  BendInquiryOutcome
+}
 import com.intellij.codeInsight.hint.HintManager
 import com.intellij.openapi.actionSystem.{
   ActionUpdateThread,
@@ -42,51 +40,25 @@ final class BendExplainResourcesAction
     val file = event.getData(CommonDataKeys.VIRTUAL_FILE)
     val project = event.getProject
     if editor == null || file == null || project == null then return
-    val document = editor.getDocument
-    val revision = document.getModificationStamp
-    val offset = editor.getCaretModel.getOffset
-    val id = new FileId(
-      Option(file.getCanonicalPath).getOrElse(file.getPath),
-      file.getCanonicalPath != null
-    )
-    val checkService = project.getService(classOf[BendCheckService])
-    val roots = checkService.resultsFor(id).map(_.key.root.value).distinct
-    if roots.size > 1 then
-      info(editor, "Select one Bend root before checking resources")
-      return
-    val root = roots.headOption.getOrElse(file.getPath)
-    def current: Boolean =
-      !editor.isDisposed && document.getModificationStamp == revision &&
-        editor.getCaretModel.getOffset == offset
-    project
-      .getService(classOf[BendExplicitCheckRunner])
-      .checkGoal(root, "Checking Bend resources") {
-        case BendExplicitCheckOutcome.Published(result) if current =>
-          BendGoalQuery.at(
-            result,
-            id,
-            document.getText,
-            revision,
-            offset
-          ) match
-            case BendGoalAvailability.Available(goal) =>
-              project
-                .getService(classOf[BendProofEditValidator])
-                .probeGoalResources(result, goal) {
-                  case BendResourceReportOutcome.Available(report)
-                      if current && checkService.isCurrent(result) =>
-                    info(editor, BendExplainResourcesAction.render(report))
-                  case BendResourceReportOutcome.Unavailable(reason)
-                      if current =>
-                    info(editor, reason)
-                  case _ => ()
-                }
-            case BendGoalAvailability.Unavailable(reason) =>
+    val inquiry = project.getService(classOf[BendCurrentLocationInquiry])
+    inquiry.goal(editor, file, "Checking Bend resources") {
+      case BendInquiryOutcome.Available(result, location, goal) =>
+        project
+          .getService(classOf[BendProofEditValidator])
+          .probeGoalResources(result, goal) {
+            case BendResourceReportOutcome.Available(report)
+                if inquiry.isCurrent(editor, result, location) =>
+              info(editor, BendExplainResourcesAction.render(report))
+            case BendResourceReportOutcome.Unavailable(reason)
+                if inquiry.isCurrent(editor, result, location) =>
               info(editor, reason)
-        case BendExplicitCheckOutcome.Rejected(_, reason) if current =>
-          info(editor, reason)
-        case _ => ()
-      }
+            case _ => ()
+          }
+      case BendInquiryOutcome.Unavailable(reason) =>
+        info(editor, reason)
+      case BendInquiryOutcome.AmbiguousRoots =>
+        info(editor, "Select one Bend root before checking resources")
+    }
 
   private def info(editor: Editor, value: String): Unit =
     HintManager.getInstance().showInformationHint(editor, value)

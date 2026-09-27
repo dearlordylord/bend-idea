@@ -82,6 +82,7 @@ private[architecture] object ArchitectureRules:
             publicArea(target, owner, Set("api", "model", "ports"))
           ) ||
           publicArea(target, "analysis", Set("checking")) ||
+          target.take(3) == List("features", "semantics", "api") ||
           target.take(3) == List("features", "execution", "ports") ||
           target.take(4) == List("features", "execution", "api")
         case _ => false

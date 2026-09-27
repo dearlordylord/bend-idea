@@ -1,14 +1,10 @@
 package com.dearlordylord.bend.idea.features.semantics
 
-import com.dearlordylord.bend.idea.analysis.api.{
-  BendCheckService,
-  BendExplicitCheckOutcome,
-  BendExplicitCheckRunner,
-  BendGoalAvailability,
-  BendGoalQuery
-}
 import com.dearlordylord.bend.idea.analysis.model.BendGoal
-import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.features.semantics.api.{
+  BendCurrentLocationInquiry,
+  BendInquiryOutcome
+}
 import com.intellij.codeInsight.hint.HintManager
 import com.intellij.openapi.actionSystem.{
   ActionUpdateThread,
@@ -36,51 +32,25 @@ final class BendInspectGoalAction extends AnAction("Inspect Bend Goal"):
     val file = event.getData(CommonDataKeys.VIRTUAL_FILE)
     val project = event.getProject
     if editor == null || file == null || project == null then return
-    val document = editor.getDocument
-    val revision = document.getModificationStamp
-    val offset = editor.getCaretModel.getOffset
-    val id = new FileId(
-      Option(file.getCanonicalPath).getOrElse(file.getPath),
-      file.getCanonicalPath != null
-    )
-    val checkService = project.getService(classOf[BendCheckService])
-    val knownRoots = checkService.resultsFor(id).map(_.key.root.value).distinct
-    if knownRoots.size > 1 then
-      HintManager
-        .getInstance()
-        .showInformationHint(
-          editor,
-          "Goal unavailable: this source belongs to multiple checked roots. Check one root and retry."
-        )
-      return
-    val root = knownRoots.headOption.getOrElse(file.getPath)
     project
-      .getService(classOf[BendExplicitCheckRunner])
-      .checkGoal(root, "Inspecting Bend goal") {
-        case BendExplicitCheckOutcome.Published(result)
-            if !editor.isDisposed && document.getModificationStamp == revision &&
-              editor.getCaretModel.getOffset == offset =>
-          val availability = BendGoalQuery.at(
-            result,
-            id,
-            document.getText,
-            revision,
-            offset
-          )
-          availability match
-            case BendGoalAvailability.Available(goal) =>
-              HintManager
-                .getInstance()
-                .showInformationHint(
-                  editor,
-                  BendInspectGoalAction.render(goal)
-                )
-            case BendGoalAvailability.Unavailable(reason) =>
-              HintManager.getInstance().showInformationHint(editor, reason)
-        case BendExplicitCheckOutcome.Rejected(_, reason)
-            if !editor.isDisposed && document.getModificationStamp == revision =>
+      .getService(classOf[BendCurrentLocationInquiry])
+      .goal(editor, file, "Inspecting Bend goal") {
+        case BendInquiryOutcome.Available(_, _, goal) =>
+          HintManager
+            .getInstance()
+            .showInformationHint(
+              editor,
+              BendInspectGoalAction.render(goal)
+            )
+        case BendInquiryOutcome.Unavailable(reason) =>
           HintManager.getInstance().showInformationHint(editor, reason)
-        case _ => ()
+        case BendInquiryOutcome.AmbiguousRoots =>
+          HintManager
+            .getInstance()
+            .showInformationHint(
+              editor,
+              "Goal unavailable: this source belongs to multiple checked roots. Check one root and retry."
+            )
       }
 
 object BendInspectGoalAction:

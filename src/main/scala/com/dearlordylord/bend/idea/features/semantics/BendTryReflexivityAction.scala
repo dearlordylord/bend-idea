@@ -1,17 +1,16 @@
 package com.dearlordylord.bend.idea.features.semantics
 
 import com.dearlordylord.bend.idea.analysis.api.{
-  BendCheckService,
-  BendExplicitCheckOutcome,
-  BendExplicitCheckRunner,
-  BendGoalAvailability,
-  BendGoalQuery,
   BendProofEditPreview,
   BendProofEditPreviewOutcome,
   BendProofEditValidator
 }
 import com.dearlordylord.bend.idea.analysis.model.BendTextRange
-import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.features.semantics.api.{
+  BendCurrentLocationInquiry,
+  BendInquiryLocation,
+  BendInquiryOutcome
+}
 import com.dearlordylord.bend.idea.syntax.psi.{BendDefinition, BendHeader}
 import com.intellij.codeInsight.hint.HintManager
 import com.intellij.openapi.actionSystem.{
@@ -46,68 +45,43 @@ final class BendTryReflexivityAction extends AnAction("Try Bend Reflexivity"):
     val file = event.getData(CommonDataKeys.VIRTUAL_FILE)
     val project = event.getProject
     if editor == null || file == null || project == null then return
-    val document = editor.getDocument
-    val revision = document.getModificationStamp
-    val offset = editor.getCaretModel.getOffset
-    val id = new FileId(
-      Option(file.getCanonicalPath).getOrElse(file.getPath),
-      file.getCanonicalPath != null
-    )
-    val checkService = project.getService(classOf[BendCheckService])
-    val knownRoots = checkService.resultsFor(id).map(_.key.root.value).distinct
-    if knownRoots.size > 1 then
-      info(editor, "Select one proof root before trying reflexivity")
-      return
-    val rootPath = knownRoots.headOption.getOrElse(file.getPath)
-    project
-      .getService(classOf[BendExplicitCheckRunner])
-      .checkGoal(rootPath, "Checking Bend goal for reflexivity") {
-        case BendExplicitCheckOutcome.Published(result)
-            if current(editor, revision, offset) =>
-          BendGoalQuery.at(
-            result,
-            id,
-            document.getText,
-            revision,
-            offset
-          ) match
-            case BendGoalAvailability.Available(goal)
-                if BendTryReflexivityAction.inDefinitionBody(
-                  project,
-                  editor,
-                  goal.range
-                ) =>
-              project
-                .getService(classOf[BendProofEditValidator])
-                .previewReflexivity(result, goal) {
-                  case BendProofEditPreviewOutcome.Validated(preview)
-                      if current(editor, revision, offset) &&
-                        checkService.isCurrent(result) =>
-                    offer(project, editor, revision, preview, checkService)
-                  case BendProofEditPreviewOutcome.Rejected(reason)
-                      if current(editor, revision, offset) =>
-                    info(editor, reason)
-                  case _ => ()
-                }
-            case BendGoalAvailability.Available(_) =>
-              info(
-                editor,
-                "Reflexivity edits are offered only inside definition bodies"
-              )
-            case BendGoalAvailability.Unavailable(reason) =>
-              info(editor, reason)
-        case BendExplicitCheckOutcome.Rejected(_, reason)
-            if current(editor, revision, offset) =>
-          info(editor, reason)
-        case _ => ()
-      }
+    val inquiry = project.getService(classOf[BendCurrentLocationInquiry])
+    inquiry.goal(editor, file, "Checking Bend goal for reflexivity") {
+      case BendInquiryOutcome.Available(result, location, goal) =>
+        if BendTryReflexivityAction.inDefinitionBody(
+            project,
+            editor,
+            goal.range
+          )
+        then
+          project
+            .getService(classOf[BendProofEditValidator])
+            .previewReflexivity(result, goal) {
+              case BendProofEditPreviewOutcome.Validated(preview)
+                  if inquiry.isCurrent(editor, result, location) =>
+                offer(project, editor, location, preview, inquiry)
+              case BendProofEditPreviewOutcome.Rejected(reason)
+                  if inquiry.isCurrent(editor, result, location) =>
+                info(editor, reason)
+              case _ => ()
+            }
+        else
+          info(
+            editor,
+            "Reflexivity edits are offered only inside definition bodies"
+          )
+      case BendInquiryOutcome.Unavailable(reason) =>
+        info(editor, reason)
+      case BendInquiryOutcome.AmbiguousRoots =>
+        info(editor, "Select one proof root before trying reflexivity")
+    }
 
   private def offer(
       project: Project,
       editor: Editor,
-      revision: Long,
+      location: BendInquiryLocation,
       preview: BendProofEditPreview,
-      checkService: BendCheckService
+      inquiry: BendCurrentLocationInquiry
   ): Unit =
     val status = if preview.completeProof then
       "The complete selected root checks successfully."
@@ -130,10 +104,8 @@ final class BendTryReflexivityAction extends AnAction("Try Bend Reflexivity"):
         new Runnable:
           override def run(): Unit =
             val range = preview.goal.range
-            if !editor.isDisposed &&
-              document.getModificationStamp == revision &&
+            if inquiry.isCurrent(editor, preview.originalCheck, location) &&
               document.getText == preview.source.text &&
-              checkService.isCurrent(preview.originalCheck) &&
               BendTryReflexivityAction
                 .inDefinitionBody(project, editor, range) &&
               document.getText.substring(range.start, range.end) ==
@@ -148,10 +120,6 @@ final class BendTryReflexivityAction extends AnAction("Try Bend Reflexivity"):
       )
       if !applied then
         info(editor, "Source changed before reflexivity could be applied")
-
-  private def current(editor: Editor, revision: Long, offset: Int): Boolean =
-    !editor.isDisposed && editor.getDocument.getModificationStamp == revision &&
-      editor.getCaretModel.getOffset == offset
 
   private def info(editor: Editor, message: String): Unit =
     HintManager.getInstance().showInformationHint(editor, message)
