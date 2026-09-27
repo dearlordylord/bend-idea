@@ -23,6 +23,16 @@ final class BendCliVerdictDecoderTest:
     assertTrue(
       supported.isInstanceOf[BendCliVerdictDecoder.Capability.Supported]
     )
+    val currentHelp = BendCliVerdictDecoder.capability(
+      BendProcessOutcome.Exited(
+        0,
+        "Bend 2.0.32: check, run, build and publish Bend programs.\n" +
+          "  bend <file.bend> --check-only                  check the file and its imports; run nothing\n"
+      )
+    )
+    assertTrue(
+      currentHelp.isInstanceOf[BendCliVerdictDecoder.Capability.Supported]
+    )
     val quoted = BendCliVerdictDecoder.capability(
       BendProcessOutcome.Exited(0, s"Vendor note: $checkOnlyLine\n")
     )
@@ -71,6 +81,21 @@ final class BendCliVerdictDecoderTest:
     assertEquals(BendCompleteness.Complete, complete.completeness)
     assertEquals(BendReliance.None, complete.reliance)
 
+    val currentComplete = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(
+        0,
+        "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n"
+      )
+    )
+    assertEquals(BendCheckOutcome.Success, currentComplete.outcome)
+    assertEquals(BendCompleteness.Complete, currentComplete.completeness)
+    assertEquals(BendReliance.None, currentComplete.reliance)
+
+    val incompleteCurrentSuccess = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(0, "ALL PROOFS CHECK\n")
+    )
+    assertUnknown(incompleteCurrentSuccess)
+
     val relied = BendCliVerdictDecoder.check(
       BendProcessOutcome.Exited(
         0,
@@ -112,6 +137,38 @@ final class BendCliVerdictDecoderTest:
     assertEquals(BendCompleteness.Incomplete, incomplete.completeness)
     assertEquals(BendReliance.Unknown, incomplete.reliance)
     assertFalse(incomplete.sourceLocationAllowed)
+
+    val currentIncomplete = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(
+        1,
+        "SOME PROOFS FAIL\nError: 1 TODO found.\n" +
+          "The code is incomplete, and not a valid proof yet.\n"
+      )
+    )
+    assertEquals(BendCheckOutcome.Failed, currentIncomplete.outcome)
+    assertEquals(BendCompleteness.Incomplete, currentIncomplete.completeness)
+
+    val currentUnsafe = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(
+        1,
+        "SOME PROOFS FAIL\nError: 1 def relies on unsafe or foreign code:\n- main\n"
+      )
+    )
+    assertEquals(BendCheckOutcome.Success, currentUnsafe.outcome)
+    assertEquals(BendCompleteness.Complete, currentUnsafe.completeness)
+    assertEquals(BendReliance.UnsafeOrForeign, currentUnsafe.reliance)
+
+    val currentError = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(1, "SOME PROOFS FAIL\n" + compilerError)
+    )
+    assertEquals(BendCheckOutcome.Failed, currentError.outcome)
+    assertTrue(currentError.sourceLocationAllowed)
+
+    assertUnknown(
+      BendCliVerdictDecoder.check(
+        BendProcessOutcome.Exited(1, "SOME PROOFS FAIL\nUnknown error format\n")
+      )
+    )
 
     val pluralIncomplete = BendCliVerdictDecoder.check(
       BendProcessOutcome.Exited(

@@ -15,6 +15,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ### Improved
 
+- Compiler checks now recognize Bend 2.0.32's check-only capability and proof
+  verdicts, including complete, incomplete, failed, and unsafe/foreign results.
 - Expand Selection shares syntax tokens and angle context per invocation, making large and
   incomplete files more responsive while preserving the existing range steps. (#69)
 - Goal, resource, reflexivity and normalization actions now share current editor-location checks, so moved carets and changed source cannot show an outdated compiler result. (#68)

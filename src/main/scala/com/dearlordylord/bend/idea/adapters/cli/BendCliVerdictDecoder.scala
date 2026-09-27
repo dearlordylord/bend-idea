@@ -12,10 +12,15 @@ import com.dearlordylord.bend.idea.toolchain.api.{
   */
 private[cli] object BendCliVerdictDecoder:
   private val CheckOnlyHelpLine =
-    "  bend <file.bend> --check-only check the file and its imports; run nothing"
+    "^  bend <file\\.bend> --check-only +check the file and its imports; run nothing$".r
+  private val ProofsCheckReport =
+    "ALL PROOFS CHECK\nUse --verdict for mathematical validity."
+  private val ProofsFailPrefix = "SOME PROOFS FAIL\n"
   private val VersionHelpLine = "^Bend ([0-9]+\\.[0-9]+\\.[0-9]+):.*$".r
   private val UnsafeHeader =
     "^All terms check, but ([1-9][0-9]*) (defs?) (relies|rely) on unsafe or foreign code:$".r
+  private val CurrentUnsafeHeader =
+    "^([1-9][0-9]*) (defs?) (relies|rely) on unsafe or foreign code:$".r
   private val UnsafeDefinition = "- [A-Za-z_][A-Za-z0-9_.]*".r
   private val TodoHeader = "^Error: ([1-9][0-9]*) TODO(s?) found\\.$".r
   private val ProofSiblingGuard =
@@ -95,12 +100,18 @@ private[cli] object BendCliVerdictDecoder:
         BendCompilerInfoResult.Unavailable(message)
 
   private def supportsCheckOnly(help: String): Boolean =
-    help.split("\n", -1).contains(CheckOnlyHelpLine)
+    help.split("\n", -1).exists(CheckOnlyHelpLine.matches)
 
   def check(process: BendProcessOutcome): Check = process match
     case BendProcessOutcome.Exited(code, output) =>
       val report = normalize(output)
-      if code == 0 && report == "All terms check." then
+      val failureReport =
+        if code != 0 && report.startsWith(ProofsFailPrefix) then
+          report.substring(ProofsFailPrefix.length)
+        else report
+      if code == 0 &&
+        (report == "All terms check." || report == ProofsCheckReport)
+      then
         Check(
           BendCheckOutcome.Success,
           BendCompleteness.Complete,
@@ -123,7 +134,7 @@ private[cli] object BendCliVerdictDecoder:
               BendReliance.Unknown,
               unrecognized(code, report)
             )
-      else if todoReport(report) then
+      else if todoReport(failureReport) then
         Check(
           BendCheckOutcome.Failed,
           BendCompleteness.Incomplete,
@@ -131,22 +142,32 @@ private[cli] object BendCliVerdictDecoder:
           report,
           incompleteKind = Some(BendIncompleteKind.TodoHoles)
         )
-      else if namedHoleReport(report) then
+      else if namedHoleReport(failureReport) then
         Check(
           BendCheckOutcome.Failed,
           BendCompleteness.Incomplete,
           BendReliance.Unknown,
           report,
-          sourceLocationAllowed = compilerLocationReport(report),
+          sourceLocationAllowed = compilerLocationReport(failureReport),
           incompleteKind = Some(BendIncompleteKind.NamedHole)
         )
-      else if compilerErrorReport(report) then
+      else if compilerErrorReport(failureReport) then
         Check(
           BendCheckOutcome.Failed,
           BendCompleteness.Unknown,
           BendReliance.Unknown,
           report,
-          sourceLocationAllowed = compilerLocationReport(report)
+          sourceLocationAllowed = compilerLocationReport(failureReport)
+        )
+      else if code != 0 && report.startsWith(ProofsFailPrefix) &&
+        failureReport.startsWith("Error: ") &&
+        unsafeReliance(failureReport.stripPrefix("Error: "), true).nonEmpty
+      then
+        Check(
+          BendCheckOutcome.Success,
+          BendCompleteness.Complete,
+          BendReliance.UnsafeOrForeign,
+          report
         )
       else
         Check(
@@ -194,10 +215,14 @@ private[cli] object BendCliVerdictDecoder:
     val report = normalize(output)
     if report.isEmpty then message else message + "\n" + report
 
-  private def unsafeReliance(report: String): Option[BendReliance] =
+  private def unsafeReliance(
+      report: String,
+      current: Boolean = false
+  ): Option[BendReliance] =
     val lines = report.split("\n", -1).toList
+    val header = if current then CurrentUnsafeHeader else UnsafeHeader
     lines match
-      case UnsafeHeader(countText, pluralDef, verb) :: definitions
+      case header(countText, pluralDef, verb) :: definitions
           if countText.toIntOption.exists(_ > 0) && definitions.nonEmpty &&
             definitions.forall(line => UnsafeDefinition.matches(line)) =>
         val count = countText.toInt
