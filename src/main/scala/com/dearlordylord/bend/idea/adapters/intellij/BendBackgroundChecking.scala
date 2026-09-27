@@ -9,6 +9,7 @@ import com.dearlordylord.bend.idea.analysis.checking.BendCheckAction.*
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.application.{ApplicationManager, ReadAction}
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
@@ -264,8 +265,9 @@ final class BendBackgroundChecking(project: Project) extends Disposable:
       callback => {
         val listener = new DocumentListener:
           override def documentChanged(event: DocumentEvent): Unit = callback()
-        rootDocument.addDocumentListener(listener)
-        () => rootDocument.removeDocumentListener(listener)
+        val subscription = Disposer.newDisposable()
+        rootDocument.addDocumentListener(listener, subscription)
+        () => Disposer.dispose(subscription)
       },
       () => current
     )

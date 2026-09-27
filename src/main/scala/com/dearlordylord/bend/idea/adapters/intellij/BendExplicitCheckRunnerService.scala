@@ -10,6 +10,7 @@ import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.LocalFileSystem
 import java.nio.file.Path
 import scala.util.control.NonFatal
@@ -158,8 +159,9 @@ final class BendExplicitCheckRunnerService(project: Project)
       case Some(value) =>
         val listener = new DocumentListener:
           override def documentChanged(event: DocumentEvent): Unit = callback()
-        value.addDocumentListener(listener)
-        () => value.removeDocumentListener(listener)
+        val subscription = Disposer.newDisposable()
+        value.addDocumentListener(listener, subscription)
+        () => Disposer.dispose(subscription)
 
   private[intellij] def documentAt(path: Path): Option[Document] =
     ReadAction.compute(() =>

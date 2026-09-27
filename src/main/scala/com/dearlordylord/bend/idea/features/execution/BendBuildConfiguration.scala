@@ -22,9 +22,9 @@ import com.intellij.execution.configurations.{
   RuntimeConfigurationException
 }
 import com.intellij.execution.process.{
-  ProcessAdapter,
   ProcessEvent,
-  ProcessHandler
+  ProcessHandler,
+  ProcessListener
 }
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.execution.ui.{ConsoleView, ConsoleViewContentType}
@@ -88,7 +88,7 @@ final class BendBuildConfiguration(
       val handler = project
         .getService(classOf[BendBuildProcessFactory])
         .start(request)
-      handler.addProcessListener(new ProcessAdapter:
+      handler.addProcessListener(new ProcessListener:
         override def processTerminated(event: ProcessEvent): Unit =
           if event.getExitCode == 0 then
             ApplicationManager.getApplication.invokeLater(() =>
