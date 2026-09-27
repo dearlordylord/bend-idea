@@ -1,5 +1,11 @@
 package com.dearlordylord.bend.idea.features.completion
 
+import com.dearlordylord.bend.idea.analysis.api.{
+  BendCheckService,
+  BendGoalAvailability,
+  BendGoalQuery
+}
+import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.features.templates.api.BendSnippets
 import com.dearlordylord.bend.idea.symbols.api.{
   BendImportedSymbolCatalog,
@@ -19,7 +25,8 @@ import com.intellij.codeInsight.completion.{
   CompletionProvider,
   CompletionResultSet,
   CompletionType,
-  InsertionContext
+  InsertionContext,
+  PrioritizedLookupElement
 }
 import com.intellij.codeInsight.lookup.{LookupElement, LookupElementBuilder}
 import com.intellij.codeInsight.template.TemplateManager
@@ -72,6 +79,11 @@ final class BendCompletionContributor extends CompletionContributor:
           }
           val bindings = BendSourceSymbols
             .visibleBindings(parameters.getOriginalFile, offset)
+          val goalSite = BendCompletionContributor.goalSite(
+            parameters,
+            source,
+            offset
+          )
           val boundNames = bindings.map(_.name).toSet
           val qualified =
             BendCompletionContributor.qualifiedMember(source, offset)
@@ -176,12 +188,41 @@ final class BendCompletionContributor extends CompletionContributor:
               case Some(specification) =>
                 s"${binding.source}: $specification (law)"
               case None => binding.source
-            result.addElement(
-              LookupElementBuilder
-                .create(binding.name)
-                .withTailText("  " + detail.replaceAll("\\s+", " "), true)
-                .withTypeText(binding.kindLabel)
-            )
+            val builder = LookupElementBuilder
+              .create(binding.name)
+              .withTailText("  " + detail.replaceAll("\\s+", " "), true)
+              .withTypeText(binding.kindLabel)
+            goalSite match
+              case Some((range, names)) =>
+                val replacement = builder.withInsertHandler(
+                  (insertion: InsertionContext, _: LookupElement) =>
+                    val document = insertion.getDocument
+                    val valid =
+                      range.start >= 0 && range.start < document.getTextLength &&
+                        document.getCharsSequence.charAt(range.start) == '?'
+                    if valid then
+                      var end = range.start + 1
+                      while end < document.getTextLength &&
+                        (document.getCharsSequence
+                          .charAt(end)
+                          .isLetterOrDigit ||
+                          document.getCharsSequence.charAt(end) == '_')
+                      do end += 1
+                      document.replaceString(range.start, end, binding.name)
+                      insertion.getEditor.getCaretModel.moveToOffset(
+                        range.start + binding.name.length
+                      )
+                )
+                result
+                  .withPrefixMatcher("")
+                  .addElement(
+                    PrioritizedLookupElement.withPriority(
+                      replacement,
+                      if names.exists(_.contains(binding.name)) then 100.0
+                      else 0.0
+                    )
+                  )
+              case None => result.addElement(builder)
           }
           val triggers =
             site match
@@ -234,6 +275,39 @@ object BendCompletionContributor:
     List("for", "exs", "where", "Type", "Data", "Kind", "Quant")
   private val typeHeaderWords = List("is")
   private val typeWords = List("Type", "Data", "Kind", "Quant")
+
+  private def goalSite(
+      parameters: CompletionParameters,
+      source: String,
+      offset: Int
+  ): Option[
+    (
+        com.dearlordylord.bend.idea.analysis.model.BendTextRange,
+        Option[Set[String]]
+    )
+  ] =
+    val file = parameters.getOriginalFile.getVirtualFile
+    if file == null then None
+    else
+      val id = new FileId(
+        Option(file.getCanonicalPath).getOrElse(file.getPath),
+        file.getCanonicalPath != null
+      )
+      val service = parameters.getOriginalFile.getProject
+        .getService(classOf[BendCheckService])
+      val current = service.resultsFor(id).filter(service.isCurrent)
+      if current.size != 1 then None
+      else
+        BendGoalQuery.at(
+          current.head,
+          id,
+          source,
+          parameters.getEditor.getDocument.getModificationStamp,
+          offset
+        ) match
+          case BendGoalAvailability.Available(goal) =>
+            Some(goal.range -> goal.compatibleBindings.map(_.toSet))
+          case _ => None
 
   private def addSymbol(
       result: CompletionResultSet,

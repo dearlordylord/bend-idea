@@ -17,7 +17,9 @@ final case class BendCheckSnapshot(
     toolchain: BendToolchainSelection,
     inputFingerprint: String = "",
     graph: Option[BendLoadedGraph] = None,
-    siblingLaws: Option[BendSourceRecord] = None
+    siblingLaws: Option[BendSourceRecord] = None,
+    goalRequested: Boolean = false,
+    normalizationRequest: Option[BendNormalizationRequest] = None
 ):
   def selectedBasePath: Option[String] =
     val importsBase = graph.fold(
@@ -77,6 +79,9 @@ enum BendCheckOutcome:
 enum BendCompleteness:
   case Complete, Incomplete, Unknown
 
+enum BendIncompleteKind:
+  case TodoHoles, NamedHole
+
 enum BendReliance:
   case None, UnsafeOrForeign, Unknown
 
@@ -84,6 +89,7 @@ enum BendLocation:
   case RootOnly
   case Line(number: Int)
   case SourceLine(source: FileId, number: Int)
+  case SourceRange(source: FileId, range: BendTextRange)
 
 /** Captured source identity and revision for editor projection and later
   * structured spans.
@@ -381,7 +387,11 @@ final case class BendCheckResult(
     details: String,
     fresh: Boolean = true,
     sources: List[BendCheckedSource] = Nil,
-    mappings: List[BendSourceMapping] = Nil
+    mappings: List[BendSourceMapping] = Nil,
+    goal: Option[BendGoal] = None,
+    incompleteKind: Option[BendIncompleteKind] = None,
+    expressionTypes: List[BendExpressionType] = Nil,
+    normalization: Option[BendNormalization] = None
 ):
   def status: String =
     val verdict = outcome match

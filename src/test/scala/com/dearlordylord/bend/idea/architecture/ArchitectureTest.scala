@@ -99,6 +99,28 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Compiler goals and proof edit previews must keep analysis contracts separate from editor actions",
+      classes.contain(
+        "com.dearlordylord.bend.idea.analysis.api.BendGoalQuery$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.analysis.api.BendProofEditValidator"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.intellij.BendProofEditValidatorService"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.semantics.BendTryReflexivityAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.structured.BendStructuredTypes$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.analysis.api.BendExpressionTypeQuery$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.structured.BendStructuredNormalization$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.semantics.BendNormalizeExpressionAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.semantics.BendExplainResourcesAction"
+      )
+    )
+    assertTrue(
       "Explicit Run must use a separate request and streaming process adapter",
       classes.contain(
         "com.dearlordylord.bend.idea.features.execution.BendRunConfiguration"

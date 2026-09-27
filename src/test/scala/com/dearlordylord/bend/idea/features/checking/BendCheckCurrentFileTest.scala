@@ -10,10 +10,13 @@ import com.dearlordylord.bend.idea.analysis.model.{
   BendCheckOutcome,
   BendCheckResult,
   BendCheckSnapshot,
-  BendCompleteness
+  BendCompleteness,
+  BendLocation,
+  BendTextRange
 }
 import com.dearlordylord.bend.idea.analysis.model.BendReliance
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.features.documentation.BendDocumentationProvider
 import com.dearlordylord.bend.idea.features.proofs.{
   BendProofRootState,
   BendProofRootStore
@@ -31,6 +34,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
+import scala.jdk.CollectionConverters.*
 
 final class BendCheckCurrentFileTest extends BasePlatformTestCase:
   private var original: BendToolchainChoices = null
@@ -72,6 +76,108 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
             })
         finally paths.close()
     finally super.tearDown()
+
+  def testStructuredHelperHighlightsExactCurrentSourceRange(): Unit =
+    val _ = RealBendCompilerFixture.inputs.writeStructuredLauncher(
+      directory.resolve("bend")
+    )
+    val text = "import Base\n# 😀\ndef main() -> U32:\n  unknown_name\n"
+    myFixture.configureByText("editor.bend", text)
+    val file = myFixture.getFile.getVirtualFile
+    val id = new FileId(
+      Option(file.getCanonicalPath).getOrElse(file.getPath),
+      file.getCanonicalPath != null
+    )
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val until = System.nanoTime() + 15_000_000_000L
+    while getProject.getService(classOf[BendCheckService]).result(id).isEmpty &&
+      System.nanoTime() < until
+    do Thread.sleep(50)
+    val result = getProject
+      .getService(classOf[BendCheckService])
+      .result(id)
+      .getOrElse(throw new AssertionError("Structured check did not publish"))
+    val start = text.indexOf("unknown_name")
+    assertEquals(
+      BendLocation.SourceRange(id, BendTextRange(start, start + 12)),
+      result.diagnostics.head.location
+    )
+    assertTrue(
+      myFixture.doHighlighting().asScala.exists { info =>
+        info.getStartOffset == start && info.getEndOffset == start + 12
+      }
+    )
+
+  def testCompilerExpressionTypeInDocumentationExpiresOnEdit(): Unit =
+    val _ = RealBendCompilerFixture.inputs.writeStructuredLauncher(
+      directory.resolve("bend")
+    )
+    val text =
+      "import Base\ndef id(A: Type, x: A) -> A:\n  x\ndef use() -> U32:\n  id(U32, 7)\n"
+    myFixture.configureByText("types.bend", text)
+    val file = myFixture.getFile.getVirtualFile
+    val id = new FileId(
+      Option(file.getCanonicalPath).getOrElse(file.getPath),
+      file.getCanonicalPath != null
+    )
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val service = getProject.getService(classOf[BendCheckService])
+    val until = System.nanoTime() + 20_000_000_000L
+    while service.result(id).forall(_.expressionTypes.isEmpty) &&
+      System.nanoTime() < until
+    do Thread.sleep(50)
+    assertTrue(
+      "type map did not publish",
+      service
+        .result(id)
+        .exists(
+          _.expressionTypes.nonEmpty
+        )
+    )
+    val provider = new BendDocumentationProvider
+    val psi = myFixture.getFile
+    val appOffset = text.indexOf("id(U32, 7)") + "id(U32, 7".length
+    val appElement = psi.findElementAt(appOffset)
+    val appTarget = provider.getCustomDocumentationElement(
+      myFixture.getEditor,
+      psi,
+      appElement,
+      appOffset
+    )
+    assertNotNull(appTarget)
+    val appDoc = provider.generateDoc(appTarget, appElement)
+    assertTrue(appDoc.contains("Expression type (Bend compiler)"))
+    assertTrue(appDoc.contains("<pre>U32</pre>"))
+    val nameOffset = text.lastIndexOf("id(U32, 7)")
+    val nameElement = psi.findElementAt(nameOffset)
+    val nameTarget = provider.getCustomDocumentationElement(
+      myFixture.getEditor,
+      psi,
+      nameElement,
+      nameOffset
+    )
+    val nameDoc = provider.generateDoc(nameTarget, nameElement)
+    assertTrue(nameDoc.contains("def id(A: Type, x: A) -&gt; A"))
+    assertTrue(nameDoc.contains("Expression type (Bend compiler)"))
+    val headerOffset = text.indexOf("def use")
+    val headerElement = psi.findElementAt(headerOffset)
+    val headerTarget = provider.getCustomDocumentationElement(
+      myFixture.getEditor,
+      psi,
+      headerElement,
+      headerOffset
+    )
+    assertNull(headerTarget)
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          myFixture.getEditor.getDocument.insertString(0, "# changed\n")
+    )
+    val stale = provider.generateDoc(nameTarget, nameElement)
+    assertFalse(
+      stale != null && stale.contains("Expression type (Bend compiler)")
+    )
 
   def testExplicitActionUsesUnsavedDocumentAndProjectsCompilerError(): Unit =
     val settings = ApplicationManager.getApplication.getService(

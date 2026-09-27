@@ -1,10 +1,15 @@
 package com.dearlordylord.bend.idea.features.documentation
 
+import com.dearlordylord.bend.idea.analysis.api.{
+  BendCheckService,
+  BendExpressionTypeQuery
+}
+import com.dearlordylord.bend.idea.analysis.model.BendExpressionType
 import com.dearlordylord.bend.idea.symbols.api.*
 import com.dearlordylord.bend.idea.syntax.psi.BendDeclaration
 import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.openapi.editor.Editor
-import com.intellij.psi.{PsiElement, PsiFile, PsiManager}
+import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiFile, PsiManager}
 import com.intellij.psi.util.PsiTreeUtil
 import java.net.{URLDecoder, URLEncoder}
 import java.nio.charset.StandardCharsets
@@ -30,21 +35,29 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
             )
         )
       )
+      .orElse(
+        Option
+          .when(typeAt(file, targetOffset).nonEmpty)(())
+          .flatMap(_ => Option(file.findElementAt(targetOffset)))
+      )
       .orNull
 
   override def getQuickNavigateInfo(
       element: PsiElement,
       originalElement: PsiElement
   ): String =
-    target(element, originalElement).map { case (_, site) =>
-      site.sourceSignature
-    }.orNull
+    val signature = target(element, originalElement).map(_._2.sourceSignature)
+    val actual = typeAt(originalElement, element)
+      .map(value => s"Expression type (Bend): ${value.typeText}")
+    (signature.toList ++ actual.toList).mkString("\n") match
+      case ""   => null
+      case text => text
 
   override def generateDoc(
       element: PsiElement,
       originalElement: PsiElement
   ): String =
-    target(element, originalElement).map { case (file, site) =>
+    val sourceDoc = target(element, originalElement).map { case (file, site) =>
       val symbol = site.symbol
       val html = new StringBuilder
       def append(value: String): Unit =
@@ -94,7 +107,14 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
         append(link("Implementation", symbol))
       append("</div>")
       html.toString
-    }.orNull
+    }
+    val actual = typeAt(originalElement, element).map { value =>
+      "<div class='content'><p>Expression type (Bend compiler)</p><pre>" +
+        escape(value.typeText) + "</pre></div>"
+    }
+    (sourceDoc.toList ++ actual.toList).mkString match
+      case ""   => null
+      case html => html
 
   override def getDocumentationElementForLink(
       psiManager: PsiManager,
@@ -155,6 +175,37 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
           }
       }
     )
+
+  private def typeAt(
+      originalElement: PsiElement,
+      fallback: PsiElement
+  ): Option[BendExpressionType] =
+    Option(originalElement).orElse(Option(fallback)).flatMap { element =>
+      Option(element.getContainingFile)
+        .flatMap(file => typeAt(file, element.getTextRange.getStartOffset))
+    }
+
+  private def typeAt(
+      file: PsiFile,
+      offset: Int
+  ): Option[BendExpressionType] =
+    val document = PsiDocumentManager
+      .getInstance(file.getProject)
+      .getDocument(file)
+    if document == null then None
+    else
+      val source = BendSourceSymbols.fileId(file)
+      val service = file.getProject.getService(classOf[BendCheckService])
+      val current = service.resultsFor(source).filter(service.isCurrent)
+      if current.size != 1 then None
+      else
+        BendExpressionTypeQuery.at(
+          current.head,
+          source,
+          document.getText,
+          document.getModificationStamp,
+          offset
+        )
 
   private def link(label: String, symbol: BendSourceSymbol): String =
     val path =

@@ -11,6 +11,7 @@ import com.dearlordylord.bend.idea.workspace.api.{
 }
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import java.nio.file.{Files, Path}
+import com.google.gson.{JsonNull, JsonObject}
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -52,7 +53,9 @@ final class BendCliGraphCheckTest:
       root: BendSourceRecord,
       overrides: Map[String, BendSourceRecord] = Map.empty,
       laws: Option[BendSourceRecord] = None,
-      configuredBase: Path = base
+      configuredBase: Path = base,
+      goalRequested: Boolean = false,
+      normalizationRequest: Option[BendNormalizationRequest] = None
   ): BendCheckResult =
     val cache = directory.resolve("lib")
     val catalog = new BendSourceCatalog:
@@ -79,7 +82,15 @@ final class BendCliGraphCheckTest:
       1L
     )
     val initial =
-      BendCheckSnapshot(root.id, root.path, root.text, root.revision, selection)
+      BendCheckSnapshot(
+        root.id,
+        root.path,
+        root.text,
+        root.revision,
+        selection,
+        goalRequested = goalRequested,
+        normalizationRequest = normalizationRequest
+      )
     val snapshot = BendGraphSnapshot.attach(initial, graph, laws)
     new BendCliCheckBackend(directory).check(snapshot)
 
@@ -90,6 +101,296 @@ final class BendCliGraphCheckTest:
         .filter(_.getFileName.toString.startsWith("bend-editor-check-"))
         .count()
     finally stream.close()
+
+  @Test def pinnedHelperMapsRealFirstErrorToUnsavedDependencyRange(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend)
+      val dependency = dir.resolve("math.bend")
+      Files.writeString(
+        dependency,
+        "import Base\ndef square() -> U32:\n  1\n"
+      )
+      val root = source(
+        dir.resolve("main.bend"),
+        "import ./math.bend as M\ndef main() -> U32:\n  M.square()\n"
+      )
+      val edited = source(
+        dependency,
+        "import Base\n# 😀\ndef square() -> U32:\n  unknown_value\n"
+      )
+      val result = check(dir, bend, root, Map(dependency.toString -> edited))
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      val start = edited.text.indexOf("unknown_value")
+      assertEquals(
+        BendLocation.SourceRange(edited.id, BendTextRange(start, start + 13)),
+        result.diagnostics.head.location
+      )
+      assertTrue(start > edited.text.codePointCount(0, start))
+      assertEquals(
+        "import Base\ndef square() -> U32:\n  1\n",
+        Files.readString(dependency)
+      )
+    }
+
+  @Test def pinnedHelperReturnsDependentGoalFromUnsavedImportedSource(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend)
+      val dependency = dir.resolve("proof.bend")
+      Files.writeString(dependency, "def choose(A: Type, x: A) -> A:\n  x\n")
+      val editedText = "def choose(A: Type, x: A) -> A:\n  ?need\n"
+      val edited = source(dependency, editedText)
+      val root = source(
+        dir.resolve("main.bend"),
+        "import ./proof.bend as P\n"
+      )
+      val ordinary = check(dir, bend, root, Map(dependency.toString -> edited))
+      assertEquals(BendCompleteness.Incomplete, ordinary.completeness)
+      assertTrue(ordinary.goal.isEmpty)
+      val result = check(
+        dir,
+        bend,
+        root,
+        Map(dependency.toString -> edited),
+        goalRequested = true
+      )
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      assertEquals(BendCompleteness.Incomplete, result.completeness)
+      val goal =
+        result.goal.getOrElse(throw new AssertionError("No compiler goal"))
+      val start = editedText.indexOf("?need")
+      assertEquals(edited.id, goal.source)
+      assertEquals(BendTextRange(start, start + 5), goal.range)
+      assertEquals("need", goal.holeName)
+      assertEquals("A", goal.expectedType)
+      assertEquals(
+        List("A" -> "Type", "x" -> "A"),
+        goal.context.map(binding => binding.name -> binding.typeText)
+      )
+      assertEquals(Some(List("x")), goal.compatibleBindings)
+      assertEquals(
+        "def choose(A: Type, x: A) -> A:\n  x\n",
+        Files.readString(dependency)
+      )
+    }
+
+  @Test def pinnedHelperMapsCheckedApplicationAndDependentBinderTypes(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend)
+      val dependency = dir.resolve("types.bend")
+      Files.writeString(dependency, "def id(A: Type, x: A) -> A:\n  x\n")
+      val editedText = "# 😀\ndef id(A: Type, x: A) -> A:\n  x\n"
+      val edited = source(dependency, editedText)
+      val rootText =
+        "import Base\nimport ./types.bend as T\ndef use() -> U32:\n  T.id(U32, 7)\n"
+      val root = source(dir.resolve("main.bend"), rootText)
+      val result = check(dir, bend, root, Map(dependency.toString -> edited))
+      assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
+      assertTrue(
+        result.expressionTypes.toString,
+        result.expressionTypes.exists(entry =>
+          entry.source == root.id && entry.range == BendTextRange(
+            rootText.indexOf("T.id(U32, 7)"),
+            rootText.indexOf("T.id(U32, 7)") + "T.id(U32, 7)".length
+          ) && entry.typeText == "U32"
+        )
+      )
+      assertTrue(
+        result.expressionTypes.exists(entry =>
+          entry.source == edited.id && entry.range == BendTextRange(
+            editedText.lastIndexOf("x"),
+            editedText.length - 1
+          ) && entry.typeText == "A"
+        )
+      )
+      assertEquals(
+        "def id(A: Type, x: A) -> A:\n  x\n",
+        Files.readString(dependency)
+      )
+    }
+
+  @Test def failedCheckAndUnsupportedHelperExposeNoExpressionTypes(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend)
+      val failed = source(
+        dir.resolve("failed.bend"),
+        "import Base\ndef use() -> U32:\n  missing\n"
+      )
+      assertTrue(check(dir, bend, failed).expressionTypes.isEmpty)
+      val _ = compiler.writeLauncher(bend)
+      val valid = source(
+        dir.resolve("valid.bend"),
+        "import Base\ndef use() -> U32:\n  7\n"
+      )
+      val result = check(dir, bend, valid)
+      assertEquals(BendCheckOutcome.Success, result.outcome)
+      assertTrue(result.expressionTypes.isEmpty)
+    }
+
+  @Test def timedOutTypeCapabilityDoesNotDelayOrInventCheckVerdict(): Unit =
+    fixture { (dir, bend) =>
+      val slow =
+        """if [ "${1:-}" = "--idea-structured-capabilities" ]; then
+          |  sleep 5
+          |fi""".stripMargin
+      val _ = compiler.writeLauncher(bend, slow)
+      val root = source(
+        dir.resolve("valid.bend"),
+        "import Base\ndef use() -> U32:\n  7\n"
+      )
+      val checked = check(dir, bend, root)
+      assertEquals(BendCheckOutcome.Success, checked.outcome)
+      assertEquals(BendCompleteness.Complete, checked.completeness)
+      assertTrue(checked.expressionTypes.isEmpty)
+    }
+
+  @Test def pinnedHelperNormalizesOnlyClosedCheckedExpression(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend)
+      val text =
+        "import Base\ndef id(A: Type, x: A) -> A:\n  x\ndef use() -> U32:\n  id(U32, 7)\n"
+      val root = source(dir.resolve("normal.bend"), text)
+      val call = text.lastIndexOf("id(U32, 7)")
+      val closed = check(
+        dir,
+        bend,
+        root,
+        normalizationRequest = Some(
+          BendNormalizationRequest(root.id, call + "id(U32, 7".length)
+        )
+      )
+      assertEquals(BendCheckOutcome.Success, closed.outcome)
+      assertEquals(
+        Some(
+          BendNormalization(
+            root.id,
+            BendTextRange(call, call + "id(U32, 7)".length),
+            "7"
+          )
+        ),
+        closed.normalization
+      )
+      val open = check(
+        dir,
+        bend,
+        root,
+        normalizationRequest = Some(
+          BendNormalizationRequest(root.id, text.indexOf("  x\n") + 2)
+        )
+      )
+      assertTrue(open.normalization.isEmpty)
+    }
+
+  @Test def unsafeDivergingNormalizationTimesOutWithoutChangingVerdictOrSource()
+      : Unit = fixture { (dir, bend) =>
+    val _ = compiler.writeStructuredLauncher(bend)
+    val text =
+      "import Base\n@unsafe def loop() -> Nat:\n  loop()\ndef use() -> Nat:\n  loop()\n"
+    val root = source(dir.resolve("diverge.bend"), text)
+    val before = snapshotCount(dir)
+    val started = System.nanoTime()
+    val checked = check(
+      dir,
+      bend,
+      root,
+      normalizationRequest = Some(
+        BendNormalizationRequest(root.id, text.lastIndexOf("loop()") + 1)
+      )
+    )
+    val elapsedSeconds = (System.nanoTime() - started) / 1_000_000_000L
+    assertEquals(BendCheckOutcome.Success, checked.outcome)
+    assertEquals(BendCompleteness.Complete, checked.completeness)
+    assertEquals(BendReliance.UnsafeOrForeign, checked.reliance)
+    assertTrue(checked.normalization.isEmpty)
+    assertTrue(
+      "bounded normalization exceeded its process limit",
+      elapsedSeconds < 15
+    )
+    assertEquals(before, snapshotCount(dir))
+  }
+
+  @Test def earlierCompilerFailureAndTodoDoNotInventGoals(): Unit = fixture {
+    (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend)
+      val earlier = source(
+        dir.resolve("early.bend"),
+        "import Base\ndef bad() -> U32:\n  missing_name\ndef later() -> U32:\n  ?need\n"
+      )
+      val failed = check(dir, bend, earlier, goalRequested = true)
+      assertEquals(BendCheckOutcome.Failed, failed.outcome)
+      assertTrue(failed.goal.isEmpty)
+      val todo = source(
+        dir.resolve("todo.bend"),
+        "import Base\ndef later() -> U32:\n  ?TODO\n"
+      )
+      val incomplete = check(dir, bend, todo, goalRequested = true)
+      assertEquals(BendCompleteness.Incomplete, incomplete.completeness)
+      assertTrue(incomplete.goal.isEmpty)
+  }
+
+  @Test def incompatibleOrTimedOutHelperKeepsCliDiagnostic(): Unit = fixture {
+    (dir, bend) =>
+      val root = source(
+        dir.resolve("main.bend"),
+        "import Base\ndef main() -> U32:\n  unknown_value\n"
+      )
+      val incompatible =
+        """if [ "${1:-}" = "--idea-structured-capabilities" ]; then
+          |  printf '%s\n' '{"protocol":2,"compiler":"bend-2.0.25-pinned","operations":["diagnostic"]}'
+          |  exit 0
+          |fi""".stripMargin
+      val _ = compiler.writeLauncher(bend, incompatible)
+      val withoutHelper = check(dir, bend, root)
+      assertEquals(BendCheckOutcome.Failed, withoutHelper.outcome)
+      assertEquals(
+        BendLocation.SourceLine(root.id, 2),
+        withoutHelper.diagnostics.head.location
+      )
+
+      val slow =
+        """if [ "${1:-}" = "--idea-structured-capabilities" ]; then
+          |  sleep 6
+          |fi""".stripMargin
+      val _ = compiler.writeLauncher(bend, slow)
+      val timedOut = check(dir, bend, root)
+      assertEquals(BendCheckOutcome.Failed, timedOut.outcome)
+      assertEquals(
+        BendLocation.SourceLine(root.id, 2),
+        timedOut.diagnostics.head.location
+      )
+  }
+
+  @Test def helperWithoutSpanKeepsCliLine(): Unit = fixture { (dir, bend) =>
+    val root = source(
+      dir.resolve("main.bend"),
+      "import Base\ndef main() -> U32:\n  unknown_value\n"
+    )
+    val baseline = check(dir, bend, root)
+    assertEquals(BendCheckOutcome.Failed, baseline.outcome)
+    val response = new JsonObject()
+    response.addProperty("protocol", 1)
+    response.addProperty("kind", "first-error")
+    response.addProperty("message", baseline.details)
+    response.add("span", JsonNull.INSTANCE)
+    val output = dir.resolve("no-span.json")
+    Files.writeString(output, response.toString + "\n")
+    val helper = s"""if [ "$${1:-}" = "--idea-structured-capabilities" ]; then
+                    |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.25-pinned","operations":["diagnostic"]}'
+                    |  exit 0
+                    |fi
+                    |if [ "$${1:-}" = "--idea-structured-diagnostic" ]; then
+                    |  cat '${output.toString}'
+                    |  exit 0
+                    |fi""".stripMargin
+    val _ = compiler.writeLauncher(bend, helper)
+    val checked = check(dir, bend, root)
+    assertEquals(baseline.outcome, checked.outcome)
+    assertEquals(baseline.completeness, checked.completeness)
+    assertEquals(baseline.reliance, checked.reliance)
+    assertEquals(
+      BendLocation.SourceLine(root.id, 2),
+      checked.diagnostics.head.location
+    )
+  }
 
   @Test def unsavedDependencyErrorMapsToItsOriginalFileAndLeavesDiskUntouched()
       : Unit = fixture { (dir, bend) =>

@@ -215,7 +215,19 @@ final class BendLibrarySourceService(project: Project)
           .take(1)
           .toList
           .headOption
-        val file = projectFile.orElse(Option(local)).orNull
+        val resolved = projectFile.orElse(Option(local))
+        // A checked path and an open editor can use different VFS aliases for
+        // the same physical file. The editor document owns its live revision.
+        val open = resolved.flatMap(candidate =>
+          FileEditorManager
+            .getInstance(project)
+            .getOpenFiles
+            .find(openFile =>
+              openFile.getCanonicalPath != null &&
+                openFile.getCanonicalPath == candidate.getCanonicalPath
+            )
+        )
+        val file = open.orElse(resolved).orNull
         if file == null || !file.isValid then None
         else
           Some(
@@ -255,7 +267,11 @@ final class BendLibrarySourceService(project: Project)
           else
             val document = manager.getDocument(file)
             val useDocument =
-              document != null && (manager.isFileModified(file) || !onDisk)
+              document != null && (manager.isFileModified(file) || !onDisk ||
+                FileEditorManager
+                  .getInstance(project)
+                  .getOpenFiles
+                  .contains(file))
             val text = if useDocument then Some(document.getText) else None
             val revision =
               if useDocument then Some(document.getModificationStamp) else None

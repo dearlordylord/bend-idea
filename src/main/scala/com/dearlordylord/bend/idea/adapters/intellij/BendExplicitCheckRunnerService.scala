@@ -28,6 +28,27 @@ final class BendExplicitCheckRunnerService(project: Project)
       path: String,
       taskTitle: String
   )(completed: BendExplicitCheckOutcome => Unit): Unit =
+    run(path, taskTitle, goalRequested = false, None)(completed)
+
+  override def checkGoal(
+      path: String,
+      taskTitle: String
+  )(completed: BendExplicitCheckOutcome => Unit): Unit =
+    run(path, taskTitle, goalRequested = true, None)(completed)
+
+  override def checkNormalization(
+      path: String,
+      request: BendNormalizationRequest,
+      taskTitle: String
+  )(completed: BendExplicitCheckOutcome => Unit): Unit =
+    run(path, taskTitle, goalRequested = false, Some(request))(completed)
+
+  private def run(
+      path: String,
+      taskTitle: String,
+      goalRequested: Boolean,
+      normalizationRequest: Option[BendNormalizationRequest]
+  )(completed: BendExplicitCheckOutcome => Unit): Unit =
     val initialPath = Path.of(path).toAbsolutePath.normalize().toString
     val canonical =
       Option(
@@ -72,7 +93,9 @@ final class BendExplicitCheckRunnerService(project: Project)
             root.path,
             root.text,
             root.revision,
-            selection
+            selection,
+            goalRequested = goalRequested,
+            normalizationRequest = normalizationRequest
           )
           val document = documentAt(Path.of(initialPath))
           def sourceCurrent: Boolean = catalog
