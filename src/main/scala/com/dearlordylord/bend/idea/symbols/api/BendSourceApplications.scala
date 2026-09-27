@@ -1,6 +1,10 @@
 package com.dearlordylord.bend.idea.symbols.api
 
-import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
+import com.dearlordylord.bend.idea.syntax.lexer.{
+  BendLexer,
+  BendTokens,
+  BendWords
+}
 import com.dearlordylord.bend.idea.syntax.parser.BendTypeAngleContext
 import com.intellij.psi.{PsiFile, TokenType}
 import com.intellij.psi.tree.IElementType
@@ -31,6 +35,9 @@ final case class BendSourceCallSite(
     calleeUntil: Int,
     openFrom: Int
 )
+
+/** Complete application or index prefix in the current source. */
+final case class BendSourcePrefix(from: Int, openFrom: Int, until: Int)
 
 /** Shared lexical application alignment for parameter information and hints. */
 object BendSourceApplications:
@@ -84,6 +91,37 @@ object BendSourceApplications:
       .toList
       .headOption
 
+  def atHead(file: PsiFile, offset: Int): Option[BendSourceApplication] =
+    val source = file.getText
+    val tokens = tokenize(source)
+    val matched = BendTypeAngleContext.applicationPairs(source)
+    tokens.indices.iterator
+      .filter(index =>
+        tokens(index).from <= offset &&
+          offset < tokens(index).until &&
+          tokens(index).text.matches("[A-Za-z_][A-Za-z0-9_.]*")
+      )
+      .flatMap { index =>
+        val open = index + 1
+        if open >= tokens.size then Nil
+        else
+          val opener = tokens(open)
+          val angles =
+            if opener.text == "<" &&
+              tokens(index).text.head.isUpper &&
+              tokens(index).until == opener.from &&
+              !matched.contains(opener.from)
+            then matched.updated(opener.from, Int.MaxValue)
+            else matched
+          if isOpening(opener, angles) &&
+            !source.substring(tokens(index).until, opener.from).contains('\n')
+          then application(tokens, open, source, offset, angles).toList
+          else Nil
+      }
+      .take(1)
+      .toList
+      .headOption
+
   /** Lexical named calls for dependency inspection, without argument parsing.
     */
   def namedCalls(file: PsiFile): List[BendSourceCallSite] =
@@ -107,6 +145,63 @@ object BendSourceApplications:
         }
       }
       .toList
+
+  def prefixes(file: PsiFile): List[BendSourcePrefix] =
+    val source = file.getText
+    val tokens = tokenize(source)
+    val angles = BendTypeAngleContext.applicationPairs(source)
+    val closers = matchingClosers(tokens, angles)
+    val known = mutable.Map.empty[Int, Int]
+    val result = List.newBuilder[BendSourcePrefix]
+    tokens.indices.foreach { open =>
+      val token = tokens(open)
+      if isOpening(token, angles) && open > 0 then
+        val previous = tokens(open - 1)
+        val head = if previous.text == "!" && open >= 2 then tokens(open - 2)
+        else previous
+        val contiguousLine =
+          !source.substring(head.until, token.from).contains('\n')
+        val start = if !contiguousLine then None
+        else
+          known
+            .get(previous.until)
+            .orElse(
+              Option.when(
+                head.text.matches("[A-Za-z_][A-Za-z0-9_.]*") &&
+                  !BendWords.reserved(head.text)
+              )(
+                head.from
+              )
+            )
+        for
+          from <- start
+          close <- closers.get(open)
+        do
+          val until = tokens(close).until
+          known(until) = from
+          result += BendSourcePrefix(from, token.from, until)
+    }
+    result.result()
+
+  private def matchingClosers(
+      tokens: Vector[Token],
+      angles: Map[Int, Int]
+  ): Map[Int, Int] =
+    val stack = mutable.ArrayBuffer.empty[Int]
+    val matched = mutable.Map.empty[Int, Int]
+    tokens.indices.foreach { index =>
+      val token = tokens(index)
+      if isOpening(token, angles) then stack += index
+      else if isClosing(token) &&
+        (token.text != ">" || angles.contains(token.from))
+      then
+        val found =
+          stack.lastIndexWhere(open => closing(tokens(open).text) == token.text)
+        if found >= 0 then
+          matched(stack(found)) = index
+          stack.dropRightInPlace(stack.size - found)
+    }
+    matched.toMap
 
   private def tokenize(source: String): Vector[Token] =
     val lexer = new BendLexer()

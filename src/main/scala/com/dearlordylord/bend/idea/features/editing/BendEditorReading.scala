@@ -1,13 +1,19 @@
 package com.dearlordylord.bend.idea.features.editing
 
-import com.dearlordylord.bend.idea.symbols.api.BendSourceApplications
-import com.dearlordylord.bend.idea.syntax.BendLanguage
-import com.dearlordylord.bend.idea.syntax.lexer.{
-  BendLexer,
-  BendTokens,
-  BendWords
+import com.dearlordylord.bend.idea.symbols.api.{
+  BendApplicationKind,
+  BendSourceApplications
 }
-import com.dearlordylord.bend.idea.syntax.parser.BendTypeAngleContext
+import com.dearlordylord.bend.idea.syntax.BendLanguage
+import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
+import com.dearlordylord.bend.idea.syntax.parser.{
+  BendSelectionAtoms,
+  BendSelectionExpressions,
+  BendSelectionForms,
+  BendSelectionGroups,
+  BendSelectionStatements,
+  BendTypeAngleContext
+}
 import com.dearlordylord.bend.idea.syntax.psi.*
 import com.intellij.codeInsight.editorActions.ExtendWordSelectionHandler
 import com.intellij.lang.Language
@@ -157,7 +163,18 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
       )
     )
     val ranges = mutable.LinkedHashSet.empty[TextRange]
-    wordRanges(source, offset).foreach(ranges += _)
+    BendSelectionAtoms
+      .at(source, offset)
+      .foreach(span => ranges += new TextRange(span.from, span.until))
+    BendSelectionExpressions
+      .at(source, offset)
+      .foreach(span => ranges += new TextRange(span.from, span.until))
+    BendSelectionForms
+      .at(source, offset)
+      .foreach(span => ranges += new TextRange(span.from, span.until))
+    BendSelectionStatements
+      .at(source, offset)
+      .foreach(span => ranges += new TextRange(span.from, span.until))
     val file = element.getContainingFile
     if file != null && file.getLanguage == BendLanguage.instance then
       val pairs = delimiterPairs(source)
@@ -167,25 +184,56 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
       containing.foreach { pair =>
         ranges += new TextRange(pair.from, pair.until)
         ranges += new TextRange(pair.openUntil, pair.closeFrom)
-        callStart(source, pair.from).foreach(start =>
-          ranges += new TextRange(start, pair.until)
-        )
+        BendSelectionGroups
+          .components(source, pair.from, pair.closeFrom)
+          .filter(span => span.from <= offset && offset <= span.until)
+          .foreach(span => ranges += new TextRange(span.from, span.until))
       }
-      val innermostCall = BendSourceApplications.at(file, offset)
+      BendSourceApplications.prefixes(file).foreach { prefix =>
+        if prefix.from <= offset && offset <= prefix.until then
+          ranges += new TextRange(prefix.from, prefix.until)
+        if source.charAt(prefix.openFrom) == '[' then
+          BendSelectionStatements
+            .indexedWriteEnd(source, prefix.until)
+            .foreach { end =>
+              if prefix.from <= offset && offset <= end then
+                ranges += new TextRange(prefix.from, end)
+            }
+      }
+      val innermostCall = BendSourceApplications
+        .at(file, offset)
+        .orElse(BendSourceApplications.atHead(file, offset))
       innermostCall.foreach { application =>
+        val end = if application.complete then source.length
+        else
+          incompleteEnd(
+            source,
+            application.openUntil,
+            application.kind == BendApplicationKind.Datatype
+          )
         pairs
           .find(_.from == application.openFrom)
           .foreach(pair =>
             ranges += new TextRange(application.calleeFrom, pair.until)
           )
         application.arguments
-          .find(argument => argument.from <= offset && offset <= argument.until)
+          .find(argument =>
+            argument.from <= offset && offset <= argument.until &&
+              argument.until <= end
+          )
           .foreach(argument =>
             ranges += new TextRange(argument.from, argument.until)
           )
+        if !application.complete then
+          if application.calleeFrom <= offset && offset <= end then
+            ranges += new TextRange(application.calleeFrom, end)
       }
       BendFoldingSurface
         .ranges(file)
+        .filter(range => range.from <= offset && offset <= range.until)
+        .foreach(range => ranges += new TextRange(range.from, range.until))
+      BendFoldingSurface
+        .selectionConstructs(file)
         .filter(range => range.from <= offset && offset <= range.until)
         .foreach(range => ranges += new TextRange(range.from, range.until))
       Option(
@@ -215,43 +263,24 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
       until: Int
   )
 
-  private def wordRanges(source: String, offset: Int): List[TextRange] =
-    def word(c: Char): Boolean = c.isLetterOrDigit || c == '_' || c == '.'
-    val pivot = if offset == source.length then offset - 1 else offset
-    if pivot < 0 || !word(source.charAt(pivot)) then Nil
-    else
-      var left = pivot
-      var right = pivot + 1
-      while left > 0 && word(source.charAt(left - 1)) do left -= 1
-      while right < source.length && word(source.charAt(right)) do right += 1
-      val complete = new TextRange(left, right)
-      val dot = source.indexOf('.', left)
-      val component =
-        if dot >= left && dot < right then
-          val segmentStart = if pivot < dot then left else dot + 1
-          val segmentEnd = if pivot < dot then dot else right
-          List(new TextRange(segmentStart, segmentEnd))
-        else Nil
-      complete :: component
-
-  private def callStart(source: String, open: Int): Option[Int] =
-    var end = open - 1
-    while end >= 0 && source.charAt(end).isWhitespace do end -= 1
-    if end >= 0 && source.charAt(end) == '!' then
-      end -= 1
-      while end >= 0 && source.charAt(end).isWhitespace do end -= 1
-    var start = end
-    while start >= 0 && (source.charAt(start).isLetterOrDigit ||
-        source.charAt(start) == '_' || source.charAt(start) == '.')
-    do start -= 1
-    val name = source.substring(start + 1, end + 1)
-    Option.when(
-      name.matches("[A-Za-z_][A-Za-z0-9_.]*") &&
-        !BendWords.reserved(name)
-    )(start + 1)
+  private def incompleteEnd(
+      source: String,
+      from: Int,
+      stopAtColon: Boolean
+  ): Int =
+    val newline = source.indexOf('\n', from) match
+      case -1 => source.length
+      case at => at
+    val semicolon = source.indexOf(';', from)
+    val colon = if stopAtColon then source.indexOf(':', from) else -1
+    val limit = List(newline, semicolon, colon)
+      .filter(_ >= 0)
+      .min
+    val last = source.substring(from, limit).lastIndexWhere(!_.isWhitespace)
+    math.max(from, from + last + 1)
 
   private def delimiterPairs(source: String): List[Pair] =
-    val anglePairs = BendTypeAngleContext.matchedPairs(source)
+    val anglePairs = BendTypeAngleContext.applicationPairs(source)
     val lexer = new BendLexer()
     lexer.start(source)
     val stack = mutable.ArrayBuffer.empty[(String, Int, Int)]

@@ -2,6 +2,10 @@
 
 Issue and user-visible result:
 
+Changelog: describe the `CHANGELOG.md` Unreleased entry for a user-visible
+change, or explain why no entry is needed. For a release PR, update the versioned
+entry and `plugin.xml` `<change-notes>` together.
+
 ## Architecture
 
 Affected package owner(s) and shared contracts:

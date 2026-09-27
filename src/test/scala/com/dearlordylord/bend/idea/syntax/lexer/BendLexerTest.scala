@@ -160,3 +160,14 @@ final class BendLexerTest:
     val found = tokens(source)
     assertFalse(found.exists(_.kind == BendTokens.Comment))
     assertEquals(BendTokens.InvalidEscape, found.last.kind)
+
+  @Test def distinguishesFixedInfixOperatorsFromTypeAngles(): Unit =
+    val found = tokens("def f() -> D<List<Nat>>:\n  a <&> b <> c << d\n")
+    assertEquals(2, found.count(_.kind == BendTokens.LeftAngle))
+    assertEquals(2, found.count(_.kind == BendTokens.RightAngle))
+    for spelling <- List("<&>", "<>", "<<") do
+      assertTrue(
+        found.exists(token =>
+          token.kind == BendTokens.Operator && token.text == spelling
+        )
+      )

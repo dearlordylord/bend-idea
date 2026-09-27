@@ -4,7 +4,7 @@
 
 Language support for [Bend 2](https://github.com/bendlang/bend) in IntelliJ IDEA. The plugin recognizes `.bend` files and provides source editing features without a Bend installation. Compiler diagnostics use a separately configured Bend executable.
 
-<!-- Keep installation guidance focused on user tasks; put version history in plugin change notes and release notes. -->
+<!-- Keep installation guidance focused on user tasks; put version history in CHANGELOG.md and release notes. -->
 ## Install
 
 - Open **Settings → Plugins**, click the gear icon, and choose **Manage Plugin Repositories**.
@@ -62,6 +62,10 @@ Supports IntelliJ IDEA **2025.1 and newer**. Compatibility has been verified wit
 - **Bend Check Status** reports checking, current, stale, incomplete, failed, unavailable, and timeout states. Compiler errors appear in the editor when their source location can be mapped unambiguously.
 
 ## Compiler and release details
+
+See the [changelog](CHANGELOG.md) for released changes and work awaiting release.
+The plugin's **What's New** text is maintained separately in
+[`plugin.xml`](src/main/resources/META-INF/plugin.xml) when a release is prepared.
 
 The latest release checks used **Bend 2.0.25** from commit [`ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b`](https://github.com/bendlang/bend/commit/ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b), with Bun 1.4.2. If the configured compiler, Base, or another required capability is unavailable, the plugin reports that state instead of treating the file as successfully checked.
 

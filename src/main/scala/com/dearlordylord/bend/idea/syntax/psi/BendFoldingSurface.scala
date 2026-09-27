@@ -89,6 +89,34 @@ object BendFoldingSurface:
         }
     result.toList.sortBy(range => (range.from, range.until))
 
+  /** Header plus body spans for selection; folding keeps its body-only spans.
+    */
+  def selectionConstructs(file: PsiFile): List[BendFoldRange] =
+    val source = file.getText
+    ranges(file).flatMap { range =>
+      val word = range.kind match
+        case BendFoldKind.MatchBlock => Some("match")
+        case BendFoldKind.CaseBlock  => Some("case")
+        case BendFoldKind.DoBlock    => Some("do")
+        case _                       => None
+      word.flatMap { keyword =>
+        val lineStart = source.lastIndexOf('\n', range.from - 1) + 1
+        val before = source.substring(lineStart, range.from)
+        val at = ("(?<![A-Za-z0-9_.])" + keyword +
+          "(?![A-Za-z0-9_.])").r
+          .findAllMatchIn(before)
+          .toList
+          .lastOption
+          .map(_.start)
+        val newline = source.indexOf('\n', range.until)
+        val end =
+          if newline >= 0 && source.substring(range.until, newline).trim.isEmpty
+          then newline + 1
+          else range.until
+        at.map(position => BendFoldRange(lineStart + position, end, range.kind))
+      }
+    }
+
   private def add(
       source: String,
       result: mutable.Set[BendFoldRange],

@@ -33,6 +33,8 @@ Explicit user instructions take precedence. Feature issues own acceptance behavi
 
 Use [REVIEWER.md](REVIEWER.md) to inspect the change and affected consumers. A reviewer file has effect here because this agreement explicitly requires it; merely adding it does not run a separate reviewer.
 
+Record user-visible changes under Unreleased in [CHANGELOG.md](CHANGELOG.md). When preparing a release, follow its instructions to update the versioned entry and the plugin change notes together.
+
 Report the behavior delivered, validation performed, applicable architectural changes and remaining gaps. In a PR, fill out the repository template with evidence rather than only checked boxes. Distinguish an implementer's self-review from independent review.
 
 If a proposed change violates a rule, first look for a solution inside the current boundary. If a design change is necessary, describe the affected contract and tradeoff; update architecture, relevant guidance and checks together. Do not silently relax an enforcement rule or bury a deviation in a utility package. Routine conforming implementation choices require no extra permission.

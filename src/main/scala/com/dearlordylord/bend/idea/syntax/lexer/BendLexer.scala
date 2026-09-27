@@ -164,6 +164,9 @@ final class BendLexer extends LexerBase:
     else if ",;:".contains(c) then
       tokenEnd += 1
       kind = BendTokens.Separator
+    else if startsWith("<&>") || startsWith("<>") || startsWith("<<") then
+      tokenEnd += (if startsWith("<&>") then 3 else 2)
+      kind = BendTokens.Operator
     else if c == '<' && char(startOffset + 1) != '-' && char(
         startOffset + 1
       ) != '='
