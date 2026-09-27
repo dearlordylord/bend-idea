@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Bend2 adds syntax highlighting, completion, navigation, proof workflows, and compiler checks for Bend 2 files in IntelliJ IDEA.">
+  <meta name="description" content="Bend2 is a Bend 2 plugin for IntelliJ IDEA with syntax highlighting, code completion, navigation, proof tools, and optional compiler checks. Install it for IDEA 2025.1+.">
   <meta name="theme-color" content="#f7f9fb">
   <link rel="canonical" href="https://bend-idea.dearlordylord.com/">
   <link rel="icon" type="image/png" href="favicon.png">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Bend2">
-  <meta property="og:title" content="Bend2 — Bend 2 support for IntelliJ IDEA">
-  <meta property="og:description" content="Edit, navigate, and check Bend 2 files in IntelliJ IDEA.">
+  <meta property="og:title" content="Bend2 — Bend 2 plugin for IntelliJ IDEA">
+  <meta property="og:description" content="Edit Bend 2 in IntelliJ IDEA with completion, navigation, proof tools, and optional compiler checks.">
   <meta property="og:url" content="https://bend-idea.dearlordylord.com/">
   <meta property="og:image" content="https://bend-idea.dearlordylord.com/bend2-icon.png">
   <meta property="og:image:alt" content="Bend2 plugin icon">
   <meta name="twitter:card" content="summary">
-  <title>Bend2 — Bend 2 support for IntelliJ IDEA</title>
+  <title>Bend2 — Bend 2 plugin for IntelliJ IDEA</title>
   <script type="application/ld+json">
     {"@context":"https://schema.org","@type":"WebSite","name":"Bend2","url":"https://bend-idea.dearlordylord.com/"}
   </script>
@@ -26,13 +26,22 @@
     main { max-width: 920px; margin: auto; padding: 32px 28px 50px; }
     a { color: #185b8b; text-underline-offset: 3px; }
     .hero { padding: 82px 0 78px; }
+    .eyebrow { margin: 0 0 14px; color: #566674; font-size: 15px; font-weight: 600; }
     h1 { max-width: 780px; margin: 0; font-size: clamp(42px, 7vw, 72px); line-height: 1.05; letter-spacing: -.055em; }
+    .intro { max-width: 710px; margin: 24px 0 0; font-size: 19px; line-height: 1.6; }
+    .install-link { display: inline-block; margin-top: 28px; padding: 12px 18px; border-radius: 8px; background: #185b8b; color: #fff; font-weight: 600; text-decoration: none; }
+    .install-link:hover { background: #12496f; }
+    .install-link:focus-visible { outline: 2px solid #17212b; outline-offset: 3px; }
     .github-link { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-top: 28px; border-radius: 9px; color: #17212b; }
     .github-link svg { width: 26px; height: 26px; }
     .github-link:hover { background: #e5edf3; }
     .github-link:focus-visible { outline: 2px solid #185b8b; outline-offset: 3px; }
     .install { border-top: 1px solid #dce3e9; padding-top: 32px; }
+    .features { border-top: 1px solid #dce3e9; padding: 32px 0 36px; }
     h2 { margin: 0 0 22px; font-size: 24px; letter-spacing: -.035em; }
+    .feature-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 24px; }
+    .feature-list h3 { margin: 0 0 8px; font-size: 18px; }
+    .feature-list p { margin: 0; line-height: 1.6; }
     ol { display: grid; gap: 18px; margin: 0; padding-left: 24px; line-height: 1.6; }
     li { padding-left: 7px; }
     code { display: inline-block; max-width: 100%; overflow-wrap: anywhere; border: 1px solid #dce3e9; border-radius: 6px; background: #fff; padding: 2px 6px; font-size: .92em; }
@@ -44,10 +53,30 @@
 <body>
   <main>
     <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">Bend2 · IntelliJ IDEA plugin</p>
       <h1 id="page-title">Bend 2 support for IntelliJ IDEA.</h1>
+      <p class="intro">Write and explore <a href="https://github.com/bendlang/bend">Bend 2</a> files in IntelliJ IDEA. Bend2 adds code completion, navigation, proof workflows, and optional compiler checks to the editor.</p>
+      <a class="install-link" href="#install">Install Bend2</a>
       <a class="github-link" href="https://github.com/dearlordylord/bend-idea" aria-label="View project on GitHub" title="View project on GitHub">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 .297C5.37.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.043-1.61-4.043-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.729.083-.729 1.205.084 1.838 1.237 1.838 1.237 1.07 1.835 2.809 1.305 3.495.998.108-.776.418-1.305.762-1.605-2.665-.3-5.466-1.334-5.466-5.93 0-1.31.469-2.381 1.236-3.221-.124-.303-.536-1.524.117-3.176 0 0 1.008-.322 3.301 1.23a11.52 11.52 0 0 1 3.003-.404c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.655 1.652.243 2.873.12 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.805 5.625-5.479 5.922.43.372.823 1.102.823 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 22.092 24 17.597 24 12.297c0-6.627-5.373-12-12-12"/></svg>
       </a>
+    </section>
+    <section class="features" aria-labelledby="features-title">
+      <h2 id="features-title">Bend language tools in your IDE</h2>
+      <div class="feature-list">
+        <div>
+          <h3>Edit Bend source</h3>
+          <p>Get syntax highlighting, snippets, completion, formatting, and a structure view for <code>.bend</code> files.</p>
+        </div>
+        <div>
+          <h3>Navigate your project</h3>
+          <p>Go to declarations, find usages, rename references, and browse source documentation across your Bend files.</p>
+        </div>
+        <div>
+          <h3>Check code and proofs</h3>
+          <p>With a configured Bend compiler, check unsaved files and imports, inspect proof goals, and track progress for selected proof roots.</p>
+        </div>
+      </div>
     </section>
     <section class="install" id="install" aria-labelledby="install-title">
       <h2 id="install-title">Install</h2>

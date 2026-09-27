@@ -1,8 +1,10 @@
 # Changelog
 
-User-visible changes to the Bend2 IDEA plugin are recorded here. Add entries under
-**Unreleased** when the change is made. Keep released entries as a record of what
-shipped; do not put unreleased work in the currently published plugin notes.
+User-visible behavior changes to the Bend2 IDEA plugin are recorded here. Add entries
+under **Unreleased** when the plugin changes. Website, documentation, and promotional
+edits do not need entries unless they also change plugin behavior. Keep released
+entries as a record of what shipped; do not put unreleased work in the currently
+published plugin notes.
 
 When preparing a release, move its entries into a versioned section, update
 `pluginVersion` in `gradle.properties`, and write a concise summary of the same

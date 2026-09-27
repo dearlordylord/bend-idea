@@ -4,6 +4,8 @@
 
 Language support for [Bend 2](https://github.com/bendlang/bend) in IntelliJ IDEA. The plugin recognizes `.bend` files and provides source editing features without a Bend installation. Compiler diagnostics use a separately configured Bend executable.
 
+[Bend2 plugin website](https://bend-idea.dearlordylord.com/) · [Install instructions](https://bend-idea.dearlordylord.com/#install)
+
 <!-- Keep installation guidance focused on user tasks; put version history in CHANGELOG.md and release notes. -->
 ## Install
 
