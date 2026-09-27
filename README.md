@@ -60,6 +60,13 @@ Supports IntelliJ IDEA **2025.1 and newer**. Compatibility has been verified wit
 - **Check Current Bend File** runs a supported Bend compiler against a snapshot of the current unsaved file and its loaded imports, without running `main` or fetching packages.
 - Optional background checking refreshes diagnostics after edits to the root or its dependencies. Results belong to the checked root, and older results are discarded when their inputs change.
 - **Bend Check Status** reports checking, current, stale, incomplete, failed, unavailable, and timeout states. Compiler errors appear in the editor when their source location can be mapped unambiguously.
+- For a pinned Bend 2.0.25 source checkout, the optional structured helper can highlight the first compiler error at its exact source range. Copy `bend-structured-launcher.sh` and `bend-structured-helper.ts` from `src/main/resources/semantic` into one directory, make the launcher executable, set `BEND_IDEA_BUN` to Bun 1.4.2 and `BEND_IDEA_BEND_DIR` to that checkout's `bend2` directory in IDEA's environment, then select the launcher as the Bend executable. The helper checks hashes of the pinned compiler sources. Other compilers continue to use the ordinary CLI diagnostic.
+- **Inspect Bend Goal** checks the current root and shows the compiler's expected type and local context when the caret is on its first reachable named hole. An earlier compiler error, `?TODO`, a later hole, or an unsupported compiler yields an unavailable message. Named holes remain incomplete proof work.
+- **Expression types in Quick Documentation** come from the pinned helper's checked term tree after a successful root check. Hover an exactly mapped expression to see its type alongside any source declaration signature. Failed checks, ambiguous spans, edits and unsupported compiler pairings leave the type unavailable.
+- **Expected-type completion** uses the current inspected goal to rank local binders that the pinned Bend checker accepts at that hole. It replaces only the selected hole with the chosen name. Source scope still controls candidates; ordinary completion remains available when comparison is unsupported or times out. This first comparison capability covers up to 32 local binders at the first reachable named hole.
+- **Explain Bend Resources** rechecks up to eight compiler-context binders as possible replacements for the first named hole. It shows the compiler's erased, affine or reusable quantity and whether each replacement checks in the complete selected root, reaches a later TODO, is rejected, or could not be checked. A rejection can have a non-resource cause, and the view does not claim to track remaining resources at arbitrary expression locations. The action leaves source untouched.
+- **Normalize Bend Expression** explicitly rechecks the selected root, then displays a normalized result when the caret is on a closed expression with an exact compiler span. The helper runs in a killable process with a five-second limit; open expressions, unsupported locations and timed-out reductions remain unavailable. Normalization never edits the file.
+- **Try Bend Reflexivity** checks a `{==}` replacement for the first reachable named hole in a definition body against a derived snapshot of the selected root. After the compiler accepts the candidate, a confirmation applies one undoable edit. The preview says whether the whole root is complete or later `?TODO` holes remain; rejected or stale candidates leave the source untouched.
 
 ## Compiler and release details
 
@@ -73,7 +80,7 @@ The custom repository feed serves 0.1.6. To install it directly, download [`bend
 
 ## Planned
 
-- **Compiler-backed assistance:** structured diagnostics, goals and context, actual expression types, expected-type completion, resource feedback, validated proof edits, and explicit normalization. These depend on compatible compiler capabilities.
+- **Broader compiler assistance:** goals beyond the first named hole, general resource demand at arbitrary expressions, expected-type ranking for nonlocal declarations, contextual normalization of open expressions, and more proof edits require additional compatible compiler capabilities. Structured diagnostics currently cover the first compiler error for the pinned helper pairing; broader diagnostic coverage remains planned.
 
 The [implementation specification](https://github.com/dearlordylord/bend-idea/issues/1) and [feature issues](https://github.com/dearlordylord/bend-idea/issues) track the full roadmap.
 

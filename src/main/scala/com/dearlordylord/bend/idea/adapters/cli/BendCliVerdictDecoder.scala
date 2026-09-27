@@ -33,7 +33,8 @@ private[cli] object BendCliVerdictDecoder:
       completeness: BendCompleteness,
       reliance: BendReliance,
       details: String,
-      sourceLocationAllowed: Boolean = false
+      sourceLocationAllowed: Boolean = false,
+      incompleteKind: Option[BendIncompleteKind] = None
   )
 
   def capability(process: BendProcessOutcome): Capability = process match
@@ -127,7 +128,17 @@ private[cli] object BendCliVerdictDecoder:
           BendCheckOutcome.Failed,
           BendCompleteness.Incomplete,
           BendReliance.Unknown,
-          report
+          report,
+          incompleteKind = Some(BendIncompleteKind.TodoHoles)
+        )
+      else if namedHoleReport(report) then
+        Check(
+          BendCheckOutcome.Failed,
+          BendCompleteness.Incomplete,
+          BendReliance.Unknown,
+          report,
+          sourceLocationAllowed = compilerLocationReport(report),
+          incompleteKind = Some(BendIncompleteKind.NamedHole)
         )
       else if compilerErrorReport(report) then
         Check(
@@ -207,6 +218,11 @@ private[cli] object BendCliVerdictDecoder:
         val count = BigInt(countText)
         count > 0 && (if count == 1 then plural.isEmpty else plural == "s")
       case _ => false
+
+  private def namedHoleReport(report: String): Boolean =
+    compilerErrorReport(report) && report
+      .split("\n", -1)
+      .exists(_.matches("^- observed : \\?[A-Za-z_][A-Za-z0-9_]*$"))
 
   private def compilerErrorReport(report: String): Boolean =
     val lines = report.split("\n", -1)

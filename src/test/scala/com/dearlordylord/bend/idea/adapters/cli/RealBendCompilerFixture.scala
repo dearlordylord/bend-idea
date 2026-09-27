@@ -45,6 +45,57 @@ object RealBendCompilerFixture:
       )
       path
 
+    def writeStructuredLauncher(
+        path: Path,
+        goalPrelude: String = "",
+        comparisonPrelude: String = "",
+        normalizationPrelude: String = "",
+        checkOnlyPrelude: String = ""
+    ): Path =
+      val helper = path.resolveSibling("bend-structured-helper.ts")
+      val resource = getClass.getResourceAsStream(
+        "/semantic/bend-structured-helper.ts"
+      )
+      try
+        val _ = Files.copy(
+          resource,
+          helper,
+          java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        )
+      finally resource.close()
+      val lines = List(
+        "if [ \"${1:-}\" = \"--idea-structured-capabilities\" ]; then",
+        s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} capabilities \"$$BEND_TEST_COMPILER_DIR/bend2\"",
+        "fi",
+        "if [ \"${1:-}\" = \"--idea-structured-diagnostic\" ]; then",
+        s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} diagnostic \"$$BEND_TEST_COMPILER_DIR/bend2\" \"$$2\"",
+        "fi",
+        "if [ \"${1:-}\" = \"--idea-structured-goal\" ]; then"
+      ) ++ Option.when(goalPrelude.nonEmpty)(goalPrelude).toList ++ List(
+        s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} goal \"$$BEND_TEST_COMPILER_DIR/bend2\" \"$$2\"",
+        "fi",
+        "if [ \"${1:-}\" = \"--idea-structured-types\" ]; then",
+        s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} types \"$$BEND_TEST_COMPILER_DIR/bend2\" \"$$2\"",
+        "fi",
+        "if [ \"${1:-}\" = \"--idea-structured-compare\" ]; then"
+      ) ++ Option
+        .when(comparisonPrelude.nonEmpty)(comparisonPrelude)
+        .toList ++ List(
+        s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} compare \"$$BEND_TEST_COMPILER_DIR/bend2\" \"$$2\"",
+        "fi",
+        "if [ \"${1:-}\" = \"--idea-structured-normalize\" ]; then"
+      ) ++ Option
+        .when(normalizationPrelude.nonEmpty)(normalizationPrelude)
+        .toList ++ List(
+        s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} normalize \"$$BEND_TEST_COMPILER_DIR/bend2\" \"$$2\" \"$$3\" \"$$4\" \"$$5\"",
+        "fi"
+      )
+      writeLauncher(
+        path,
+        (lines ++ Option.when(checkOnlyPrelude.nonEmpty)(checkOnlyPrelude))
+          .mkString("\n")
+      )
+
   private lazy val verified: Inputs = loadInputs()
 
   def inputs: Inputs = verified

@@ -19,6 +19,7 @@ repositories {
 
 dependencies {
     implementation("org.scala-lang:scala3-library_3:${providers.gradleProperty("scalaVersion").get()}")
+    implementation("com.google.code.gson:gson:2.13.2")
     intellijPlatform {
         intellijIdeaCommunity(providers.gradleProperty("platformVersion").get())
         testFramework(TestFrameworkType.Platform)

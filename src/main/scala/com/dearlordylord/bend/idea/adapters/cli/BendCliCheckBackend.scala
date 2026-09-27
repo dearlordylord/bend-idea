@@ -4,6 +4,10 @@ import com.dearlordylord.bend.idea.adapters.process.{
   BendBoundedProcess,
   BendProcessOutcome
 }
+import com.dearlordylord.bend.idea.adapters.structured.BendStructuredDiagnostic
+import com.dearlordylord.bend.idea.adapters.structured.BendStructuredGoal
+import com.dearlordylord.bend.idea.adapters.structured.BendStructuredNormalization
+import com.dearlordylord.bend.idea.adapters.structured.BendStructuredTypes
 import com.dearlordylord.bend.idea.analysis.api.BendCheckPolicy
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.analysis.ports.BendCheckBackend
@@ -35,7 +39,8 @@ final class BendCliCheckBackend(
         completeness: BendCompleteness,
         reliance: BendReliance,
         details: String,
-        location: BendLocation = BendLocation.RootOnly
+        location: BendLocation = BendLocation.RootOnly,
+        incompleteKind: Option[BendIncompleteKind] = None
     ): BendCheckResult =
       BendCheckResult(
         key,
@@ -44,7 +49,8 @@ final class BendCliCheckBackend(
         reliance,
         if details.isEmpty then Nil
         else List(BendDiagnostic(details, location)),
-        details
+        details,
+        incompleteKind = incompleteKind
       )
     val executable = snapshot.toolchain.executable
     val path = try Path.of(executable)
@@ -237,7 +243,8 @@ final class BendCliCheckBackend(
           decoded.completeness,
           decoded.reliance,
           decoded.details,
-          location
+          location,
+          decoded.incompleteKind
         )
     catch
       case e: java.io.IOException =>
@@ -294,7 +301,11 @@ final class BendCliCheckBackend(
         details: String,
         diagnostics: List[BendDiagnostic] = Nil,
         mappings: List[BendSourceMapping] = Nil,
-        reliance: BendReliance = BendReliance.Unknown
+        reliance: BendReliance = BendReliance.Unknown,
+        goal: Option[BendGoal] = None,
+        incompleteKind: Option[BendIncompleteKind] = None,
+        expressionTypes: List[BendExpressionType] = Nil,
+        normalization: Option[BendNormalization] = None
     ): BendCheckResult =
       BendCheckResult(
         key,
@@ -304,7 +315,11 @@ final class BendCliCheckBackend(
         diagnostics,
         details,
         sources = sources,
-        mappings = mappings
+        mappings = mappings,
+        goal = goal,
+        incompleteKind = incompleteKind,
+        expressionTypes = expressionTypes,
+        normalization = normalization
       )
     if graph.root != snapshot.root || graph
         .source(snapshot.root)
@@ -485,24 +500,88 @@ final class BendCliCheckBackend(
         )
       )
       if decoded.outcome == BendCheckOutcome.Success then
+        val expressionTypes = BendStructuredTypes.checked(
+          executable,
+          temp,
+          rootPath,
+          isolated,
+          mappings,
+          canceled
+        )
+        val normalization = snapshot.normalizationRequest.flatMap { requested =>
+          expressionTypes
+            .filter(entry =>
+              entry.source == requested.source &&
+                entry.range.start <= requested.offset &&
+                requested.offset < entry.range.end
+            )
+            .sortBy(entry => entry.range.end - entry.range.start)
+            .headOption
+            .flatMap(entry =>
+              BendStructuredNormalization.closedExpression(
+                executable,
+                temp,
+                rootPath,
+                isolated,
+                entry,
+                canceled
+              )
+            )
+        }
         result(
           decoded.outcome,
           decoded.completeness,
           decoded.details,
           mappings = mappings,
-          reliance = decoded.reliance
+          reliance = decoded.reliance,
+          expressionTypes = expressionTypes,
+          normalization = normalization
         )
       else
         val location = if decoded.sourceLocationAllowed then
           graphLocation(decoded.details, mappings)
         else BendLocation.RootOnly
+        val diagnostic =
+          if decoded.outcome == BendCheckOutcome.Failed &&
+            decoded.sourceLocationAllowed
+          then
+            BendStructuredDiagnostic
+              .firstError(
+                executable,
+                temp,
+                rootPath,
+                isolated,
+                decoded.details,
+                mappings,
+                canceled
+              )
+              .getOrElse(BendDiagnostic(decoded.details, location))
+          else BendDiagnostic(decoded.details, location)
+        val goal =
+          if snapshot.goalRequested &&
+            decoded.outcome == BendCheckOutcome.Failed &&
+            decoded.sourceLocationAllowed
+          then
+            BendStructuredGoal.firstGoal(
+              executable,
+              temp,
+              rootPath,
+              isolated,
+              decoded.details,
+              mappings,
+              canceled
+            )
+          else None
         result(
           decoded.outcome,
-          decoded.completeness,
+          if goal.nonEmpty then BendCompleteness.Incomplete
+          else decoded.completeness,
           decoded.details,
-          List(BendDiagnostic(decoded.details, location)),
+          List(diagnostic),
           mappings,
-          decoded.reliance
+          decoded.reliance,
+          goal,
+          decoded.incompleteKind
         )
     catch
       case e: java.io.IOException =>

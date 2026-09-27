@@ -609,7 +609,7 @@ final class BendProofProgressPanel(
     )
     detail.setText(selected match
       case Some(entry) if entry.kind == BendProofInventoryKind.Hole =>
-        "Open selects the hole for editing. Goal and local context are not available in this plugin yet; check the root after editing."
+        "Open selects the hole for editing. Inspect Bend Goal can show the first reachable named hole with a compatible helper; check the root after editing."
       case Some(_) if latestSnapshot.exists(_.inventoryLimited) =>
         "No candidate fill found in this capped source inventory. Generation rechecks the selected root before inserting."
       case Some(_) =>

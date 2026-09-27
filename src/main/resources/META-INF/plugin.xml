@@ -116,6 +116,8 @@ compiler-backed features. See the
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckSession"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.analysis.api.BendExplicitCheckRunner"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendExplicitCheckRunnerService"/>
+        <projectService serviceInterface="com.dearlordylord.bend.idea.analysis.api.BendProofEditValidator"
+                        serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendProofEditValidatorService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.features.execution.api.BendExecutionProcessFactory"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.process.BendExecutionProcessService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.features.execution.api.BendBuildProcessFactory"
@@ -156,6 +158,30 @@ compiler-backed features. See the
         <action id="Bend.CheckCurrentFile"
                 class="com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction"
                 text="Check Current Bend File" description="Check the current Bend document without running main">
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
+        </action>
+        <action id="Bend.InspectGoal"
+                class="com.dearlordylord.bend.idea.features.semantics.BendInspectGoalAction"
+                text="Inspect Bend Goal" description="Show the compiler goal and local context at the selected named hole">
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
+        </action>
+        <action id="Bend.TryReflexivity"
+                class="com.dearlordylord.bend.idea.features.semantics.BendTryReflexivityAction"
+                text="Try Bend Reflexivity" description="Validate and offer an undoable reflexivity proof step">
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
+        </action>
+        <action id="Bend.NormalizeExpression"
+                class="com.dearlordylord.bend.idea.features.semantics.BendNormalizeExpressionAction"
+                text="Normalize Bend Expression" description="Display bounded compiler normalization of a closed checked expression">
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
+        </action>
+        <action id="Bend.ExplainResources"
+                class="com.dearlordylord.bend.idea.features.semantics.BendExplainResourcesAction"
+                text="Explain Bend Resources" description="Probe compiler resource use at the selected named hole">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
             <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
         </action>

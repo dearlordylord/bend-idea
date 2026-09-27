@@ -73,9 +73,17 @@ final class BendCheckAnnotator
       .filter(result => BendCheckAnnotator.shouldHighlight(result.outcome))
       .foreach { result =>
         result.diagnostics.foreach { diagnostic =>
-          BendCheckAnnotator
-            .sourceLine(diagnostic.location, result.key.root, id)
-            .flatMap(line => lineRange(file, line))
+          val range = diagnostic.location match
+            case BendLocation.SourceRange(source, span)
+                if source == id &&
+                  span.start >= 0 && span.end > span.start &&
+                  span.end <= file.getTextLength =>
+              Some(new TextRange(span.start, span.end))
+            case other =>
+              BendCheckAnnotator
+                .sourceLine(other, result.key.root, id)
+                .flatMap(line => lineRange(file, line))
+          range
             .foreach { range =>
               val _ = holder
                 .newAnnotation(HighlightSeverity.ERROR, diagnostic.message)

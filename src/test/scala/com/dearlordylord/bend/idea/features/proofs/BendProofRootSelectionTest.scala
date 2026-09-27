@@ -282,4 +282,4 @@ final class BendProofRootSelectionTest extends BasePlatformTestCase:
       )
     }
     assertEquals(1, xml.split("group-id=\"ToolsMenu\"", -1).length - 1)
-    assertEquals(9, xml.split("group-id=\"Bend.Tools\"", -1).length - 1)
+    assertEquals(13, xml.split("group-id=\"Bend.Tools\"", -1).length - 1)
