@@ -39,6 +39,9 @@ fun bendTestPin(name: String): String = requireNotNull(bendTestToolchainPins.get
 val expectedBendCommit = bendTestPin("bend.commit")
 val expectedBunVersion = bendTestPin("bun.version")
 val expectedBunRevision = bendTestPin("bun.revision")
+val bendReleaseSmoke = providers.gradleProperty("bendReleaseSmoke")
+    .map(String::toBooleanStrict)
+    .getOrElse(false)
 
 val verifyBendTestInputs by tasks.registering(Exec::class) {
     description = "Verifies the pinned real Bend compiler and Bun test inputs."
@@ -80,10 +83,28 @@ tasks.test {
     useJUnit()
     exclude("**/architecture/**")
     systemProperty("java.awt.headless", "true")
-    systemProperty("bend.test.expectedBendCommit", expectedBendCommit)
-    systemProperty("bend.test.expectedBunVersion", expectedBunVersion)
-    systemProperty("bend.test.expectedBunRevision", expectedBunRevision)
-    dependsOn(verifyBendTestInputs)
+    if (bendReleaseSmoke) {
+        outputs.upToDateWhen { false }
+        filter {
+            includeTestsMatching("com.dearlordylord.bend.idea.features.checking.BendReleaseEditorSmokeTest")
+            isFailOnNoMatchingTests = true
+        }
+        doFirst {
+            val compiler = providers.environmentVariable("BEND_TEST_CURRENT_COMPILER").orNull
+            val base = providers.environmentVariable("BEND_TEST_CURRENT_BASE").orNull
+            require(!compiler.isNullOrBlank() && file(compiler).isFile && file(compiler).canExecute()) {
+                "BEND_TEST_CURRENT_COMPILER must name an executable published Bend binary."
+            }
+            require(!base.isNullOrBlank() && file(base).isFile) {
+                "BEND_TEST_CURRENT_BASE must name that release's Base source."
+            }
+        }
+    } else {
+        systemProperty("bend.test.expectedBendCommit", expectedBendCommit)
+        systemProperty("bend.test.expectedBunVersion", expectedBunVersion)
+        systemProperty("bend.test.expectedBunRevision", expectedBunRevision)
+        dependsOn(verifyBendTestInputs)
+    }
 }
 
 val architectureTest by tasks.registering(Test::class) {
