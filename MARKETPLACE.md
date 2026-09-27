@@ -27,13 +27,19 @@ The fix is pushed as `codex/fix-internal-api` at commit `6e91d38`. The file elem
 
 The signed archive is `build/distributions/bend-idea-0.1.4-signed.zip` (SHA-256: `cae3f67755d5c7780c315472ed269e8cb6ada1111eaacb96f3b9a75beb44f5e4`). On 2026-09-24, JDK 21.0.10 release checks passed: 270 tests, 0 failures, 0 errors, 0 skipped; architecture, packaging, project configuration, Plugin Verifier, and signature verification passed. Marketplace accepted it as Stable update **1178547** on 2026-09-24. It is **Under review** while Support conducts additional checks and is not public yet.
 
+## 0.1.7 submission
+
+The signed 0.1.7 archive is available in [GitHub Release v0.1.7](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.7) with SHA-256 `0b29a81e43aedf8cc46338fed4aebf3cf1aed29dc4baf40a6cc7843f80c5b625`. Its public download matched the locally signed file. The certificate fingerprint remains `87:66:5D:BD:29:D6:BC:8F:E2:5F:AF:62:9D:6E:4D:76:5B:9C:DC:3E:3B:B1:76:53:EE:C6:D2:1F:C7:1B:71:C2`.
+
+The clean JDK 21 release gate passed on 2026-09-27: 441 tests, zero failures or errors, one optional current-compiler smoke test skipped; packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. JetBrains Marketplace accepted the same signed ZIP in the Stable channel as update **1181339**. The vendor page shows **Under review**; public Marketplace availability awaits JetBrains approval. The custom repository feed advertises 0.1.7 independently of that review.
+
 ## Future updates
 
 The verified 0.1.4 signed archive is also available in the public [GitHub Release v0.1.4](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), tagged at tested candidate commit `6e91d38c3c6194b42cffe651594bf587a1748212`. The release asset was downloaded without authentication and matched the SHA-256 above. A public copy of the self-signed certificate is attached for users who choose to trust it in IDEA. The GitHub release does not establish Marketplace approval.
 
 The [custom plugin repository feed](https://idea.dearlordylord.com/updatePlugins.xml) is served by the Git-connected Cloudflare Pages project `bend-idea-plugins` from [`docs/updatePlugins.xml`](docs/updatePlugins.xml). The domain's Gandi DNS has a CNAME from `idea` to `bend-idea-plugins.pages.dev`; Cloudflare reports both ownership and HTTPS validation active. If the new hostname is not resolving for a user yet, the [Cloudflare Pages project URL](https://bend-idea-plugins.pages.dev/updatePlugins.xml) serves the same feed. For each future pre-Marketplace release, verify that the signed ZIP is publicly downloadable first, then update the feed's `version`, `url`, `idea-version`, `name`, `description`, and `change-notes` to match the ZIP's packaged `plugin.xml`. Publish the feed change only after the release asset is live. Cloudflare Pages deploys `docs/` from `master` automatically; the feed metadata is maintained manually, with no automatic release-to-feed workflow.
 
-The 0.1.6 signed ZIP is public in [GitHub Release v0.1.6](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.6). The custom feed advertises 0.1.6 and links to that signed ZIP; the public certificate and release page are linked from the repository landing page. The public download matched SHA-256 `0f686859619af5e43bf0a5519b5caf232c8de0f7675c839d91562b27b010ec62`.
+The 0.1.6 signed ZIP is public in [GitHub Release v0.1.6](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.6). At that release, the custom feed advertised 0.1.6 and linked to its signed ZIP; the public certificate and release page were linked from the repository landing page. The public download matched SHA-256 `0f686859619af5e43bf0a5519b5caf232c8de0f7675c839d91562b27b010ec62`.
 
 Increment `pluginVersion` in `gradle.properties` and update the `<change-notes>` section in `src/main/resources/META-INF/plugin.xml`. Keep the open-ended IDE range and verify newer IDE releases before claiming support.
 

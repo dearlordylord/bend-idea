@@ -17,7 +17,7 @@ Language support for [Bend 2](https://github.com/bendlang/bend) in IntelliJ IDEA
 
   <img src="docs/screenshots/plugin-repository-url.png" alt="Custom Plugin Repositories dialog with the Bend2 repository URL" width="600">
 
-- In **Marketplace**, search for **Bend2** and install it. Restart IDEA if prompted.
+- In IDEA's **Marketplace** tab, search for **Bend2** from the repository you just added and install it. Restart IDEA if prompted.
 
   <img src="docs/screenshots/bend2-plugin-search.png" alt="Bend2 shown in IDEA's Plugins search results" width="700">
 
@@ -78,7 +78,9 @@ The plugin's **What's New** text is maintained separately in
 
 The latest release checks used **Bend 2.0.25** from commit [`ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b`](https://github.com/bendlang/bend/commit/ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b), with Bun 1.4.2. If the configured compiler, Base, or another required capability is unavailable, the plugin reports that state instead of treating the file as successfully checked.
 
-The custom repository feed serves 0.1.6. To install it directly, download [`bend-idea-0.1.6-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.6/bend-idea-0.1.6-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.6/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.6) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
+The custom repository feed serves 0.1.7. To install it directly, download [`bend-idea-0.1.7-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.7/bend-idea-0.1.7-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.7/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.7) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
+
+Version 0.1.7 has been submitted to JetBrains Marketplace's Stable channel and is under review. The custom repository and signed GitHub release are available while JetBrains reviews that submission.
 
 ## Planned
 
