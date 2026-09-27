@@ -56,6 +56,23 @@ final class BendSelectionAtomsTest extends BasePlatformTestCase:
     myFixture.performEditorAction("EditorUnSelectWord")
     assertTrue(myFixture.getEditor.getSelectionModel.hasSelection)
 
+  def testExpandSelectionKeepsOrderedUnicodeAndIncompleteSteps(): Unit =
+    def steps(source: String, count: Int): List[String] =
+      myFixture.configureByText("ordered-selection.bend", source)
+      (0 until count).map { _ =>
+        myFixture.performEditorAction("EditorSelectWord")
+        myFixture.getEditor.getSelectionModel.getSelectedText
+      }.toList
+
+    assertEquals(
+      List("Nat", "<Nat>", "D<Nat>", "\"🙂\", D<Nat>"),
+      steps("def f():\n  call(\"🙂\", D<Na<caret>t>)\n", 4)
+    )
+    assertEquals(
+      List("Nat", "D<Nat", "call(1, D<Nat"),
+      steps("def f():\n  call(1, D<Na<caret>t\n", 3)
+    )
+
   def testApplicationsExpandFromHeadAndLastIndex(): Unit =
     val source =
       "def f() -> D<Nat>:\n  call(1)[2]\n  f(x)(y)\n  C{x}\n  D<Nat>\n  a < b\n"

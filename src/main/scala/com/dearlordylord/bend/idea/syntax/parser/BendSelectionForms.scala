@@ -1,6 +1,6 @@
 package com.dearlordylord.bend.idea.syntax.parser
 
-import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
+import com.dearlordylord.bend.idea.syntax.lexer.BendTokens
 import com.intellij.psi.TokenType
 import scala.collection.mutable
 
@@ -16,27 +16,29 @@ object BendSelectionForms:
   )
 
   def at(source: String, offset: Int): List[Span] =
+    at(new BendSelectionSource(source), offset)
+
+  def at(view: BendSelectionSource, offset: Int): List[Span] =
+    val source = view.text
     if offset < 0 || offset > source.length then return Nil
     val lineStart = source.lastIndexOf('\n', math.max(0, offset - 1)) + 1
     val lineEnd = source.indexOf('\n', offset) match
       case -1 => source.length
       case at => at
-    val lexer = new BendLexer()
-    lexer.start(source)
     val tokens = Vector.newBuilder[Token]
-    while lexer.getTokenType != null && lexer.getTokenStart < lineEnd do
-      if lexer.getTokenStart >= lineStart &&
-        lexer.getTokenType != TokenType.WHITE_SPACE &&
-        lexer.getTokenType != BendTokens.Comment &&
-        lexer.getTokenType != BendTokens.StringContent &&
-        lexer.getTokenType != BendTokens.StringDelimiter
+    view.tokens.iterator.takeWhile(_.from < lineEnd).foreach { token =>
+      if token.from >= lineStart &&
+        token.kind != TokenType.WHITE_SPACE &&
+        token.kind != BendTokens.Comment &&
+        token.kind != BendTokens.StringContent &&
+        token.kind != BendTokens.StringDelimiter
       then
         tokens += Token(
-          source.substring(lexer.getTokenStart, lexer.getTokenEnd),
-          lexer.getTokenStart,
-          lexer.getTokenEnd
+          token.spelling,
+          token.from,
+          token.until
         )
-      lexer.advance()
+    }
     val significant = tokens.result()
     val depth = mutable.ArrayBuffer.empty[String]
     val starts = List.newBuilder[Int]

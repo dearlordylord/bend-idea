@@ -1,6 +1,6 @@
 package com.dearlordylord.bend.idea.syntax.parser
 
-import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
+import com.dearlordylord.bend.idea.syntax.lexer.BendTokens
 import com.intellij.psi.TokenType
 import com.intellij.psi.tree.IElementType
 import scala.collection.mutable
@@ -41,10 +41,14 @@ object BendSelectionExpressions:
   )
 
   def at(source: String, offset: Int): List[Span] =
+    at(new BendSelectionSource(source), offset)
+
+  def at(view: BendSelectionSource, offset: Int): List[Span] =
+    val source = view.text
     if offset < 0 || offset > source.length then return Nil
     val lowerBound = math.max(0, offset - 4096)
-    val angles = BendTypeAngleContext.applicationPairs(source)
-    val tokens = mergeRightShifts(tokenize(source), angles)
+    val angles = view.anglePairs
+    val tokens = mergeRightShifts(tokenize(view), angles)
     tokens.indices.iterator
       .filter(i =>
         tokens(i).from >= lowerBound &&
@@ -191,22 +195,21 @@ object BendSelectionExpressions:
   private def termStart(token: Token): Boolean =
     atom(token) || Set("(", "[", "{", "+").contains(token.text)
 
-  private def tokenize(source: String): Vector[Token] =
-    val lexer = new BendLexer()
-    lexer.start(source)
+  private def tokenize(view: BendSelectionSource): Vector[Token] =
+    val source = view.text
     val result = Vector.newBuilder[Token]
     var literal = Option.empty[Int]
-    while lexer.getTokenType != null do
-      val kind = lexer.getTokenType
+    view.tokens.foreach { token =>
+      val kind = token.kind
       if kind == BendTokens.StringDelimiter then
         literal match
-          case None        => literal = Some(lexer.getTokenStart)
+          case None        => literal = Some(token.from)
           case Some(start) =>
             result += Token(
               BendTokens.StringDelimiter,
-              source.substring(start, lexer.getTokenEnd),
+              source.substring(start, token.until),
               start,
-              lexer.getTokenEnd
+              token.until
             )
             literal = None
       else if literal.isEmpty && kind != TokenType.WHITE_SPACE &&
@@ -214,11 +217,11 @@ object BendSelectionExpressions:
       then
         result += Token(
           kind,
-          source.substring(lexer.getTokenStart, lexer.getTokenEnd),
-          lexer.getTokenStart,
-          lexer.getTokenEnd
+          token.spelling,
+          token.from,
+          token.until
         )
-      lexer.advance()
+    }
     result.result()
 
   private def mergeRightShifts(

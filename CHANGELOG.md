@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ### Improved
 
+- Expand Selection shares syntax tokens and angle context per invocation, making large and
+  incomplete files more responsive while preserving the existing range steps. (#69)
 - Goal, resource, reflexivity and normalization actions now share current editor-location checks, so moved carets and changed source cannot show an outdated compiler result. (#68)
 - Explicit and background checks now capture one current selected-root graph, including unsaved dependencies and sibling laws, and reject results after source or loading inputs change. Proof and resource previews validate isolated candidates against that captured graph. (#70–#72)
 - Compatible Bend 2.0.25 helper installations can highlight the compiler's

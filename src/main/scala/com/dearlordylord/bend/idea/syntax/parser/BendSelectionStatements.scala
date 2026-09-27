@@ -1,6 +1,6 @@
 package com.dearlordylord.bend.idea.syntax.parser
 
-import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
+import com.dearlordylord.bend.idea.syntax.lexer.BendTokens
 import com.intellij.psi.TokenType
 import scala.collection.mutable
 
@@ -9,6 +9,10 @@ object BendSelectionStatements:
   import BendSelectionAtoms.Span
 
   def indexedWriteEnd(source: String, from: Int): Option[Int] =
+    indexedWriteEnd(new BendSelectionSource(source), from)
+
+  def indexedWriteEnd(view: BendSelectionSource, from: Int): Option[Int] =
+    val source = view.text
     if from < 0 || from > source.length then return None
     val arrow = source.indexWhere(!_.isWhitespace, from)
     if arrow < 0 || !source.startsWith("<-", arrow) ||
@@ -21,62 +25,64 @@ object BendSelectionStatements:
         val lineEnd = source.indexOf('\n', value) match
           case -1 => source.length
           case at => at
-        val angles = BendTypeAngleContext.applicationPairs(source)
-        val lexer = new BendLexer()
-        lexer.start(source)
-        while lexer.getTokenType != null && lexer.getTokenStart < value do
-          lexer.advance()
+        val angles = view.anglePairs
         val nested = mutable.ArrayBuffer.empty[String]
         var rewrite = false
         var limit = lineEnd
-        while lexer.getTokenType != null && lexer.getTokenStart < limit do
-          val start = lexer.getTokenStart
-          val spelling = source.substring(start, lexer.getTokenEnd)
-          if lexer.getTokenType == BendTokens.Comment then limit = start
-          else if lexer.getTokenType != TokenType.WHITE_SPACE &&
-            lexer.getTokenType != BendTokens.StringContent &&
-            lexer.getTokenType != BendTokens.StringDelimiter
-          then
-            spelling match
-              case "("                                        => nested += ")"
-              case "["                                        => nested += "]"
-              case "{"                                        => nested += "}"
-              case "<" if angles.contains(start)              => nested += ">"
-              case close if nested.lastOption.contains(close) =>
-                val _ = nested.remove(nested.size - 1)
-              case ")" | "]" | "}" if nested.isEmpty => limit = start
-              case ">" if nested.isEmpty && angles.contains(start) =>
-                limit = start
-              case "," if nested.isEmpty            => limit = start
-              case "%" if nested.isEmpty            => rewrite = true
-              case ";" if nested.isEmpty && rewrite => rewrite = false
-              case ";" if nested.isEmpty            => limit = start
-              case _                                => ()
-          lexer.advance()
+        view.tokens.iterator
+          .dropWhile(_.from < value)
+          .takeWhile(_.from < lineEnd)
+          .foreach { token =>
+            val start = token.from
+            val spelling = token.spelling
+            if start < limit then
+              if token.kind == BendTokens.Comment then limit = start
+              else if token.kind != TokenType.WHITE_SPACE &&
+                token.kind != BendTokens.StringContent &&
+                token.kind != BendTokens.StringDelimiter
+              then
+                spelling match
+                  case "("                           => nested += ")"
+                  case "["                           => nested += "]"
+                  case "{"                           => nested += "}"
+                  case "<" if angles.contains(start) => nested += ">"
+                  case close if nested.lastOption.contains(close) =>
+                    val _ = nested.remove(nested.size - 1)
+                  case ")" | "]" | "}" if nested.isEmpty => limit = start
+                  case ">" if nested.isEmpty && angles.contains(start) =>
+                    limit = start
+                  case "," if nested.isEmpty            => limit = start
+                  case "%" if nested.isEmpty            => rewrite = true
+                  case ";" if nested.isEmpty && rewrite => rewrite = false
+                  case ";" if nested.isEmpty            => limit = start
+                  case _                                => ()
+          }
         val last =
           source.substring(value, limit).lastIndexWhere(!_.isWhitespace)
         Option.when(last >= 0)(value + last + 1)
 
   def at(source: String, offset: Int): List[Span] =
+    at(new BendSelectionSource(source), offset)
+
+  def at(view: BendSelectionSource, offset: Int): List[Span] =
+    val source = view.text
     if offset < 0 || offset > source.length then return Nil
     val lineStart = source.lastIndexOf('\n', math.max(0, offset - 1)) + 1
     val lineEnd = source.indexOf('\n', offset) match
       case -1 => source.length
       case at => at
-    val lexer = new BendLexer()
-    lexer.start(source)
     val stack = mutable.ArrayBuffer.empty[String]
     val separators = mutable.ArrayBuffer.empty[Int]
     var previous = Option.empty[String]
     var rewrite = false
-    while lexer.getTokenType != null && lexer.getTokenStart < lineEnd do
-      if lexer.getTokenStart >= lineStart &&
-        lexer.getTokenType != TokenType.WHITE_SPACE &&
-        lexer.getTokenType != BendTokens.Comment &&
-        lexer.getTokenType != BendTokens.StringContent &&
-        lexer.getTokenType != BendTokens.StringDelimiter
+    view.tokens.iterator.takeWhile(_.from < lineEnd).foreach { token =>
+      if token.from >= lineStart &&
+        token.kind != TokenType.WHITE_SPACE &&
+        token.kind != BendTokens.Comment &&
+        token.kind != BendTokens.StringContent &&
+        token.kind != BendTokens.StringDelimiter
       then
-        val spelling = source.substring(lexer.getTokenStart, lexer.getTokenEnd)
+        val spelling = token.spelling
         if stack.isEmpty && spelling == "%" &&
           (previous.isEmpty || previous.exists(
             Set("=", ":", ";", "->", "<-", "return")
@@ -89,10 +95,10 @@ object BendSelectionStatements:
           case value if stack.lastOption.contains(value) =>
             val _ = stack.remove(stack.size - 1)
           case ";" if stack.isEmpty && rewrite => rewrite = false
-          case ";" if stack.isEmpty => separators += lexer.getTokenStart
-          case _                    => ()
+          case ";" if stack.isEmpty            => separators += token.from
+          case _                               => ()
         previous = Some(spelling)
-      lexer.advance()
+    }
     val boundaries = (lineStart +: separators.toList.map(_ + 1))
       .zip(separators.toList :+ lineEnd)
     val statements = boundaries

@@ -92,8 +92,14 @@ object BendFoldingSurface:
   /** Header plus body spans for selection; folding keeps its body-only spans.
     */
   def selectionConstructs(file: PsiFile): List[BendFoldRange] =
+    selectionConstructs(file, ranges(file))
+
+  def selectionConstructs(
+      file: PsiFile,
+      foldRanges: List[BendFoldRange]
+  ): List[BendFoldRange] =
     val source = file.getText
-    ranges(file).flatMap { range =>
+    foldRanges.flatMap { range =>
       val word = range.kind match
         case BendFoldKind.MatchBlock => Some("match")
         case BendFoldKind.CaseBlock  => Some("case")

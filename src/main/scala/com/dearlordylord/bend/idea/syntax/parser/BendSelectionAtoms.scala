@@ -1,6 +1,6 @@
 package com.dearlordylord.bend.idea.syntax.parser
 
-import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
+import com.dearlordylord.bend.idea.syntax.lexer.BendTokens
 import com.intellij.psi.TokenType
 import com.intellij.psi.tree.IElementType
 
@@ -11,8 +11,12 @@ object BendSelectionAtoms:
   private final case class Token(kind: IElementType, text: String, span: Span)
 
   def at(source: String, offset: Int): List[Span] =
+    at(new BendSelectionSource(source), offset)
+
+  def at(view: BendSelectionSource, offset: Int): List[Span] =
+    val source = view.text
     if offset < 0 || offset > source.length then return Nil
-    val tokens = tokenize(source)
+    val tokens = tokenize(view)
     val index = tokens.indexWhere(token =>
       token.span.from <= offset && offset < token.span.until
     )
@@ -156,15 +160,7 @@ object BendSelectionAtoms:
       BendTokens.BuiltinType
     ).contains(kind)
 
-  private def tokenize(source: String): Vector[Token] =
-    val lexer = new BendLexer()
-    lexer.start(source)
-    val result = Vector.newBuilder[Token]
-    while lexer.getTokenType != null do
-      result += Token(
-        lexer.getTokenType,
-        source.substring(lexer.getTokenStart, lexer.getTokenEnd),
-        Span(lexer.getTokenStart, lexer.getTokenEnd)
-      )
-      lexer.advance()
-    result.result()
+  private def tokenize(view: BendSelectionSource): Vector[Token] =
+    view.tokens.map(token =>
+      Token(token.kind, token.spelling, Span(token.from, token.until))
+    )

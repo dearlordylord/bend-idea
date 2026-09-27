@@ -5,21 +5,20 @@ import com.dearlordylord.bend.idea.symbols.api.{
   BendSourceApplications
 }
 import com.dearlordylord.bend.idea.syntax.BendLanguage
-import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
 import com.dearlordylord.bend.idea.syntax.parser.{
   BendSelectionAtoms,
   BendSelectionExpressions,
   BendSelectionForms,
   BendSelectionGroups,
-  BendSelectionStatements,
-  BendTypeAngleContext
+  BendSelectionSource,
+  BendSelectionStatements
 }
 import com.dearlordylord.bend.idea.syntax.psi.*
 import com.intellij.codeInsight.editorActions.ExtendWordSelectionHandler
 import com.intellij.lang.Language
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
-import com.intellij.psi.{PsiElement, PsiFile, TokenType}
+import com.intellij.psi.{PsiElement, PsiFile}
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.ui.breadcrumbs.BreadcrumbsProvider
 import java.util.List as JavaList
@@ -162,22 +161,23 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
         math.min(source.length, editor.getDocument.getTextLength)
       )
     )
+    val view = new BendSelectionSource(source)
     val ranges = mutable.LinkedHashSet.empty[TextRange]
     BendSelectionAtoms
-      .at(source, offset)
+      .at(view, offset)
       .foreach(span => ranges += new TextRange(span.from, span.until))
     BendSelectionExpressions
-      .at(source, offset)
+      .at(view, offset)
       .foreach(span => ranges += new TextRange(span.from, span.until))
     BendSelectionForms
-      .at(source, offset)
+      .at(view, offset)
       .foreach(span => ranges += new TextRange(span.from, span.until))
     BendSelectionStatements
-      .at(source, offset)
+      .at(view, offset)
       .foreach(span => ranges += new TextRange(span.from, span.until))
     val file = element.getContainingFile
     if file != null && file.getLanguage == BendLanguage.instance then
-      val pairs = delimiterPairs(source)
+      val pairs = BendSelectionGroups.pairs(view)
       val containing = pairs
         .filter(pair => pair.from <= offset && offset <= pair.until)
         .sortBy(pair => pair.until - pair.from)
@@ -185,7 +185,7 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
         ranges += new TextRange(pair.from, pair.until)
         ranges += new TextRange(pair.openUntil, pair.closeFrom)
         BendSelectionGroups
-          .components(source, pair.from, pair.closeFrom)
+          .components(view, pair.from, pair.closeFrom)
           .filter(span => span.from <= offset && offset <= span.until)
           .foreach(span => ranges += new TextRange(span.from, span.until))
       }
@@ -194,7 +194,7 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
           ranges += new TextRange(prefix.from, prefix.until)
         if source.charAt(prefix.openFrom) == '[' then
           BendSelectionStatements
-            .indexedWriteEnd(source, prefix.until)
+            .indexedWriteEnd(view, prefix.until)
             .foreach { end =>
               if prefix.from <= offset && offset <= end then
                 ranges += new TextRange(prefix.from, end)
@@ -228,12 +228,12 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
           if application.calleeFrom <= offset && offset <= end then
             ranges += new TextRange(application.calleeFrom, end)
       }
-      BendFoldingSurface
-        .ranges(file)
+      val folds = BendFoldingSurface.ranges(file)
+      folds
         .filter(range => range.from <= offset && offset <= range.until)
         .foreach(range => ranges += new TextRange(range.from, range.until))
       BendFoldingSurface
-        .selectionConstructs(file)
+        .selectionConstructs(file, folds)
         .filter(range => range.from <= offset && offset <= range.until)
         .foreach(range => ranges += new TextRange(range.from, range.until))
       Option(
@@ -256,13 +256,6 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
       .sortBy(range => (range.getLength, range.getStartOffset))
       .asJava
 
-  private final case class Pair(
-      from: Int,
-      openUntil: Int,
-      closeFrom: Int,
-      until: Int
-  )
-
   private def incompleteEnd(
       source: String,
       from: Int,
@@ -278,39 +271,3 @@ final class BendSelectionHandler extends ExtendWordSelectionHandler:
       .min
     val last = source.substring(from, limit).lastIndexWhere(!_.isWhitespace)
     math.max(from, from + last + 1)
-
-  private def delimiterPairs(source: String): List[Pair] =
-    val anglePairs = BendTypeAngleContext.applicationPairs(source)
-    val lexer = new BendLexer()
-    lexer.start(source)
-    val stack = mutable.ArrayBuffer.empty[(String, Int, Int)]
-    val pairs = mutable.ListBuffer.empty[Pair]
-    while lexer.getTokenType != null do
-      val kind = lexer.getTokenType
-      val from = lexer.getTokenStart
-      val until = lexer.getTokenEnd
-      val spelling = source.substring(from, until)
-      if kind != TokenType.WHITE_SPACE && kind != BendTokens.Comment &&
-        kind != BendTokens.StringDelimiter && kind != BendTokens.StringContent &&
-        kind != BendTokens.Escape && kind != BendTokens.InvalidEscape
-      then
-        val closing = kind match
-          case BendTokens.LeftParen   => Some(")")
-          case BendTokens.LeftBrace   => Some("}")
-          case BendTokens.LeftBracket => Some("]")
-          case _ if kind == BendTokens.LeftAngle && anglePairs.contains(from) =>
-            Some(">")
-          case _ => None
-        closing.foreach(value => stack += ((value, from, until)))
-        if Set(")", "}", "]").contains(spelling) ||
-          kind == BendTokens.RightAngle && anglePairs.valuesIterator.contains(
-            from
-          )
-        then
-          stack.lastIndexWhere(_._1 == spelling) match
-            case found if found >= 0 =>
-              val (_, openFrom, openUntil) = stack.remove(found)
-              pairs += Pair(openFrom, openUntil, from, until)
-            case _ => ()
-      lexer.advance()
-    pairs.toList
