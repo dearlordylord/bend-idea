@@ -35,6 +35,9 @@
     .github-link:hover { background: #e5edf3; }
     .github-link:focus-visible { outline: 2px solid #185b8b; outline-offset: 3px; }
     .install { border-top: 1px solid #dce3e9; padding-top: 32px; }
+    .marketplace-widget { min-height: 48px; margin: 24px 0; }
+    .alternative { border-top: 1px solid #dce3e9; padding: 32px 0 0; }
+    .alternative p { margin: 0 0 14px; line-height: 1.6; }
     .features { border-top: 1px solid #dce3e9; padding: 32px 0 36px; }
     .demo { border-top: 1px solid #dce3e9; padding: 32px 0 36px; }
     .demo p { margin: 0 0 18px; line-height: 1.6; }
@@ -43,8 +46,6 @@
     .feature-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 24px; }
     .feature-list h3 { margin: 0 0 8px; font-size: 18px; }
     .feature-list p { margin: 0; line-height: 1.6; }
-    ol { display: grid; gap: 18px; margin: 0; padding-left: 24px; line-height: 1.6; }
-    li { padding-left: 7px; }
     code { display: inline-block; max-width: 100%; overflow-wrap: anywhere; border: 1px solid #dce3e9; border-radius: 6px; background: #fff; padding: 2px 6px; font-size: .92em; }
     .note { margin: 24px 0 0; color: #566674; line-height: 1.5; }
     footer { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 64px; padding-top: 20px; border-top: 1px solid #dce3e9; color: #647382; font-size: 14px; }
@@ -80,13 +81,11 @@
       </div>
     </section>
     <section class="install" id="install" aria-labelledby="install-title">
-      <h2 id="install-title">Install Bend 2 and the IDEA plugin</h2>
-      <ol start="0">
-        <li>Install the <a href="https://github.com/bendlang/bend#get-started">Bend 2 language</a> using its official instructions.</li>
-        <li>In IDEA, open <strong>Settings → Plugins → gear icon → Manage Plugin Repositories</strong> and add <code>https://idea.dearlordylord.com/updatePlugins.xml</code>.</li>
-        <li>In IDEA's <strong>Marketplace</strong> tab, search the repository you added for <strong>Bend2</strong> and install it. The JetBrains Marketplace submission is under review.</li>
-      </ol>
-      <p class="note">To enable compiler checks, select your Bend 2 executable under <strong>Settings → Languages &amp; Frameworks → Bend</strong>.</p>
+      <h2 id="install-title">Install Bend2 from JetBrains Marketplace</h2>
+      <p>Open <strong>Settings → Plugins → Marketplace</strong> in IntelliJ IDEA, search for <strong>Bend2</strong>, and install it. Restart IDEA if prompted.</p>
+      <div id="marketplace-install" class="marketplace-widget"><a href="https://plugins.jetbrains.com/plugin/34452-bend2">Get Bend2 on JetBrains Marketplace</a></div>
+      <p>Editing works without a Bend installation. For compiler checks and proof tools, <a href="https://github.com/bendlang/bend#get-started">install Bend 2</a> using its official instructions.</p>
+      <p class="note">Select your Bend 2 executable under <strong>Settings → Languages &amp; Frameworks → Bend</strong> to enable compiler checks.</p>
     </section>
     <section class="demo" aria-labelledby="demo-title">
       <h2 id="demo-title">Plugin in action</h2>
@@ -96,6 +95,11 @@
         <a href="https://raw.githubusercontent.com/dearlordylord/bend-idea/master/docs/media/bend2-intellij-demo.mp4">Download the Bend2 demo video</a>.
       </video>
     </section>
+    <section class="alternative" id="alternative-install" aria-labelledby="alternative-title">
+      <h2 id="alternative-title">Alternative installation</h2>
+      <p>To use the custom plugin repository, open <strong>Settings → Plugins → gear icon → Manage Plugin Repositories</strong> and add <code>https://idea.dearlordylord.com/updatePlugins.xml</code>.</p>
+      <p>Then search for <strong>Bend2</strong> in the Plugins Marketplace tab and install it. If the repository address cannot be reached, use <code>https://bend-idea-plugins.pages.dev/updatePlugins.xml</code>.</p>
+    </section>
     <footer>
       <span>IntelliJ IDEA 2025.1+</span>
       <a href="https://github.com/bendlang/bend">Bend 2</a>
@@ -104,5 +108,11 @@
       <a href="https://github.com/dearlordylord/bend-idea/blob/master/LICENSE">Apache 2.0</a>
     </footer>
   </main>
+  <script src="https://plugins.jetbrains.com/assets/scripts/mp-widget.js"></script>
+  <script>
+    if (window.MarketplaceWidget) {
+      MarketplaceWidget.setupMarketplaceWidget('install', 34452, '#marketplace-install');
+    }
+  </script>
 </body>
 </html>

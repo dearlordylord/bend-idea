@@ -13,6 +13,7 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Point the plugin's site link to the Bend2 website.
 - Highlight uppercase Unicode escapes, decode them in foreign paths, and reject
   overlong Unicode escapes, matching the pinned Bend parser.
 

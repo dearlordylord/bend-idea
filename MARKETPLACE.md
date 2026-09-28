@@ -2,6 +2,8 @@
 
 Bend2's plugin ID is `com.dearlordylord.bend.idea`; its Marketplace listing name is `Bend2`. Build with JDK 21. The plugin targets IntelliJ IDEA 2025.1 and declares no upper IDE build limit. Verify newer IDE releases before claiming support.
 
+The public [Bend2 Marketplace listing](https://plugins.jetbrains.com/plugin/34452-bend2) serves version 0.1.7 as of 2026-09-28. Its **Plugin Site** still points to GitHub, and the vendor page's metadata editing controls are disabled while the plugin remains under review. The URL in `plugin.xml` is now `https://bend-idea.dearlordylord.com/`; update the live **Plugin Site** field to that address when Marketplace permits editing or the next release is published.
+
 ## 0.1.2 submission
 
 The 0.1.2 release candidate contains the work merged since 0.1.1:
