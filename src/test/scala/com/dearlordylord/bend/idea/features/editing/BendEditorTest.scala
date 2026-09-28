@@ -191,6 +191,19 @@ final class BendEditorTest extends BasePlatformTestCase:
         .contains(BendColors.Comment)
     )
 
+  def testUnicodeEscapeHighlightingMatchesCompiler(): Unit =
+    val source = "def main(): \"\\U{41} \\u{123456789}\""
+    myFixture.configureByText("escape.bend", source)
+    val highlighter = myFixture.getEditor.getHighlighter
+    assertEquals(
+      BendTokens.Escape,
+      highlighter.createIterator(source.indexOf("\\U{41}")).getTokenType
+    )
+    assertEquals(
+      BendTokens.InvalidEscape,
+      highlighter.createIterator(source.indexOf("\\u{123456789}")).getTokenType
+    )
+
   def testToggleHashCommentAtEofWithoutNewlineAndUndo(): Unit =
     myFixture.configureByText("end.bend", "def main(): ?TODO")
     myFixture.getEditor.getCaretModel.moveToOffset(0)

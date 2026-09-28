@@ -13,6 +13,9 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Highlight uppercase Unicode escapes, decode them in foreign paths, and reject
+  overlong Unicode escapes, matching the pinned Bend parser.
+
 ## 0.1.7
 
 ### Improved

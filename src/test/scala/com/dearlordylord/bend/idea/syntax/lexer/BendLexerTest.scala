@@ -59,6 +59,20 @@ final class BendLexerTest:
       found.exists(t => t.kind == TokenType.BAD_CHARACTER && t.text == "§")
     )
 
+  @Test def unicodeEscapesMatchCompilerCaseAndLength(): Unit =
+    val found = tokens(
+      "def f(): \"\\u{41} \\U{1F600} \\u{12345678} \\U{123456789}\""
+    )
+    for spelling <- List("\\u{41}", "\\U{1F600}", "\\u{12345678}") do
+      assertTrue(
+        found.exists(t => t.kind == BendTokens.Escape && t.text == spelling)
+      )
+    assertTrue(
+      found.exists(t =>
+        t.kind == BendTokens.InvalidEscape && t.text == "\\U{123456789"
+      )
+    )
+
   @Test def differentiatesLanguageVocabulary(): Unit =
     val found = tokens(
       "import ./A.bend as A\nlaw L: for x: Nat\ndef f(&2 x: U32): {==} ?TODO\ntype T is Data:\ndo IO<Unit>: f!(~Nat)"

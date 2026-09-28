@@ -239,7 +239,10 @@ object BendForeignPaths:
         case '\'' => Some("'")
         case '"'  => Some("\"")
         case _    => None
-    else if value.startsWith("\\u{") && value.endsWith("}") then
+    else if value.length > 4 && value.charAt(0) == '\\' &&
+      (value.charAt(1) == 'u' || value.charAt(1) == 'U') &&
+      value.charAt(2) == '{' && value.endsWith("}")
+    then
       try
         val point = Integer.parseInt(value.substring(3, value.length - 1), 16)
         Some(new String(Character.toChars(point)))

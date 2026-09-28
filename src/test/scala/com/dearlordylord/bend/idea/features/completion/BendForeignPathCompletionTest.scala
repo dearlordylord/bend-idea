@@ -42,6 +42,18 @@ final class BendForeignPathCompletionTest extends BasePlatformTestCase:
       foreignReferences(2).resolve()
     )
 
+  def testForeignPathDecodesUppercaseUnicodeEscape(): Unit =
+    val _ = myFixture.addFileToProject("ffi/one.c", "int one(void);\n")
+    val file = myFixture.addFileToProject(
+      "main.bend",
+      "def external():\n  import \"ffi/\\U{6f}ne.c\"\n"
+    )
+    assertEquals(List("ffi/one.c"), BendForeignPaths.in(file).map(_.spelling))
+    val reference = file.getReferences.collectFirst {
+      case path: BendForeignPathReference => path
+    }.get
+    assertNotNull(reference.resolve())
+
   def testForeignPathCompletionUsesLocalCAndJavaScriptFiles(): Unit =
     val _ = myFixture.addFileToProject("ffi/one.c", "int one(void);\n")
     val _ = myFixture.addFileToProject("ffi/two.js", "export {};\n")

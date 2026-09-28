@@ -88,10 +88,15 @@ final class BendLexer extends LexerBase:
       withMode(Normal)
     else if c == '\\' then
       tokenEnd += 1
-      if char(tokenEnd) == 'u' && char(tokenEnd + 1) == '{' then
-        var p = tokenEnd + 2
+      if (char(tokenEnd) == 'u' || char(tokenEnd) == 'U') && char(
+          tokenEnd + 1
+        ) == '{'
+      then
+        val digitsStart = tokenEnd + 2
+        var p = digitsStart
         while hex(char(p)) && p < end do p += 1
-        if p > tokenEnd + 2 && char(p) == '}' then
+        // Bend inspects at most 11 characters after '\\': u{, eight digits, }.
+        if p > digitsStart && p - digitsStart <= 8 && char(p) == '}' then
           tokenEnd = p + 1
           kind = BendTokens.Escape
         else
