@@ -11,6 +11,7 @@ import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSelection
 import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
 import com.dearlordylord.bend.idea.syntax.lexer.BendLexer
 import com.intellij.openapi.actionSystem.IdeActions
+import com.intellij.application.options.CodeStyle
 import com.intellij.psi.TokenType
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
@@ -60,6 +61,33 @@ final class BendFormattingTest extends BasePlatformTestCase:
   def testSingleLineBodyIndentIsNormalized(): Unit =
     val expected = "def main() -> U32:\n  1\n"
     assertEquals(expected, reformat("def main() -> U32:\n    1\n"))
+
+  def testConfiguredFourSpaceAndTabReformat(): Unit =
+    val file =
+      myFixture.configureByText("styled.bend", "def main() -> U32:\n  1\n")
+    val options =
+      CodeStyle.getSettings(getProject).getIndentOptions(file.getFileType)
+    val originalSize = options.INDENT_SIZE
+    val originalTab = options.TAB_SIZE
+    val originalUseTabs = options.USE_TAB_CHARACTER
+    try
+      options.INDENT_SIZE = 4
+      options.TAB_SIZE = 4
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(
+        "def main() -> U32:\n    1\n",
+        myFixture.getEditor.getDocument.getText
+      )
+      options.USE_TAB_CHARACTER = true
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(
+        "def main() -> U32:\n\t1\n",
+        myFixture.getEditor.getDocument.getText
+      )
+    finally
+      options.INDENT_SIZE = originalSize
+      options.TAB_SIZE = originalTab
+      options.USE_TAB_CHARACTER = originalUseTabs
 
   def testSensitiveGapsAndLineBreaksStayIntact(): Unit =
     val source =

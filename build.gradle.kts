@@ -1,4 +1,6 @@
 import org.gradle.api.tasks.scala.ScalaCompile
+import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.jvm.tasks.Jar
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import java.io.ByteArrayOutputStream
 import java.util.Properties
@@ -20,8 +22,10 @@ repositories {
 dependencies {
     implementation("org.scala-lang:scala3-library_3:${providers.gradleProperty("scalaVersion").get()}")
     implementation("com.google.code.gson:gson:2.13.2")
+    implementation("org.standardout.org.editorconfig:editorconfig-core:0.12.1.Final")
     intellijPlatform {
         intellijIdeaCommunity(providers.gradleProperty("platformVersion").get())
+        bundledPlugin("org.editorconfig.editorconfigjetbrains")
         testFramework(TestFrameworkType.Platform)
         pluginVerifier("1.410")
     }
@@ -77,6 +81,30 @@ tasks.withType<ScalaCompile>().configureEach {
         "-Wnonunit-statement",
         "-Wunused:imports,privates,locals"
     )
+}
+
+val buildFormatTool by tasks.registering(Jar::class) {
+    description = "Builds the pinned offline Bend format command as a standalone JVM jar."
+    group = "build"
+    dependsOn(tasks.classes)
+    archiveBaseName.set("bend-format-tool")
+    archiveVersion.set(project.version.toString())
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest.attributes["Main-Class"] = "com.dearlordylord.bend.idea.adapters.cli.BendFormatCli"
+    from(sourceSets.main.get().output) {
+        include("com/dearlordylord/bend/idea/syntax/parser/BendLayoutPolicy*.class")
+        include("com/dearlordylord/bend/idea/adapters/cli/BendFormatCli*.class")
+    }
+    from(provider {
+        configurations.runtimeClasspath.get().filter { it.extension == "jar" }.map(::zipTree)
+    }) {
+        exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
+    }
+}
+
+tasks.test {
+    dependsOn(buildFormatTool)
+    systemProperty("bend.format.tool.jar", buildFormatTool.get().archiveFile.get().asFile.absolutePath)
 }
 
 tasks.test {

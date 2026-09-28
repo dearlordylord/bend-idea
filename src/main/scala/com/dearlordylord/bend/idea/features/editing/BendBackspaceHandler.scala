@@ -3,7 +3,7 @@ package com.dearlordylord.bend.idea.features.editing
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.lexer.{BendLexer, BendTokens}
 import com.dearlordylord.bend.idea.syntax.parser.BendIndentPolicy
-import com.intellij.application.options.CodeStyle
+import com.dearlordylord.bend.idea.syntax.psi.BendEffectiveIndent
 import com.intellij.codeInsight.editorActions.BackspaceHandlerDelegate
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.Key
@@ -23,8 +23,8 @@ final class BendBackspaceHandler extends BackspaceHandlerDelegate:
     val source = editor.getDocument.getCharsSequence
     if offset <= 0 then return
     if c == ' ' || c == '\t' then
-      val step = math.max(1, CodeStyle.getIndentOptions(file).INDENT_SIZE)
-      BendIndentPolicy.backspace(source.toString, offset, step).foreach {
+      val settings = BendEffectiveIndent.forFile(file)
+      BendIndentPolicy.backspace(source.toString, offset, settings).foreach {
         target =>
           val lineStart = source.toString.lastIndexOf('\n', offset - 1) + 1
           editor.putUserData(indentAfterDeletion, (lineStart, target))
@@ -63,8 +63,8 @@ final class BendBackspaceHandler extends BackspaceHandlerDelegate:
           ) == ' ' || source.charAt(firstCode) == '\t')
         do firstCode += 1
         if offset <= firstCode && lineStart <= offset then
-          editor.getDocument.replaceString(lineStart, firstCode, " " * target)
-          editor.getCaretModel.moveToOffset(lineStart + target)
+          editor.getDocument.replaceString(lineStart, firstCode, target)
+          editor.getCaretModel.moveToOffset(lineStart + target.length)
           handled = true
     }
     handled
@@ -72,5 +72,5 @@ final class BendBackspaceHandler extends BackspaceHandlerDelegate:
 private object BendBackspaceHandler:
   val removeCloser: Key[Boolean] =
     Key.create[Boolean]("bend.remove.empty.pair.closer")
-  val indentAfterDeletion: Key[(Int, Int)] =
-    Key.create[(Int, Int)]("bend.backspace.indent.target")
+  val indentAfterDeletion: Key[(Int, String)] =
+    Key.create[(Int, String)]("bend.backspace.indent.target")

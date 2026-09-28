@@ -95,6 +95,8 @@ private[architecture] object ArchitectureRules:
     )
     imported.flatMap { cls =>
       val source = parts(cls.getPackageName, root)
+      val pureLayoutPolicy =
+        cls.getName.startsWith(root + ".syntax.parser.BendLayoutPolicy")
       val placement = Option
         .when(
           !cls.getPackageName.startsWith(root + ".") || !owners(source.head)
@@ -111,7 +113,7 @@ private[architecture] object ArchitectureRules:
           )(s"A2: ${dependency.getDescription}")
           // Scala case classes inherit this marker; it grants no file or stream access.
           val effect = Option.when(
-            policyOwners(source.head) &&
+            (policyOwners(source.head) || pureLayoutPolicy) &&
               target.getName != "java.io.Serializable" &&
               forbiddenPolicyDependencies.exists(target.getName.startsWith)
           )(s"A4: ${dependency.getDescription}")

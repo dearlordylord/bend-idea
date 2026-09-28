@@ -28,6 +28,18 @@ final class ArchitectureTest:
       classes.contain("com.dearlordylord.bend.idea.syntax.lexer.BendLexer")
     )
     assertTrue(
+      "The shared layout policy and its IntelliJ and offline adapters must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.syntax.parser.BendLayoutPolicy$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.syntax.psi.BendEffectiveIndent$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.syntax.psi.BendFileIndentOptionsProvider"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.adapters.cli.BendFormatCli$"
+      )
+    )
+    assertTrue(
       "The editing feature boundary must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.features.editing.BendCommenter"

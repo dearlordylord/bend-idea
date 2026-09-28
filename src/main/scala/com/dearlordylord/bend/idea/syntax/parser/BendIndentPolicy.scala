@@ -5,7 +5,12 @@ import scala.collection.mutable
 
 /** Indentation levels from source layout; callers perform the editor write. */
 object BendIndentPolicy:
-  def afterEnter(source: String, caret: Int, step: Int): Option[Int] =
+  def afterEnter(
+      source: String,
+      caret: Int,
+      settings: BendLayoutPolicy.Settings
+  ): Option[String] =
+    if !settings.valid then return None
     if caret <= 0 || caret > source.length then return None
     val currentStart = source.lastIndexOf('\n', caret - 1) + 1
     if currentStart == 0 then return None
@@ -14,31 +19,45 @@ object BendIndentPolicy:
     val previous =
       source.substring(previousStart, previousEnd).stripSuffix("\r")
     if previous.trim.isEmpty then return None
-    val base = leading(previous)
-    if inLiteral(source, previousEnd) then return Some(0)
-    if previous.drop(base).startsWith("#") then return Some(base)
+    val prefix = leading(previous)
+    if prefix.contains(' ') && prefix.contains('\t') then return None
+    val base = settings.columns(prefix)
+    if inLiteral(source, previousEnd) then return settings.indent(0)
+    if previous.drop(prefix.length).startsWith("#") then
+      return settings.indent(base)
     val suffix = previous.trim
-    if suffix.endsWith(":") then Some(base + step)
+    if suffix.endsWith(":") then settings.indent(base + settings.indentSize)
     else
       val open = unmatchedOpening(source, previousEnd)
       open match
         case Some(position) =>
           val lineStart = source.lastIndexOf('\n', position - 1) + 1
-          Some(leading(source.substring(lineStart, position)) + step)
-        case None => Some(base)
+          val context = leading(source.substring(lineStart, position))
+          if context.contains(' ') && context.contains('\t') then None
+          else settings.indent(settings.columns(context) + settings.indentSize)
+        case None => settings.indent(base)
 
-  def backspace(source: String, caret: Int, step: Int): Option[Int] =
+  def backspace(
+      source: String,
+      caret: Int,
+      settings: BendLayoutPolicy.Settings
+  ): Option[String] =
+    if !settings.valid then return None
     if caret <= 0 || caret > source.length then return None
     val lineStart = source.lastIndexOf('\n', caret - 1) + 1
     val before = source.substring(lineStart, caret)
     if before.isEmpty || !before.forall(c => c == ' ' || c == '\t') then
       return None
-    val current = before.length
+    if before.contains(' ') && before.contains('\t') then return None
+    val current = settings.columns(before)
     if current == 0 then None
-    else Some(math.max(0, ((current - 1) / step) * step))
+    else
+      settings.indent(
+        math.max(0, ((current - 1) / settings.indentSize) * settings.indentSize)
+      )
 
-  private def leading(line: String): Int =
-    line.takeWhile(c => c == ' ' || c == '\t').length
+  private def leading(line: String): String =
+    line.takeWhile(c => c == ' ' || c == '\t')
 
   private def inLiteral(source: String, until: Int): Boolean =
     val lexer = new BendLexer()

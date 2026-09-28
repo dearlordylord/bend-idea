@@ -2,7 +2,7 @@ package com.dearlordylord.bend.idea.features.editing
 
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.parser.BendIndentPolicy
-import com.intellij.application.options.CodeStyle
+import com.dearlordylord.bend.idea.syntax.psi.BendEffectiveIndent
 import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegateAdapter
 import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegate.Result
 import com.intellij.openapi.actionSystem.DataContext
@@ -19,8 +19,8 @@ final class BendEnterHandler extends EnterHandlerDelegateAdapter:
     val document = editor.getDocument
     val caret = editor.getCaretModel.getOffset
     val source = document.getText
-    val step = math.max(1, CodeStyle.getIndentOptions(file).INDENT_SIZE)
-    BendIndentPolicy.afterEnter(source, caret, step).foreach { indent =>
+    val settings = BendEffectiveIndent.forFile(file)
+    BendIndentPolicy.afterEnter(source, caret, settings).foreach { indent =>
       val lineStart = source.lastIndexOf('\n', caret - 1) + 1
       var firstCode = lineStart
       while firstCode < source.length && (source.charAt(
@@ -32,7 +32,7 @@ final class BendEnterHandler extends EnterHandlerDelegateAdapter:
         ) == '\n' || source.charAt(firstCode) == '\r' ||
         caret <= firstCode
       then
-        document.replaceString(lineStart, firstCode, " " * indent)
-        editor.getCaretModel.moveToOffset(lineStart + indent)
+        document.replaceString(lineStart, firstCode, indent)
+        editor.getCaretModel.moveToOffset(lineStart + indent.length)
     }
     Result.Continue

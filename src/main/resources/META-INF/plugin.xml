@@ -20,16 +20,17 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.7:</p>
+<p>Version 0.1.8:</p>
 <ul>
-  <li>Checks recognize Bend 2.0.32 CLI verdicts and capture one current root graph across explicit, background, and proof-preview work.</li>
-  <li>With the compatible pinned helper, editor actions show exact first-error ranges, goals, expression types, resource details, normalization, and validated reflexivity steps.</li>
-  <li>Semantic actions reject stale editor locations and changed source before showing or applying results.</li>
-  <li>Expand Selection handles more Bend expressions, collections, nested bodies, and literals.</li>
-  <li>Build configurations accept .cjs JavaScript output and reject it for native builds.</li>
+  <li>Enter, Backspace, and Reformat Code share Bend layout rules and honor effective file indentation and EditorConfig.</li>
+  <li>Unsafe source remains unchanged by formatting; the optional offline formatter reports conforming, would-change, or unavailable results.</li>
+  <li>Sample staged pre-commit and all-tracked-files CI checks use the offline formatter.</li>
+  <li>Uppercase Unicode escapes are highlighted and decoded in foreign paths; overlong escapes are rejected.</li>
+  <li>The plugin site link points to the Bend2 website.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
+    <depends optional="true" config-file="bend-editorconfig.xml">org.editorconfig.editorconfigjetbrains</depends>
     <extensions defaultExtensionNs="com.intellij">
         <spellchecker.support language="Bend"
                               implementationClass="com.dearlordylord.bend.idea.features.spelling.BendSpellcheckingStrategy"/>
@@ -77,6 +78,7 @@ compiler-backed features. See the
         <editorFactoryListener implementation="com.dearlordylord.bend.idea.features.editing.BendEditorRelease"/>
         <enterHandlerDelegate implementation="com.dearlordylord.bend.idea.features.editing.BendEnterHandler"/>
         <fileTypeIndentOptionsProvider implementation="com.dearlordylord.bend.idea.features.editing.BendIndentOptionsProvider"/>
+        <fileIndentOptionsProvider implementation="com.dearlordylord.bend.idea.syntax.psi.BendFileIndentOptionsProvider"/>
         <completion.contributor language="Bend"
                   implementationClass="com.dearlordylord.bend.idea.features.completion.BendCompletionContributor"/>
         <lang.documentationProvider language="Bend"

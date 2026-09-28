@@ -6,16 +6,18 @@ import com.intellij.psi.codeStyle.{
   CommonCodeStyleSettings,
   FileTypeIndentOptionsProvider
 }
+import com.dearlordylord.bend.idea.syntax.parser.BendLayoutPolicy
 
 final class BendIndentOptionsProvider extends FileTypeIndentOptionsProvider:
   override def getFileType: FileType =
     FileTypeManager.getInstance.getFileTypeByExtension("bend")
   override def createIndentOptions(): CommonCodeStyleSettings.IndentOptions =
     val options = new CommonCodeStyleSettings.IndentOptions()
-    options.INDENT_SIZE = 2
-    options.CONTINUATION_INDENT_SIZE = 2
-    options.TAB_SIZE = 2
-    options.USE_TAB_CHARACTER = false
+    options.INDENT_SIZE = BendLayoutPolicy.defaultSettings.indentSize
+    options.CONTINUATION_INDENT_SIZE =
+      BendLayoutPolicy.defaultSettings.indentSize
+    options.TAB_SIZE = BendLayoutPolicy.defaultSettings.tabWidth
+    options.USE_TAB_CHARACTER = BendLayoutPolicy.defaultSettings.useTabs
     options
   override def getPreviewText: String =
     "def main():\n  do IO<Unit>:\n    IO.print(\"Bend\")\n"

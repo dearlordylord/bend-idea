@@ -15,12 +15,15 @@ import com.dearlordylord.bend.idea.toolchain.api.{
 }
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.IndexingTestUtil
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
+import scala.jdk.CollectionConverters.*
 
 final class BendBackgroundCheckingTest extends BasePlatformTestCase:
   private var original: BendToolchainChoices = null
@@ -86,6 +89,36 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
             .result(root)
             .map(r => (r.fresh, r.details.take(300)))
       )
+    )
+
+  def testNonExhaustiveMatchHighlightsAfterBackgroundCheck(): Unit =
+    val text =
+      "type Choice is Data:\n  A{}\n  B{}\ndef pick(x: Choice) -> Choice:\n  match x:\n    case A{}:\n      A{}\n"
+    myFixture.configureByText("background-match.bend", text)
+    val root = id(myFixture.getFile.getVirtualFile)
+    val settings = ApplicationManager.getApplication.getService(
+      classOf[BendToolchainSettings]
+    )
+    val _ = getProject.getService(classOf[BendBackgroundChecking])
+    settings.update(settings.choices.copy(diagnosticsEnabled = true))
+
+    val result =
+      awaitResult(root, r => r.fresh && r.details.contains("cases for B"))
+    assertEquals(BendCheckOutcome.Failed, result.outcome)
+    assertEquals(
+      BendLocation.SourceLine(root, 4),
+      result.diagnostics.head.location
+    )
+
+    val matchStart = text.indexOf("match x:")
+    IndexingTestUtil.waitUntilIndexesAreReady(getProject)
+    assertTrue(
+      "Background checking must mark a non-exhaustive match as an editor error",
+      myFixture.doHighlighting().asScala.exists { info =>
+        info.getSeverity == HighlightSeverity.ERROR &&
+        info.getStartOffset <= matchStart && info.getEndOffset > matchStart &&
+        info.getDescription.contains("cases for B")
+      }
     )
 
   def testTwoRootsKeepIndependentDiagnosticsOnOneDependency(): Unit =

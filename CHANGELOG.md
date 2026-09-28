@@ -13,6 +13,14 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.8
+
+- Enter, Backspace, and Reformat Code use a shared Bend layout policy with the
+  effective file indent size, tab style, and tab width. Unsafe formatting requests
+  are left unchanged. (#77–#79)
+- Add an optional offline `check`/`fix` formatter with explicit conforming,
+  would-change, and unavailable results. Add a staged pre-commit hook and an
+  all-tracked-files CI example. (#80–#81)
 - Point the plugin's site link to the Bend2 website.
 - Highlight uppercase Unicode escapes, decode them in foreign paths, and reject
   overlong Unicode escapes, matching the pinned Bend parser.

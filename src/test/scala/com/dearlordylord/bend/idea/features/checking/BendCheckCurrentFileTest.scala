@@ -28,6 +28,7 @@ import com.dearlordylord.bend.idea.toolchain.api.{
 import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -76,6 +77,41 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
             })
         finally paths.close()
     finally super.tearDown()
+
+  def testNonExhaustiveMatchIsHighlightedAsCompilerError(): Unit =
+    val text =
+      "type Choice is Data:\n  A{}\n  B{}\ndef pick(x: Choice) -> Choice:\n  match x:\n    case A{}:\n      A{}\n"
+    myFixture.configureByText("non-exhaustive.bend", text)
+    val file = myFixture.getFile.getVirtualFile
+    val id = new FileId(
+      Option(file.getCanonicalPath).getOrElse(file.getPath),
+      file.getCanonicalPath != null
+    )
+
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val service = getProject.getService(classOf[BendCheckService])
+    val until = System.nanoTime() + 15_000_000_000L
+    while service.result(id).isEmpty && System.nanoTime() < until do
+      Thread.sleep(50)
+    val result = service
+      .result(id)
+      .getOrElse(throw new AssertionError("Match check did not publish"))
+    assertEquals(BendCheckOutcome.Failed, result.outcome)
+    assertTrue(result.details.contains("cases for B"))
+    assertEquals(
+      BendLocation.SourceLine(id, 4),
+      result.diagnostics.head.location
+    )
+
+    val matchStart = text.indexOf("match x:")
+    assertTrue(
+      "The compiler's non-exhaustive match must be red in the editor",
+      myFixture.doHighlighting().asScala.exists { info =>
+        info.getSeverity == HighlightSeverity.ERROR &&
+        info.getStartOffset <= matchStart && info.getEndOffset > matchStart &&
+        info.getDescription.contains("cases for B")
+      }
+    )
 
   def testStructuredHelperHighlightsExactCurrentSourceRange(): Unit =
     val _ = RealBendCompilerFixture.inputs.writeStructuredLauncher(

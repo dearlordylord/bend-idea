@@ -98,6 +98,21 @@ The real compiler tests in `./gradlew check` require `BEND_TEST_COMPILER_DIR` to
 
 The [Bend release compatibility workflow](.github/workflows/bend-releases.yml) polls published Bend releases every six hours and can be run manually with a specific tag. It checks each release newer than the approved pin using the release's SHA-256-verified Linux archive, its compiler and matching Base, then exercises **Check Current Bend File** for complete, TODO, failed and unsafe results. Results are recorded on the `bend-release-results` branch and in the workflow summary; a failed release can be retried with the manual `release_tag` input. This compatibility smoke test does not change the pinned `./gradlew check` gate or claim support for the pinned-source structured helper on a new compiler. The first run checks the published releases after Bend 2.0.25, up to 20 per run; later polls continue any backlog. A local release smoke run uses `BEND_TEST_CURRENT_COMPILER=/absolute/path/to/bend/bin/bend BEND_TEST_CURRENT_BASE=/absolute/path/to/bend/bend2/base.bend ./gradlew -PbendReleaseSmoke=true test` with JDK 21.
 
+### Optional Bend format check
+
+Build the pinned **0.1.8** standalone tool with JDK 21 using `./gradlew buildFormatTool`. The resulting `build/libs/bend-format-tool-0.1.8.jar` runs without IntelliJ, Bun, a Bend compiler, package downloads, or an open IDE process. After the build, the command reads only local files and EditorConfig settings. It uses the same conservative source policy as Reformat Code; a style result is **not** a compiler verdict. Compiler `--check-only` still requires a selected root and its loaded graph.
+
+```sh
+java -jar build/libs/bend-format-tool-0.1.8.jar check path/to/main.bend
+java -jar build/libs/bend-format-tool-0.1.8.jar fix path/to/main.bend
+```
+
+`check` reports `conforming`, `would-change`, or `unavailable` per explicit file and never writes files or the Git index. Exit status is 0 when all files conform, 1 when at least one would change, and 2 when any file is unavailable or the command cannot run. `fix` writes only working-tree files and leaves unsafe files alone. Both commands preserve existing line endings, final newlines, comments and literals. The formatter changes only supported comma spacing and simple single-body indentation; unsupported or incomplete source reports unavailable.
+
+The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including when the working tree has other edits. Copy it into `.git/hooks/pre-commit` and make it executable after building the tool. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks the working-tree version of every tracked `.bend` file; the [CI example](docs/examples/bend-format-ci.yml) runs that script with the pinned tool. Neither script invokes Bend compiler checking.
+
+IntelliJ's standard Reformat Code action is available for selected Bend files and directories. Its opt-in Actions on Save and Commit Checks call the same formatter.
+
 ```sh
 BEND_TEST_COMPILER_DIR=/absolute/path/to/bend \
 BEND_TEST_BUN=/absolute/path/to/bun \
