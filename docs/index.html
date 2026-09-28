@@ -35,6 +35,9 @@
     .github-link:focus-visible { outline: 2px solid #185b8b; outline-offset: 3px; }
     .install { border-top: 1px solid #dce3e9; padding-top: 32px; }
     .features { border-top: 1px solid #dce3e9; padding: 32px 0 36px; }
+    .demo { border-top: 1px solid #dce3e9; padding: 32px 0 36px; }
+    .demo p { margin: 0 0 18px; line-height: 1.6; }
+    .demo video { display: block; width: 100%; height: auto; border-radius: 10px; background: #171a20; }
     h2 { margin: 0 0 22px; font-size: 24px; letter-spacing: -.035em; }
     .feature-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 24px; }
     .feature-list h3 { margin: 0 0 8px; font-size: 18px; }
@@ -73,6 +76,14 @@
           <p>With a configured Bend compiler, check unsaved files and imports, inspect proof goals, and track progress for selected proof roots.</p>
         </div>
       </div>
+    </section>
+    <section class="demo" aria-labelledby="demo-title">
+      <h2 id="demo-title">See Bend2 in action</h2>
+      <p>A 75-second tour of navigation, match cases, completion, imports, compiler feedback, running, and proof checking in IntelliJ IDEA.</p>
+      <video controls playsinline preload="metadata" width="1920" height="1080" poster="media/bend2-intellij-demo-poster.jpg" aria-label="Bend2 in IntelliJ IDEA demo video">
+        <source src="media/bend2-intellij-demo.mp4" type="video/mp4">
+        <a href="media/bend2-intellij-demo.mp4">Download the Bend2 demo video</a>.
+      </video>
     </section>
     <section class="install" id="install" aria-labelledby="install-title">
       <h2 id="install-title">Install Bend 2 and the IDEA plugin</h2>
