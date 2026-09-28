@@ -46,7 +46,9 @@
     li { padding-left: 7px; }
     code { display: inline-block; max-width: 100%; overflow-wrap: anywhere; border: 1px solid #dce3e9; border-radius: 6px; background: #fff; padding: 2px 6px; font-size: .92em; }
     .note { margin: 24px 0 0; color: #566674; line-height: 1.5; }
-    footer { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 64px; padding-top: 20px; border-top: 1px solid #dce3e9; color: #647382; font-size: 14px; }
+    footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid #dce3e9; color: #647382; font-size: 14px; }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+    .footer-splash { display: block; width: 100%; height: auto; margin-top: 24px; border-radius: 10px; }
     @media (max-width: 600px) { main { padding: 24px 20px 36px; } .hero { padding: 62px 0 60px; } footer { margin-top: 50px; } }
   </style>
 </head>
@@ -95,11 +97,14 @@
       </video>
     </section>
     <footer>
-      <span>IntelliJ IDEA 2025.1+</span>
-      <a href="https://github.com/bendlang/bend">Bend 2</a>
-      <a href="https://github.com/dearlordylord/bend-idea/releases/latest">Signed release</a>
-      <a href="https://github.com/dearlordylord/bend-idea#install">Setup guide</a>
-      <a href="https://github.com/dearlordylord/bend-idea/blob/master/LICENSE">Apache 2.0</a>
+      <div class="footer-links">
+        <span>IntelliJ IDEA 2025.1+</span>
+        <a href="https://github.com/bendlang/bend">Bend 2</a>
+        <a href="https://github.com/dearlordylord/bend-idea/releases/latest">Signed release</a>
+        <a href="https://github.com/dearlordylord/bend-idea#install">Setup guide</a>
+        <a href="https://github.com/dearlordylord/bend-idea/blob/master/LICENSE">Apache 2.0</a>
+      </div>
+      <img class="footer-splash" src="media/bend2-splash.jpg" width="2172" height="724" loading="lazy" alt="Blue striped pipes weaving across the image">
     </footer>
   </main>
 </body>
