@@ -1,0 +1,68 @@
+{
+  "results": {
+    "394682048": {
+      "commit": "f52f0338b0d07fdbd948c285dadfd14278fb5c75",
+      "digest": "5edcc8e5c12d525655431ab02659ddf88e362aafbe7c7bb7f783a1ffaeb6165c",
+      "exit_code": 0,
+      "release_id": 394682048,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
+      "status": "passed",
+      "tag": "v2.0.26"
+    },
+    "395088025": {
+      "commit": "63bee70b55a71024d6bdcb49a745111bc54b114e",
+      "digest": "58adc86af6605ed0c48f7d84e4c23028f78893ce4a867a20a4f004b11582687b",
+      "exit_code": 0,
+      "release_id": 395088025,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
+      "status": "passed",
+      "tag": "v2.0.27"
+    },
+    "396783623": {
+      "commit": "bc178404f4778704fa5584a73fcdf72bcdf9f32c",
+      "digest": "22bb6d5f6bce8ae2c5b340371fedddcbd90edc07a48b6e2b351a944c4558a3eb",
+      "exit_code": 0,
+      "release_id": 396783623,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
+      "status": "passed",
+      "tag": "v2.0.28"
+    },
+    "397075988": {
+      "commit": "c8691aa93b0b1bb2fda277d9fc88c5aa797e88de",
+      "digest": "e0ff4fa44581b42f6024d2a1128e7e518219a502cb726030c714a5c23d61726e",
+      "exit_code": 0,
+      "release_id": 397075988,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
+      "status": "passed",
+      "tag": "v2.0.29"
+    },
+    "397496299": {
+      "commit": "56330b241e51e72fbea20a365c051e7b24672600",
+      "digest": "3a2d23c21d2ede59e75c7c4255fe37cca57de835a4897896d2ea69c97f741eaa",
+      "exit_code": 0,
+      "release_id": 397496299,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
+      "status": "passed",
+      "tag": "v2.0.30"
+    },
+    "397504033": {
+      "commit": "1e80ddce5940c9db8fe914f4b13a1f85a0e45b2b",
+      "digest": "f7dbecc8ef5991fe15d9953b8b33911bc62a120c735e2e5902aa031e22055bad",
+      "exit_code": 0,
+      "release_id": 397504033,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
+      "status": "passed",
+      "tag": "v2.0.31"
+    },
+    "397706616": {
+      "commit": "573002f01ec6c52416d44489543f69a9625facf8",
+      "digest": "5c365ddb12954d0933cef751802e0f7d9875f842edcb80f9661f89cd1a9ff7b6",
+      "exit_code": 0,
+      "release_id": 397706616,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
+      "status": "passed",
+      "tag": "v2.0.32"
+    }
+  },
+  "schema": 1
+}
