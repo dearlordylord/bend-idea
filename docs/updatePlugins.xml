@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.8/bend-idea-0.1.8-signed.zip"
-          version="0.1.8">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.9/bend-idea-0.1.9-signed.zip"
+          version="0.1.9">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <!-- The description is the stable plugin overview; match packaged change-notes for version history. -->
@@ -23,13 +23,10 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.8:</p>
+<p>Version 0.1.9:</p>
 <ul>
-  <li>Enter, Backspace, and Reformat Code share Bend layout rules and honor effective file indentation and EditorConfig.</li>
-  <li>Unsafe source remains unchanged by formatting; the optional offline formatter reports conforming, would-change, or unavailable results.</li>
-  <li>Sample staged pre-commit and all-tracked-files CI checks use the offline formatter.</li>
-  <li>Uppercase Unicode escapes are highlighted and decoded in foreign paths; overlong escapes are rejected.</li>
-  <li>The plugin site link points to the Bend2 website.</li>
+  <li>Function parameter and constructor field hints remain responsive in large Bend files.</li>
+  <li>Hints refresh after source edits, imported declaration changes, and loading-setting changes.</li>
 </ul>
     ]]></change-notes>
   </plugin>
