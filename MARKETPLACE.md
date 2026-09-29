@@ -2,7 +2,7 @@
 
 Bend2's plugin ID is `com.dearlordylord.bend.idea`; its Marketplace listing name is `Bend2`. Build with JDK 21. The plugin targets IntelliJ IDEA 2025.1 and declares no upper IDE build limit. Verify newer IDE releases before claiming support.
 
-The public [Bend2 Marketplace listing](https://plugins.jetbrains.com/plugin/34452-bend2) serves version 0.1.7 as of 2026-09-28. Its **Plugin Site** still points to GitHub, and the vendor page's metadata editing controls are disabled while the plugin remains under review. The URL in `plugin.xml` is now `https://bend-idea.dearlordylord.com/`; update the live **Plugin Site** field to that address when Marketplace permits editing or the next release is published.
+The public [Bend2 Marketplace listing](https://plugins.jetbrains.com/plugin/34452-bend2) serves version 0.1.8 as of 2026-09-29. The authenticated vendor page marks 0.1.8 **Approved** and 0.1.9 **Under review**. The public plugin details API reports the **Plugin Site** URL as `https://bend-idea.dearlordylord.com/`.
 
 ## 0.1.2 submission
 
@@ -39,7 +39,13 @@ The clean JDK 21 release gate passed on 2026-09-27: 441 tests, zero failures or 
 
 The signed 0.1.8 archive is available in [GitHub Release v0.1.8](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.8) with SHA-256 `0bdc4511293290c196c61926beb0cff7d035eadc8a4edee5d9b649ea86746dbd`. The release asset was downloaded and matched the locally signed ZIP. The public signing certificate is attached. The custom plugin feed advertises 0.1.8 after the release asset became available.
 
-The JDK 21 release gate passed on 2026-09-28: 459 tests, zero failures or errors, one optional current-compiler smoke test skipped; packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. The Community verifier reports six internal API usages in the existing proof progress tool-window factory; the verifier still classifies the plugin as compatible. The signed 0.1.8 ZIP was submitted through Gradle to JetBrains Marketplace's default Stable channel as update **1181912**. The authenticated Marketplace API reports `approve: false` and `listed: false`; public Marketplace availability awaits JetBrains review and approval.
+The JDK 21 release gate passed on 2026-09-28: 459 tests, zero failures or errors, one optional current-compiler smoke test skipped; packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. The Community verifier reports six internal API usages in the existing proof progress tool-window factory; the verifier still classifies the plugin as compatible. The signed 0.1.8 ZIP was submitted through Gradle to JetBrains Marketplace's default Stable channel as update **1181912**. The authenticated Marketplace vendor page showed **Approved** on 2026-09-29; the public updates API also lists 0.1.8.
+
+## 0.1.9 release and Marketplace submission
+
+The signed 0.1.9 archive is available in [GitHub Release v0.1.9](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.9) with SHA-256 `0c86be3c85a33b6a06e4e4f08dc5467e057c8bf69bf7d278cb26d0e474aaaf2e`. A public download matched the locally signed ZIP. The public signing certificate is attached. Both the primary and fallback custom plugin feed URLs advertise 0.1.9, with metadata matching the signed plugin's `plugin.xml`.
+
+The clean JDK 21 release gate passed on 2026-09-29: 461 tests, zero failures or errors, one optional current-compiler smoke test skipped; architecture, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. Implementer self-review under `REVIEWER.md` found no actionable issue against #27 and the applicable architecture rules. The same signed ZIP was uploaded through the authenticated JetBrains vendor page to the Stable channel as update **1182848**. Marketplace found no initial problems, but the vendor page shows **Under review**; 0.1.9 is not yet publicly available through Marketplace.
 
 ## Future updates
 
