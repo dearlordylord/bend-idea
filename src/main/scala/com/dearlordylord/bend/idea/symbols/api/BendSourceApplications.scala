@@ -91,6 +91,24 @@ object BendSourceApplications:
       .toList
       .headOption
 
+  /** Parse call heads once for consumers that inspect a whole editor file. */
+  def forCallees(file: PsiFile): Map[Int, BendSourceApplication] =
+    val source = file.getText
+    val tokens = tokenize(source)
+    val anglePairs = BendTypeAngleContext.applicationPairs(source)
+    tokens.indices.iterator
+      .flatMap { calleeIndex =>
+        nextSignificant(tokens, calleeIndex + 1).toList.flatMap { open =>
+          if !isOpening(tokens(open), anglePairs) then Nil
+          else
+            application(tokens, open, source, source.length, anglePairs)
+              .filter(_.calleeFrom == tokens(calleeIndex).from)
+              .toList
+        }
+      }
+      .map(application => application.calleeFrom -> application)
+      .toMap
+
   def atHead(file: PsiFile, offset: Int): Option[BendSourceApplication] =
     val source = file.getText
     val tokens = tokenize(source)

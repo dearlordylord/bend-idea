@@ -17,6 +17,7 @@ import com.intellij.codeInsight.hints.InlayHintsSettings
 import com.intellij.codeInsight.hint.ShowParameterInfoHandler
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.testFramework.utils.parameterInfo.{
   MockCreateParameterInfoContext,
   MockParameterInfoUIContext,
@@ -280,6 +281,87 @@ final class BendSourceCallSignaturesTest extends BasePlatformTestCase:
       "current:",
       provider.getParameterHints(updated, myFixture.getFile).get(0).getText
     )
+
+  def testNestedImportedConstructorHintsRefreshAfterDependencyEdit(): Unit =
+    val types = myFixture.addFileToProject(
+      "battle/types.bend",
+      "type Battle is Data:\n  B{roster: Nat, active: Nat, round: Nat}\n" +
+        "type Creature is Data:\n  Cr{vitals: Nat, ac: Nat}\n"
+    )
+    val source = myFixture.addFileToProject(
+      "laws/admission.bend",
+      "import ../battle/types.bend as T\ndef main():\n" +
+        "  T.B{[T.Cr{10n, 12n}], 0n, 1n}\n"
+    )
+    myFixture.configureFromExistingVirtualFile(source.getVirtualFile)
+    val provider = new BendParameterNameHintsProvider
+    def labels(name: String): List[String] =
+      val reference = PsiTreeUtil
+        .findChildrenOfType(myFixture.getFile, classOf[BendReferenceElement])
+        .asScala
+        .find(_.getText == name)
+        .get
+      provider
+        .getParameterHints(reference, myFixture.getFile)
+        .asScala
+        .map(_.getText)
+        .toList
+    assertEquals(List("roster:", "active:", "round:"), labels("T.B"))
+    assertEquals(List("vitals:", "ac:"), labels("T.Cr"))
+    myFixture.doHighlighting()
+    val inlayOffsets = myFixture.getEditor.getInlayModel
+      .getInlineElementsInRange(0, myFixture.getFile.getTextLength)
+      .asScala
+      .map(_.getOffset)
+      .toSet
+    assertTrue(
+      inlayOffsets.contains(myFixture.getFile.getText.indexOf("[T.Cr"))
+    )
+    assertTrue(inlayOffsets.contains(myFixture.getFile.getText.indexOf("10n")))
+    val document = PsiDocumentManager
+      .getInstance(getProject)
+      .getDocument(types)
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          document.setText(
+            "type Battle is Data:\n  B{members: Nat, active: Nat, round: Nat}\n" +
+              "type Creature is Data:\n  Cr{vitals: Nat, ac: Nat}\n"
+          )
+    )
+    PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    assertEquals(List("members:", "active:", "round:"), labels("T.B"))
+
+  def testImportedVfsChangeRefreshesConstructorHints(): Unit =
+    val types = myFixture.addFileToProject(
+      "battle/types.bend",
+      "type Battle is Data:\n  B{roster: Nat}\n"
+    )
+    val source = myFixture.addFileToProject(
+      "laws/admission.bend",
+      "import ../battle/types.bend as T\ndef main():\n  T.B{1n}\n"
+    )
+    myFixture.configureFromExistingVirtualFile(source.getVirtualFile)
+    val reference = PsiTreeUtil
+      .findChildrenOfType(myFixture.getFile, classOf[BendReferenceElement])
+      .asScala
+      .find(_.getText == "T.B")
+      .get
+    val provider = new BendParameterNameHintsProvider
+    def label: String =
+      provider.getParameterHints(reference, myFixture.getFile).get(0).getText
+    assertEquals("roster:", label)
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          VfsUtil.saveText(
+            types.getVirtualFile,
+            "type Battle is Data:\n  B{party: Nat}\n"
+          )
+    )
+    assertEquals("party:", label)
 
   def testParameterNameHintsRespectTheStandardLanguageToggle(): Unit =
     val settings = InlayHintsSettings.instance()

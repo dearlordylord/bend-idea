@@ -13,6 +13,12 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.9
+
+- Keep function and constructor field hints responsive in large Bend files by
+  sharing source parsing and signature resolution across the editor pass. Hints
+  refresh when the source, an imported declaration, or loading settings change.
+
 ## 0.1.8
 
 - Enter, Backspace, and Reformat Code use a shared Bend layout policy with the

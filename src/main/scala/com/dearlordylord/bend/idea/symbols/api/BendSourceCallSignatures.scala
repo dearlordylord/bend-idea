@@ -3,6 +3,8 @@ package com.dearlordylord.bend.idea.symbols.api
 import com.dearlordylord.bend.idea.syntax.psi.BendSourceParameter
 import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.intellij.psi.PsiFile
+import com.intellij.openapi.progress.ProgressManager
+import scala.collection.mutable
 
 final case class BendRenderedCallSignature(
     application: BendSourceApplication,
@@ -49,20 +51,64 @@ object BendSourceCallSignatures:
           case BendSourceResolution.Resolved(value) => Some(value)
           case _                                    => None
       case _ => None
-    symbol.map { selected =>
-      val documentation = BendSourceDocumentation.site(file, selected)
-      val signatureSource = documentation.law.getOrElse(selected)
-      val allParameters = signatureSource.signature.parameters
-      val omitImplicitQuantity =
-        application.kind == BendApplicationKind.Datatype &&
-          allParameters.headOption.exists(_.implicitQuantity) &&
-          !application.arguments.headOption.exists(argument =>
-            argument.source.trim.matches("&[012]")
-          )
-      val parameters =
-        if omitImplicitQuantity then allParameters.drop(1) else allParameters
-      render(application, parameters, application.activeArgument)
-    }
+    symbol.map(selected => renderResolved(file, application, selected))
+
+  private def selectedSymbol(
+      snapshot: BendSourceNavigationSnapshot,
+      application: BendSourceApplication
+  ): Option[BendSourceSymbol] =
+    val catalog = snapshot.file.getProject.getService(
+      classOf[BendImportedSymbolCatalog]
+    )
+    val category = application.kind match
+      case BendApplicationKind.Function    => BendSymbolCategory.Definition
+      case BendApplicationKind.Datatype    => BendSymbolCategory.Datatype
+      case BendApplicationKind.Constructor => BendSymbolCategory.Constructor
+    def selected(forCategory: BendSymbolCategory): Option[BendSourceSymbol] =
+      val resolution = catalog.resolveForNavigation(
+        snapshot,
+        application.calleeFrom,
+        application.callee,
+        Some(forCategory)
+      )
+      if !resolution.eligible then None
+      else
+        resolution.target match
+          case BendSourceResolution.Resolved(value) => Some(value)
+          case _                                    => None
+    selected(category)
+      .orElse(
+        Option
+          .when(application.kind == BendApplicationKind.Function)(())
+          .flatMap(_ => selected(BendSymbolCategory.Law))
+      )
+
+  private def renderResolved(
+      file: PsiFile,
+      application: BendSourceApplication,
+      selected: BendSourceSymbol
+  ): BendRenderedCallSignature =
+    val signatureSource =
+      if application.kind != BendApplicationKind.Function then selected
+      else
+        val documentation = BendSourceDocumentation.site(file, selected)
+        documentation.law.getOrElse(selected)
+    renderFromSource(application, signatureSource)
+
+  private def renderFromSource(
+      application: BendSourceApplication,
+      signatureSource: BendSourceSymbol
+  ): BendRenderedCallSignature =
+    val allParameters = signatureSource.signature.parameters
+    val omitImplicitQuantity =
+      application.kind == BendApplicationKind.Datatype &&
+        allParameters.headOption.exists(_.implicitQuantity) &&
+        !application.arguments.headOption.exists(argument =>
+          argument.source.trim.matches("&[012]")
+        )
+    val parameters =
+      if omitImplicitQuantity then allParameters.drop(1) else allParameters
+    render(application, parameters, application.activeArgument)
 
   private def render(
       application: BendSourceApplication,
@@ -94,7 +140,47 @@ object BendSourceCallSignatures:
       file: PsiFile,
       application: BendSourceApplication
   ): List[(String, Int)] =
-    resolve(file, application).toList.flatMap { signature =>
+    hintsFrom(resolve(file, application), application)
+
+  /** Reuse a qualified import's source signature throughout one root pass. */
+  def hintsForCallees(
+      snapshot: BendSourceNavigationSnapshot,
+      applications: Iterable[BendSourceApplication]
+  ): Map[Int, List[(String, Int)]] =
+    val qualified = mutable.Map.empty[
+      (String, BendApplicationKind),
+      Option[BendSourceSymbol]
+    ]
+    val signatureSources = mutable.Map.empty[BendSourceHandle, BendSourceSymbol]
+    applications.iterator.map { application =>
+      ProgressManager.checkCanceled()
+      val selected =
+        if application.callee.contains('.') then
+          qualified.getOrElseUpdate(
+            (application.callee, application.kind),
+            selectedSymbol(snapshot, application)
+          )
+        else selectedSymbol(snapshot, application)
+      val rendered = selected.map { symbol =>
+        val source = signatureSources.getOrElseUpdate(
+          symbol.handle,
+          if application.kind == BendApplicationKind.Function then
+            BendSourceDocumentation
+              .site(snapshot.file, symbol, snapshot.graph)
+              .law
+              .getOrElse(symbol)
+          else symbol
+        )
+        renderFromSource(application, source)
+      }
+      application.calleeFrom -> hintsFrom(rendered, application)
+    }.toMap
+
+  private def hintsFrom(
+      resolved: Option[BendRenderedCallSignature],
+      application: BendSourceApplication
+  ): List[(String, Int)] =
+    resolved.toList.flatMap { signature =>
       application.arguments.zipWithIndex.flatMap { case (argument, index) =>
         val parameterIndex = index +
           (signature.activeParameter - application.activeArgument)
