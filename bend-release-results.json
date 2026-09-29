@@ -62,6 +62,24 @@
       "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36364812193",
       "status": "passed",
       "tag": "v2.0.32"
+    },
+    "398725052": {
+      "commit": "c05efd9570d542b433b4762ba2978e0177708e5f",
+      "digest": "a6c13c421543701a7f33e594a9c077c74361cdabd87c0052fc487a0deab8bc30",
+      "exit_code": 0,
+      "release_id": 398725052,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36506224417",
+      "status": "passed",
+      "tag": "v2.0.33"
+    },
+    "398738713": {
+      "commit": "7d8a3eb036042c6549461054d25a10f26d361c5c",
+      "digest": "78106a97af242429dcc057258eb8d10f69cddebcd5e263022185a52d003e09bf",
+      "exit_code": 0,
+      "release_id": 398738713,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/36506224417",
+      "status": "passed",
+      "tag": "v2.0.34"
     }
   },
   "schema": 1
