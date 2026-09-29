@@ -33,7 +33,13 @@ The signed archive is `build/distributions/bend-idea-0.1.4-signed.zip` (SHA-256:
 
 The signed 0.1.7 archive is available in [GitHub Release v0.1.7](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.7) with SHA-256 `0b29a81e43aedf8cc46338fed4aebf3cf1aed29dc4baf40a6cc7843f80c5b625`. Its public download matched the locally signed file. The certificate fingerprint remains `87:66:5D:BD:29:D6:BC:8F:E2:5F:AF:62:9D:6E:4D:76:5B:9C:DC:3E:3B:B1:76:53:EE:C6:D2:1F:C7:1B:71:C2`.
 
-The clean JDK 21 release gate passed on 2026-09-27: 441 tests, zero failures or errors, one optional current-compiler smoke test skipped; packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. JetBrains Marketplace accepted the same signed ZIP in the Stable channel as update **1181339**. The vendor page shows **Under review**; public Marketplace availability awaits JetBrains approval. The custom repository feed advertises 0.1.7 independently of that review.
+The clean JDK 21 release gate passed on 2026-09-27: 441 tests, zero failures or errors, one optional current-compiler smoke test skipped; packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. JetBrains Marketplace accepted the same signed ZIP in the Stable channel as update **1181339**. The vendor page showed **Under review**; public Marketplace availability awaited JetBrains approval. The custom repository feed advertised 0.1.7 independently of that review.
+
+## 0.1.8 GitHub and custom-feed release
+
+The signed 0.1.8 archive is available in [GitHub Release v0.1.8](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.8) with SHA-256 `0bdc4511293290c196c61926beb0cff7d035eadc8a4edee5d9b649ea86746dbd`. The release asset was downloaded and matched the locally signed ZIP. The public signing certificate is attached. The custom plugin feed advertises 0.1.8 after the release asset became available.
+
+The JDK 21 release gate passed on 2026-09-28: 459 tests, zero failures or errors, one optional current-compiler smoke test skipped; packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. The Community verifier reports six internal API usages in the existing proof progress tool-window factory; the verifier still classifies the plugin as compatible. This release has not been submitted to JetBrains Marketplace.
 
 ## Future updates
 
