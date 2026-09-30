@@ -10,6 +10,8 @@ This checklist covers only this PR's new compiler protocol and broader compatibi
 
 ## Versioned checking protocol
 
+**Only the first compiler error is reported.** A later mistake can have no red highlight while an earlier error remains, including an error in an imported file. **No red highlight does not mean the code passes.** Look at the Bend status, fix the reported error, then run **Check Current Bend File** again to reveal the next one. After editing, the previous result may be stale until you recheck.
+
 Use the pinned Bend 2.0.25 structured helper as your configured compiler, with matching Base. Setup is described in the plugin repository README under **Compiler checking**. Skip this section if that helper is not configured; a plain compiler does not exercise the new protocol.
 
 All fixture paths below are inside `manual/`.
@@ -22,7 +24,7 @@ All fixture paths below are inside `manual/`.
 | ☐ | Check `goals.bend` | Bottom status bar: **Bend: Incomplete** (the hole may also be red) |
 | ☐ | Check `unsafe.bend` and `foreign.bend` | Bottom status bar: **Bend: Check passed · unsafe/foreign** |
 | ☐ | Check `effects.bend` | No `MANUAL_RUN_MARKER` printed by program execution |
-| ☐ | Change `library.bend` body from `42` to `"wrong"`; immediately check `editor.bend` without saving the dependency | Root check fails; error highlights the dependency's wrong string, not the import line; Undo afterward |
+| ☐ | Change `library.bend` body from `42` to `"wrong"`; check `editor.bend`, then **open `library.bend`** | Editor root status: **Check failed**. In the library, `"wrong"` is red. Nothing needs to be red in `editor.bend`. Undo in the library afterward |
 
 Protocol-version rejection, malformed-response handling, legacy fallback and cancellation are covered by automated tests; no manual setup is needed for those cases.
 
@@ -36,7 +38,7 @@ Select the newer Bend compiler you want to try and its matching Base. This exerc
 | ☐ | Go to Declaration on `Lib.number()` and inspect the `Choice` match in `editor.bend` | Import navigation and datatype/match parsing work with this compiler's syntax |
 | ☐ | Check `editor.bend`, Reformat Code, then check again | Same complete result; second reformat makes no further changes |
 | ☐ | Check `incomplete.bend`, Reformat Code, then check again | Still incomplete |
-| ☐ | Change library's `42` to `"wrong"`; check editor root immediately, then Undo | Dependency diagnostic appears with current source |
+| ☐ | Change library's `42` to `"wrong"`; check editor root, then open the library | Root status: **Check failed**; diagnostic belongs to the library, not the import line. Undo afterward |
 | ☐ | Check `failed.bend`, `goals.bend`, `unsafe.bend`, `foreign.bend` and `effects.bend` | Failure, incomplete hole, reliance warnings and no main execution remain distinct |
 
 Restore the compiler/Base you normally use afterward.
