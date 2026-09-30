@@ -2,6 +2,10 @@
 
 Open `../../bend/dnd/bend-idea` in IDEA, then `CHECKLIST.md`. Use **Find Action → Check Current Bend File**. Tick what works; a short note is enough for failures.
 
+**Where to see the result:** after checking, look for **Bend: …** in IDEA's **bottom status bar**, usually on the right. Click that text to open details and compiler output. If the bar is hidden, enable **View → Appearance → Status Bar**. If the Bend widget is hidden, right-click the bar and enable **Bend check status**.
+
+**Use the new plugin build containing commit `1631479`.** The previously installed build has no Bend status-bar widget. You can also open the same details through **Tools → Bend → Show Bend Check Status**.
+
 This checklist covers only this PR's new compiler protocol and broader compatibility checks. #79/#76 are closed; their formatting workflow checks are removed.
 
 ## Versioned checking protocol
@@ -12,11 +16,11 @@ All fixture paths below are inside `manual/`.
 
 | Done | Action | Expected result |
 |---|---|---|
-| ☐ | Check `editor.bend` | Complete; uses the new structured check transport |
-| ☐ | Check `failed.bend` | Failed; first error highlights the wrong string |
-| ☐ | Check `incomplete.bend` | TODO remains incomplete |
-| ☐ | Check `goals.bend` | Named hole remains incomplete |
-| ☐ | Check `unsafe.bend` and `foreign.bend` | Unsafe/foreign reliance warning retained |
+| ☐ | Check `editor.bend` | Bottom status bar: **Bend: Check passed** |
+| ☐ | Check `failed.bend` | Bottom status bar: **Bend: Check failed**; first error highlights the wrong string |
+| ☐ | Check `incomplete.bend` | Bottom status bar: **Bend: Incomplete** |
+| ☐ | Check `goals.bend` | Bottom status bar: **Bend: Incomplete** (the hole may also be red) |
+| ☐ | Check `unsafe.bend` and `foreign.bend` | Bottom status bar: **Bend: Check passed · unsafe/foreign** |
 | ☐ | Check `effects.bend` | No `MANUAL_RUN_MARKER` printed by program execution |
 | ☐ | Change `library.bend` body from `42` to `"wrong"`; immediately check `editor.bend` without saving the dependency | Root check fails; error highlights the dependency's wrong string, not the import line; Undo afterward |
 
