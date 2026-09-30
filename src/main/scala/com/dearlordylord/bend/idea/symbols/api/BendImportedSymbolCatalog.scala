@@ -151,17 +151,49 @@ final class BendImportedSymbolCatalog(project: Project):
       List[(String, BendSourceSymbol)]
   ) =
     val graph = loaded(file, basePath, packageCache)
-    val direct = directDeclarations(graph)
+    val (current, imported) = eligibleCandidates(
+      BendSourceSymbols.visibleCandidates(file, offset),
+      directDeclarations(graph),
+      baseDeclarations(graph)
+    )
+    (graph, current, imported)
+
+  private def eligibleCandidates(
+      candidates: List[BendSourceSymbol],
+      direct: List[(String, BendSourceSymbol)],
+      base: List[(String, BendSourceSymbol)]
+  ): (List[BendSourceSymbol], List[(String, BendSourceSymbol)]) =
     val expanded = direct.iterator.map(_._1).toSet
-    val current = BendSourceSymbols
-      .visibleCandidates(file, offset)
-      .filterNot(symbol => expanded.contains(symbol.name))
+    val current = candidates.filterNot(symbol => expanded.contains(symbol.name))
     val currentKeys =
-      current.map(symbol => (symbol.name, symbol.category)).toSet
-    val eligibleBase = baseDeclarations(graph).filter { case (name, symbol) =>
-      !expanded.contains(name) && !currentKeys.contains((name, symbol.category))
+      current.map(symbol => symbol.name -> symbol.category).toSet
+    val eligibleBase = base.filter { case (name, symbol) =>
+      !expanded.contains(name) && !currentKeys.contains(name -> symbol.category)
     }
-    (graph, current, direct ++ eligibleBase)
+    (current, direct ++ eligibleBase)
+
+  private def resolveEligible(
+      current: List[BendSourceSymbol],
+      imported: List[(String, BendSourceSymbol)],
+      bindings: => List[BendSourceBinding],
+      spelling: String,
+      category: Option[BendSymbolCategory]
+  ): BendSourceResolution =
+    val binding = if category.forall(_ == BendSymbolCategory.Binder) then
+      bindings.find(_.name == spelling)
+    else None
+    binding match
+      case Some(value) => BendSourceResolution.ResolvedBinder(value)
+      case None        =>
+        val matches = current.filter(s =>
+          s.name == spelling && category.forall(_ == s.category)
+        ) ++ imported.collect {
+          case (`spelling`, s) if category.forall(_ == s.category) => s
+        }
+        matches match
+          case Nil        => BendSourceResolution.Unresolved
+          case one :: Nil => BendSourceResolution.Resolved(one)
+          case many       => BendSourceResolution.Ambiguous(many)
 
   def resolve(
       file: PsiFile,
@@ -173,22 +205,13 @@ final class BendImportedSymbolCatalog(project: Project):
   ): BendSourceResolution =
     val (_, current, imported) =
       visibleWithCurrent(file, offset, basePath, packageCache)
-    val binding = if category.forall(_ == BendSymbolCategory.Binder) then
-      BendSourceSymbols.visibleBindings(file, offset).find(_.name == spelling)
-    else None
-    binding match
-      case Some(value) => BendSourceResolution.ResolvedBinder(value)
-      case None        =>
-        val matches = current.filter(s =>
-          s.name == spelling && category.forall(_ == s.category)
-        ) ++
-          imported.collect {
-            case (`spelling`, s) if category.forall(_ == s.category) => s
-          }
-        matches match
-          case Nil        => BendSourceResolution.Unresolved
-          case one :: Nil => BendSourceResolution.Resolved(one)
-          case many       => BendSourceResolution.Ambiguous(many)
+    resolveEligible(
+      current,
+      imported,
+      BendSourceSymbols.visibleBindings(file, offset),
+      spelling,
+      category
+    )
 
   /** Navigation may expose a later declaration, but its eligibility remains
     * explicit.
@@ -272,21 +295,15 @@ final class BendImportedSymbolCatalog(project: Project):
       snapshot: BendSourceNavigationSnapshot,
       offset: Int
   ): (List[BendSourceSymbol], List[(String, BendSourceSymbol)]) =
-    val expandedAliases = snapshot.direct.iterator.map(_._1).toSet
-    val current = BendSourceSymbols
-      .visibleCandidates(
+    eligibleCandidates(
+      BendSourceSymbols.visibleCandidates(
         snapshot.declarations,
         offset,
         snapshot.logicalLaws
-      )
-      .filterNot(symbol => expandedAliases.contains(symbol.name))
-    val currentKeys =
-      current.map(symbol => symbol.name -> symbol.category).toSet
-    val eligibleBase = snapshot.base.filter { case (name, symbol) =>
-      !expandedAliases.contains(name) &&
-      !currentKeys.contains(name -> symbol.category)
-    }
-    (current, snapshot.direct ++ eligibleBase)
+      ),
+      snapshot.direct,
+      snapshot.base
+    )
 
   /** Source-order navigation against a short-lived captured graph. */
   def resolveForNavigation(
@@ -295,46 +312,19 @@ final class BendImportedSymbolCatalog(project: Project):
       spelling: String,
       category: Option[BendSymbolCategory]
   ): BendNavigationResolution =
-    val expanded = snapshot.direct.iterator.map(_._1).toSet
-    val current = BendSourceSymbols
-      .visibleCandidates(
-        snapshot.declarations,
+    val (current, imported) = visibleWithNavigationSnapshot(snapshot, offset)
+    val eligible = resolveEligible(
+      current,
+      imported,
+      BendSourceSymbols.visibleBindings(
+        snapshot.file,
         offset,
+        snapshot.declarations,
         snapshot.logicalLaws
-      )
-      .filterNot(symbol => expanded.contains(symbol.name))
-    val currentKeys = current.map(s => (s.name, s.category)).toSet
-    val eligibleBase = snapshot.base.filter { case (name, symbol) =>
-      !expanded.contains(name) && !currentKeys.contains((name, symbol.category))
-    }
-    val binding =
-      if category.forall(_ == BendSymbolCategory.Binder) then
-        BendSourceSymbols
-          .visibleBindings(
-            snapshot.file,
-            offset,
-            snapshot.declarations,
-            snapshot.logicalLaws
-          )
-          .find(_.name == spelling)
-      else None
-    val target = binding match
-      case Some(value) => BendSourceResolution.ResolvedBinder(value)
-      case None        =>
-        val matches = current.filter(s =>
-          s.name == spelling && category.forall(_ == s.category)
-        ) ++ snapshot.direct.collect {
-          case (`spelling`, symbol) if category.forall(_ == symbol.category) =>
-            symbol
-        } ++ eligibleBase.collect {
-          case (`spelling`, symbol) if category.forall(_ == symbol.category) =>
-            symbol
-        }
-        matches match
-          case Nil        => BendSourceResolution.Unresolved
-          case one :: Nil => BendSourceResolution.Resolved(one)
-          case many       => BendSourceResolution.Ambiguous(many)
-    val eligible = target
+      ),
+      spelling,
+      category
+    )
     if eligible != BendSourceResolution.Unresolved then
       BendNavigationResolution(eligible, true)
     else

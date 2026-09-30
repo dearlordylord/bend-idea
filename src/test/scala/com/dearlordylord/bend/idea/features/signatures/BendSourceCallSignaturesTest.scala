@@ -2,9 +2,13 @@ package com.dearlordylord.bend.idea.features.signatures
 
 import com.dearlordylord.bend.idea.symbols.api.{
   BendApplicationKind,
+  BendImportedSymbolCatalog,
+  BendSourceResolution,
+  BendSymbolCategory,
   BendSourceApplications,
   BendSourceCallSignatures
 }
+import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.psi.BendReferenceElement
 import com.dearlordylord.bend.idea.toolchain.api.{
@@ -450,3 +454,138 @@ final class BendSourceCallSignaturesTest extends BasePlatformTestCase:
       "extra: Nat",
       signature.text.substring(ui.getHighlightStart, ui.getHighlightEnd)
     )
+
+  def testEligibleSelectionAgreesAcrossCompletionAndNavigation(): Unit =
+    val _ = Files.writeString(
+      temporary.resolve("base.bend"),
+      "def value(base: Nat):\n  base\ntype Same is Data:\n  Same{field: Nat}\n"
+    )
+    myFixture.addFileToProject(
+      "lib.bend",
+      "def value(imported: Nat):\n  imported\n"
+    )
+    val scenarios = List(
+      (
+        "import Base\ndef value(local: Nat):\n  local\ndef main():\n  <caret>value(1)\n",
+        "value",
+        Some(BendSymbolCategory.Definition),
+        true
+      ),
+      (
+        "import Base\nimport lib.bend as M\ndef M.value(local: Nat):\n  local\ndef main():\n  <caret>M.value(1)\n",
+        "M.value",
+        Some(BendSymbolCategory.Definition),
+        true
+      ),
+      (
+        "import Base\nimport absent.bend as M\ndef M.value(local: Nat):\n  local\ndef main():\n  <caret>M.value(1)\n",
+        "M.value",
+        Some(BendSymbolCategory.Definition),
+        true
+      ),
+      (
+        "import Base\ndef main():\n  <caret>Same{1}\n",
+        "Same",
+        Some(BendSymbolCategory.Constructor),
+        true
+      ),
+      (
+        "import Base\ndef main():\n  <caret>Same<Nat>\n",
+        "Same",
+        Some(BendSymbolCategory.Datatype),
+        true
+      ),
+      ("def main(x: Nat):\n  let x = 1\n  <caret>x\n", "x", None, true),
+      (
+        "def main():\n  <caret>later(1)\ndef later(x: Nat):\n  x\n",
+        "later",
+        Some(BendSymbolCategory.Definition),
+        false
+      )
+    )
+    def identity(result: BendSourceResolution) = result match
+      case BendSourceResolution.Resolved(symbol)        => List(symbol.handle)
+      case BendSourceResolution.ResolvedBinder(binding) => List(binding.handle)
+      case BendSourceResolution.Ambiguous(symbols)      => symbols.map(_.handle)
+      case BendSourceResolution.Unresolved              => Nil
+    val catalog = getProject.getService(classOf[BendImportedSymbolCatalog])
+    val (basePath, packageCache) =
+      getProject.getService(classOf[BendLoadingConfiguration]).paths
+    scenarios.foreach { case (source, name, category, eligible) =>
+      myFixture.configureByText("main.bend", source)
+      val file = myFixture.getFile
+      val offset = myFixture.getCaretOffset
+      val snapshot = catalog.navigationSnapshot(file, basePath, packageCache)
+      val (_, current, imported) =
+        catalog.visibleWithCurrent(file, offset, basePath, packageCache)
+      val (snapshotCurrent, snapshotImported) =
+        catalog.visibleWithNavigationSnapshot(snapshot, offset)
+      assertEquals(current.map(_.handle), snapshotCurrent.map(_.handle))
+      assertEquals(
+        imported.map { case (name, symbol) => name -> symbol.handle },
+        snapshotImported.map { case (name, symbol) => name -> symbol.handle }
+      )
+      val direct =
+        catalog.resolve(file, offset, name, basePath, packageCache, category)
+      val navigation =
+        catalog.resolveForNavigation(snapshot, offset, name, category)
+      assertEquals(eligible, navigation.eligible)
+      if eligible then
+        assertFalse(identity(direct).isEmpty)
+        assertEquals(identity(direct), identity(navigation.target))
+      else
+        assertEquals(BendSourceResolution.Unresolved, direct)
+        assertFalse(identity(navigation.target).isEmpty)
+    }
+
+  def testSingleAndBatchSignaturesAgreeOnLawAliasesAmbiguityAndForwardCalls()
+      : Unit =
+    myFixture.addFileToProject(
+      "lib.bend",
+      "law call:\n  for expected: Nat\n  {expected == expected : Nat}\ndef call(actual):\n  actual\ntype Pair is Data:\n  Pair{field: Nat}\n"
+    )
+    val scenarios = List(
+      (
+        "import lib.bend as M\ndef main():\n  M.call(1)\n  M.call(2)\n  M.Pair{3}\n",
+        List(List("expected"), List("expected"), List("field"))
+      ),
+      (
+        "law call:\n  for expected: Nat\n  {expected == expected : Nat}\ndef call(actual):\n  actual\ndef main():\n  call(1)\n",
+        List(List("expected"))
+      ),
+      (
+        "def call(a: Nat):\n  a\ndef call(b: Nat):\n  b\ndef main():\n  call(1)\n",
+        List(Nil)
+      ),
+      ("def main():\n  later(1)\ndef later(x: Nat):\n  x\n", List(Nil)),
+      ("def main():\n  missing(1)\n", List(Nil))
+    )
+    val catalog = getProject.getService(classOf[BendImportedSymbolCatalog])
+    val (basePath, packageCache) =
+      getProject.getService(classOf[BendLoadingConfiguration]).paths
+    scenarios.foreach { case (source, expected) =>
+      myFixture.configureByText("main.bend", source)
+      val file = myFixture.getFile
+      val applications = BendSourceApplications
+        .forCallees(file)
+        .values
+        .filter(application =>
+          source.substring(
+            source.lastIndexOf('\n', application.calleeFrom - 1) + 1,
+            application.calleeFrom
+          ) == "  "
+        )
+        .toList
+        .sortBy(_.calleeFrom)
+      val snapshot = catalog.navigationSnapshot(file, basePath, packageCache)
+      val batch =
+        BendSourceCallSignatures.hintsForCallees(snapshot, applications)
+      val single = applications.map(application =>
+        BendSourceCallSignatures.hints(file, application)
+      )
+      assertEquals(expected, single.map(_.map(_._1)))
+      assertEquals(
+        single,
+        applications.map(application => batch(application.calleeFrom))
+      )
+    }

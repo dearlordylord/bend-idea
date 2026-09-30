@@ -182,6 +182,8 @@ The #40 spelling extension uses the IDE platform spellchecker API and its standa
 
 Represent declared signatures as source-derived data, including quantities, template clauses and parameter origin. A law-backed definition displays the law specification while preserving fill parameter names separately. Later compiler expression types have their own result type and provenance.
 
+`symbols.api.BendImportedSymbolCatalog` shares eligible-candidate selection and binder precedence between current-file and captured-graph lookups. Navigation alone adds the later-declaration fallback and exposes it as ineligible. `symbols.api.BendSourceCallSignatures` uses the captured graph for both parameter information and parameter-name hints, sharing category selection, definition/law fallback and law-telescope selection. Batch hints retain pass-local qualified-name and source-signature caches; editor revision guards remain with the hints provider.
+
 Keep a law declaration and all candidate fills as separate source elements. Group them for presentation through a logical law relationship. Documentation derives qualified cross-file fill links from the request root's loaded graph and direct aliases, using the last direct import for a repeated alias only when its source actually loaded under that edge's namespace. It also preserves same-file law/fill pairs in imported and Base sources, so viewing an imported law in a proof root retains that root's candidate fills. Link targets retain physical source handles and recheck spelling after edits. Restrict conflict judgments to fills loaded together in a root. A workspace inventory can find several candidates without declaring them duplicates or proved.
 
 ### Shared import loading — #9 and #10

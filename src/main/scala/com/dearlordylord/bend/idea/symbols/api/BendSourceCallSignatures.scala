@@ -24,34 +24,13 @@ object BendSourceCallSignatures:
     val (basePath, packageCache) =
       project.getService(classOf[BendLoadingConfiguration]).paths
     val catalog = project.getService(classOf[BendImportedSymbolCatalog])
-    val category = application.kind match
-      case BendApplicationKind.Function    => BendSymbolCategory.Definition
-      case BendApplicationKind.Datatype    => BendSymbolCategory.Datatype
-      case BendApplicationKind.Constructor => BendSymbolCategory.Constructor
-    val resolution = catalog.resolve(
-      file,
-      application.calleeFrom,
-      application.callee,
-      basePath,
-      packageCache,
-      Some(category)
-    )
-    val symbol = resolution match
-      case BendSourceResolution.Resolved(value)                  => Some(value)
-      case _ if application.kind == BendApplicationKind.Function =>
-        catalog
-          .resolve(
-            file,
-            application.calleeFrom,
-            application.callee,
-            basePath,
-            packageCache,
-            Some(BendSymbolCategory.Law)
-          ) match
-          case BendSourceResolution.Resolved(value) => Some(value)
-          case _                                    => None
-      case _ => None
-    symbol.map(selected => renderResolved(file, application, selected))
+    val snapshot = catalog.navigationSnapshot(file, basePath, packageCache)
+    selectedSymbol(snapshot, application).map { selected =>
+      renderFromSource(
+        application,
+        signatureSource(snapshot, application, selected)
+      )
+    }
 
   private def selectedSymbol(
       snapshot: BendSourceNavigationSnapshot,
@@ -83,17 +62,17 @@ object BendSourceCallSignatures:
           .flatMap(_ => selected(BendSymbolCategory.Law))
       )
 
-  private def renderResolved(
-      file: PsiFile,
+  private def signatureSource(
+      snapshot: BendSourceNavigationSnapshot,
       application: BendSourceApplication,
       selected: BendSourceSymbol
-  ): BendRenderedCallSignature =
-    val signatureSource =
-      if application.kind != BendApplicationKind.Function then selected
-      else
-        val documentation = BendSourceDocumentation.site(file, selected)
-        documentation.law.getOrElse(selected)
-    renderFromSource(application, signatureSource)
+  ): BendSourceSymbol =
+    if application.kind != BendApplicationKind.Function then selected
+    else
+      BendSourceDocumentation
+        .site(snapshot.file, selected, snapshot.graph)
+        .law
+        .getOrElse(selected)
 
   private def renderFromSource(
       application: BendSourceApplication,
@@ -164,12 +143,7 @@ object BendSourceCallSignatures:
       val rendered = selected.map { symbol =>
         val source = signatureSources.getOrElseUpdate(
           symbol.handle,
-          if application.kind == BendApplicationKind.Function then
-            BendSourceDocumentation
-              .site(snapshot.file, symbol, snapshot.graph)
-              .law
-              .getOrElse(symbol)
-          else symbol
+          signatureSource(snapshot, application, symbol)
         )
         renderFromSource(application, source)
       }
