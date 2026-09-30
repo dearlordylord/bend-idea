@@ -20,11 +20,18 @@ object RealBendCompilerFixture:
     /** Writes a shell adapter that forwards every argument to the supplied
       * compiler and Bun.
       */
-    def writeLauncher(path: Path, beforeSource: String = ""): Path =
+    def writeLauncher(
+        path: Path,
+        beforeSource: String = "",
+        checkCapability: String = "exit 1"
+    ): Path =
       val prelude = Option.when(beforeSource.nonEmpty)(beforeSource.trim).toList
       val lines = List(
         "#!/bin/sh",
         "set -eu",
+        "if [ \"${1:-}\" = \"--idea-check-capabilities\" ]; then",
+        checkCapability,
+        "fi",
         "if [ \"${1:-}\" = \"--help\" ]; then",
         "  exec \"$BEND_TEST_BUN\" \"$BEND_TEST_COMPILER_DIR/bend2/main.ts\" --help",
         "fi",
@@ -68,9 +75,6 @@ object RealBendCompilerFixture:
         s"exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} check-capabilities \"$$BEND_TEST_COMPILER_DIR/bend2\""
       else "exit 1"
       val lines = List(
-        "if [ \"${1:-}\" = \"--idea-check-capabilities\" ]; then",
-        checkCapability,
-        "fi",
         "if [ \"${1:-}\" = \"--idea-structured-capabilities\" ]; then",
         s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} capabilities \"$$BEND_TEST_COMPILER_DIR/bend2\"",
         "fi",
@@ -103,7 +107,8 @@ object RealBendCompilerFixture:
       writeLauncher(
         path,
         (lines ++ Option.when(checkOnlyPrelude.nonEmpty)(checkOnlyPrelude))
-          .mkString("\n")
+          .mkString("\n"),
+        checkCapability = checkCapability
       )
 
   private lazy val verified: Inputs = loadInputs()

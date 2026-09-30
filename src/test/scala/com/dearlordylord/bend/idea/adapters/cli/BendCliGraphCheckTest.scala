@@ -455,6 +455,7 @@ final class BendCliGraphCheckTest:
 
   @Test def absoluteAndCachedImportsResolveAliasesOffline(): Unit = fixture {
     (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
       val absolute = dir.resolve("math.bend")
       val cached = dir.resolve("lib/0xabc/value.bend")
       Files.createDirectories(cached.getParent)
@@ -500,6 +501,7 @@ final class BendCliGraphCheckTest:
 
   @Test def graphCheckNeverRunsSideEffectingMain(): Unit = fixture {
     (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
       val dependency = dir.resolve("math.bend")
       val marker = dir.resolve("must-not-exist")
       Files.writeString(dependency, "import Base\ndef value() -> U32:\n  1\n")
@@ -529,6 +531,7 @@ final class BendCliGraphCheckTest:
 
   @Test def proofGuardObservesSiblingLawsEvenWithoutImport(): Unit = fixture {
     (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
       val laws = dir.resolve("LAWS.bend")
       Files.writeString(laws, "law claim() -> Type\n")
       val root =
@@ -544,6 +547,7 @@ final class BendCliGraphCheckTest:
   }
 
   @Test def proofGuardAcceptsImportedSibling(): Unit = fixture { (dir, bend) =>
+    val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
     val lawsPath = dir.resolve("LAWS.bend")
     Files.writeString(lawsPath, "# laws imported by this proof\n")
     val laws = source(lawsPath, Files.readString(lawsPath))

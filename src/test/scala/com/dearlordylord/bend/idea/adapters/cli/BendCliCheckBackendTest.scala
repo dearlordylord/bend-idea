@@ -449,7 +449,7 @@ final class BendCliCheckBackendTest:
       val executable = directory.resolve("bend")
       Files.writeString(
         executable,
-        "#!/bin/sh\nif [ \"$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nsleep 10\n"
+        "#!/bin/sh\nif [ \"$1\" = \"--idea-check-capabilities\" ]; then exit 1; fi\nif [ \"$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nsleep 10\n"
       )
       executable.toFile.setExecutable(true)
       val canceled = new AtomicBoolean(false)
