@@ -29,6 +29,7 @@ compiler-backed features. See the
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="bend-editorconfig.xml">org.editorconfig.editorconfigjetbrains</depends>
     <extensions defaultExtensionNs="com.intellij">
+        <statusBarWidgetFactory id="Bend.CheckStatusWidget" implementation="com.dearlordylord.bend.idea.features.checking.BendCheckStatusWidgetFactory"/>
         <spellchecker.support language="Bend"
                               implementationClass="com.dearlordylord.bend.idea.features.spelling.BendSpellcheckingStrategy"/>
         <postStartupActivity implementation="com.dearlordylord.bend.idea.adapters.intellij.BendCheckingStartup"/>
@@ -219,7 +220,7 @@ compiler-backed features. See the
         </action>
         <action id="Bend.CheckStatus"
                 class="com.dearlordylord.bend.idea.features.checking.BendCheckStatusAction"
-                text="Bend Check Status" description="Show the current Bend check state">
+                text="Show Bend Check Status" description="Show the current Bend check state">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
         </action>
         <action id="Bend.ExplicitImport"

@@ -13,6 +13,10 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- A clickable Bend status-bar indicator shows checking, incomplete, stale and
+  failed results, including unsafe/foreign reliance. Its popup displays compiler
+  output and offers Check again; Show Bend Check Status opens the same details.
+
 - The optional pinned Bend 2.0.25 helper supplies versioned check-only verdicts,
   completeness, reliance and mapped diagnostics. Incompatible advertised check
   protocols remain unavailable; ordinary compilers retain guarded CLI checking.

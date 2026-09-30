@@ -778,3 +778,118 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       )
       assertFalse(service.isCurrent(proofResult))
     }
+
+  def testStatusWidgetShowsIncompleteWithBackgroundCheckingDisabled(): Unit =
+    myFixture.configureByText(
+      "goals.bend",
+      "import Base\ndef identity(value: U32) -> U32:\n  ?need\n"
+    )
+    val file = myFixture.getFile.getVirtualFile
+    val root = BendCheckPresentation.id(file)
+    val widget = new BendCheckStatusWidget(getProject)
+    assertEquals("Bend: Not checked", widget.getText)
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val service = getProject.getService(classOf[BendCheckService])
+    val deadline = System.nanoTime() + 15_000_000_000L
+    while service.result(root).isEmpty && System.nanoTime() < deadline do
+      Thread.sleep(50)
+    assertTrue(
+      "Named-hole check did not publish",
+      service.result(root).nonEmpty
+    )
+    assertEquals("Bend: Incomplete", widget.getText)
+    myFixture.`type`(" ")
+    assertEquals("Bend: Recheck needed", widget.getText)
+    widget.dispose()
+
+  def testStatusWidgetKeepsUnsafeRelianceVisibleAndTracksSelectedFile(): Unit =
+    myFixture.configureByText(
+      "unsafe.bend",
+      "import Base\n@unsafe def main() -> U32:\n  1\n"
+    )
+    val root = BendCheckPresentation.id(myFixture.getFile.getVirtualFile)
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val service = getProject.getService(classOf[BendCheckService])
+    val deadline = System.nanoTime() + 15_000_000_000L
+    while service.result(root).isEmpty && System.nanoTime() < deadline do
+      Thread.sleep(50)
+    val widget = new BendCheckStatusWidget(getProject)
+    assertEquals("Bend: Check passed · unsafe/foreign", widget.getText)
+    myFixture.configureByText("other.bend", "import Base\n")
+    assertEquals("Bend: Not checked", widget.getText)
+    myFixture.configureByText("notes.txt", "notes")
+    assertEquals("", widget.getText)
+    widget.dispose()
+
+  def testWidgetRefreshStopsAfterDisposal(): Unit =
+    val updates = new java.util.concurrent.atomic.AtomicInteger()
+    val statusBar = java.lang.reflect.Proxy
+      .newProxyInstance(
+        classOf[com.intellij.openapi.wm.StatusBar].getClassLoader,
+        Array(classOf[com.intellij.openapi.wm.StatusBar]),
+        new java.lang.reflect.InvocationHandler:
+          override def invoke(
+              proxy: Object,
+              method: java.lang.reflect.Method,
+              args: Array[Object]
+          ): Object =
+            method.getName match
+              case "updateWidget" =>
+                val _ = updates.incrementAndGet()
+                null
+              case "getProject" => getProject
+              case "hashCode" => Integer.valueOf(System.identityHashCode(proxy))
+              case "equals"   => java.lang.Boolean.valueOf(proxy eq args(0))
+              case "toString" => "Test status bar"
+              case _          => null
+      )
+      .asInstanceOf[com.intellij.openapi.wm.StatusBar]
+    val widget = new BendCheckStatusWidget(getProject)
+    widget.install(statusBar)
+    com.intellij.util.ui.UIUtil.dispatchAllInvocationEvents()
+    val installed = updates.get()
+    assertTrue(installed > 0)
+    myFixture.configureByText("selected.bend", "import Base\n")
+    com.intellij.util.ui.UIUtil.dispatchAllInvocationEvents()
+    assertTrue(
+      "Selection must refresh the installed widget",
+      updates.get() > installed
+    )
+    com.intellij.openapi.util.Disposer.dispose(widget)
+    val disposedCount = updates.get()
+    myFixture.configureByText("another.bend", "import Base\n")
+    com.intellij.util.ui.UIUtil.dispatchAllInvocationEvents()
+    assertEquals(
+      "Disposed widgets must not update the status bar",
+      disposedCount,
+      updates.get()
+    )
+
+  def testStatusWidgetIsRegisteredAndStatusActionIsEnabled(): Unit =
+    val factories =
+      com.intellij.openapi.wm.StatusBarWidgetFactory.EP_NAME.getExtensionList.asScala
+    assertTrue(factories.exists(_.getId == BendCheckStatusWidget.Id))
+    myFixture.configureByText("status.bend", "import Base\n")
+    val action = com.intellij.openapi.actionSystem.ActionManager
+      .getInstance()
+      .getAction("Bend.CheckStatus")
+    val context = com.intellij.openapi.actionSystem.impl.SimpleDataContext
+      .builder()
+      .add(com.intellij.openapi.actionSystem.CommonDataKeys.PROJECT, getProject)
+      .add(
+        com.intellij.openapi.actionSystem.CommonDataKeys.VIRTUAL_FILE,
+        myFixture.getFile.getVirtualFile
+      )
+      .build()
+    val event =
+      com.intellij.openapi.actionSystem.AnActionEvent.createEvent(
+        action,
+        context,
+        action.getTemplatePresentation.clone(),
+        com.intellij.openapi.actionSystem.ActionPlaces.MAIN_MENU,
+        com.intellij.openapi.actionSystem.ActionUiKind.MAIN_MENU,
+        null
+      )
+    action.update(event)
+    assertTrue(event.getPresentation.isEnabled)
+    assertEquals("Show Bend Check Status", event.getPresentation.getText)

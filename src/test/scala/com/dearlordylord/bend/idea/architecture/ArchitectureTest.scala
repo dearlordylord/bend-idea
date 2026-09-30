@@ -627,6 +627,21 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Check widget and details must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.checking.BendCheckStatusWidget"
+      ) &&
+        classes.contain(
+          "com.dearlordylord.bend.idea.features.checking.BendCheckStatusWidgetFactory"
+        ) &&
+        classes.contain(
+          "com.dearlordylord.bend.idea.features.checking.BendCheckStatusPopup$"
+        ) &&
+        classes.contain(
+          "com.dearlordylord.bend.idea.features.checking.BendCheckPresentation$"
+        )
+    )
+    assertTrue(
       "Explicit action must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction"

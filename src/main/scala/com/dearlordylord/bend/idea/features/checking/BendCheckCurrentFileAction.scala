@@ -1,6 +1,7 @@
 package com.dearlordylord.bend.idea.features.checking
 
 import com.dearlordylord.bend.idea.analysis.api.{
+  BendCheckService,
   BendExplicitCheckOutcome,
   BendExplicitCheckRunner
 }
@@ -39,7 +40,15 @@ final class BendCheckCurrentFileAction
             if document.getModificationStamp == revision =>
           HintManager
             .getInstance()
-            .showInformationHint(editor, result.status)
+            .showInformationHint(
+              editor,
+              BendCheckPresentation.summary(
+                project.getService(
+                  classOf[BendCheckService]
+                ),
+                file
+              )
+            )
         case BendExplicitCheckOutcome.Rejected(_, reason)
             if document.getModificationStamp == revision =>
           HintManager.getInstance().showInformationHint(editor, reason)

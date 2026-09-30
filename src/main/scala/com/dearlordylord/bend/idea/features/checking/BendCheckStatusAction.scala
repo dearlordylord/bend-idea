@@ -1,8 +1,6 @@
 package com.dearlordylord.bend.idea.features.checking
 
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
-import com.dearlordylord.bend.idea.analysis.model.BendCheckingStatus
-import com.dearlordylord.bend.idea.model.FileId
 import com.intellij.openapi.actionSystem.{
   AnAction,
   AnActionEvent,
@@ -11,7 +9,7 @@ import com.intellij.openapi.actionSystem.{
 }
 
 /** The Tools menu exposes the selected root's actual check state. */
-final class BendCheckStatusAction extends AnAction("Bend Check Status"):
+final class BendCheckStatusAction extends AnAction("Show Bend Check Status"):
   override def getActionUpdateThread: ActionUpdateThread =
     ActionUpdateThread.BGT
 
@@ -21,20 +19,18 @@ final class BendCheckStatusAction extends AnAction("Bend Check Status"):
     val eligible =
       file != null && project != null && file.getName.endsWith(".bend")
     event.getPresentation.setVisible(eligible)
-    event.getPresentation.setEnabled(false)
+    event.getPresentation.setEnabled(eligible)
     if eligible then
-      val id = new FileId(
-        Option(file.getCanonicalPath).getOrElse(file.getPath),
-        file.getCanonicalPath != null
+      event.getPresentation.setText("Show Bend Check Status")
+      event.getPresentation.setDescription(
+        BendCheckPresentation.summary(
+          project.getService(classOf[BendCheckService]),
+          file
+        )
       )
-      val status = project.getService(classOf[BendCheckService]).status(id)
-      event.getPresentation.setText("Bend: " + BendCheckingStatus.label(status))
-      project.getService(classOf[BendCheckService]).result(id).foreach {
-        result =>
-          if result.details.trim.nonEmpty then
-            event.getPresentation.setDescription(
-              s"${result.status}: ${result.details.trim}"
-            )
-      }
 
-  override def actionPerformed(event: AnActionEvent): Unit = ()
+  override def actionPerformed(event: AnActionEvent): Unit =
+    val file = event.getData(CommonDataKeys.VIRTUAL_FILE)
+    val project = event.getProject
+    if file != null && project != null then
+      BendCheckStatusPopup.show(project, file)
