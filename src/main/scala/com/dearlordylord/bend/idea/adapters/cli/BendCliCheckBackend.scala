@@ -4,6 +4,7 @@ import com.dearlordylord.bend.idea.adapters.process.{
   BendBoundedProcess,
   BendProcessOutcome
 }
+import com.dearlordylord.bend.idea.adapters.structured.BendStructuredCheck
 import com.dearlordylord.bend.idea.adapters.structured.BendStructuredDiagnostic
 import com.dearlordylord.bend.idea.adapters.structured.BendStructuredGoal
 import com.dearlordylord.bend.idea.adapters.structured.BendStructuredNormalization
@@ -17,8 +18,7 @@ import com.dearlordylord.bend.idea.model.FileId
 import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
 
-/** Text CLI backend. The only source command it can construct is --check-only.
-  */
+/** Negotiated check transport with a guarded legacy --check-only fallback. */
 final class BendCliCheckBackend(
     tempParent: Path = Path.of(System.getProperty("java.io.tmpdir"))
 ) extends BendCheckBackend:
@@ -71,16 +71,35 @@ final class BendCliCheckBackend(
       )
     val environment = Map("BEND_NO_TELEMETRY" -> "1", "NO_COLOR" -> "1")
     var observed = ""
-    // A help probe must precede every source invocation, including a potentially
-    // side-effecting main on an older compiler that ignores unknown switches.
-    BendCliVerdictDecoder.capability(
-      BendBoundedProcess.run(
-        List(executable, "--help"),
-        path.getParent,
-        environment,
-        canceled = canceled
-      )
-    ) match
+    val negotiation = BendStructuredCheck.negotiate(
+      executable,
+      path.getParent,
+      environment,
+      canceled
+    )
+    val structured = negotiation match
+      case BendStructuredCheck.Negotiation.Supported(_) => true
+      case _                                            => false
+    val capability = negotiation match
+      case BendStructuredCheck.Negotiation.Supported(identity) =>
+        BendCliVerdictDecoder.Capability.Supported(identity)
+      case BendStructuredCheck.Negotiation.Legacy =>
+        // Legacy installations still require a documented check-only command.
+        BendCliVerdictDecoder.capability(
+          BendBoundedProcess.run(
+            List(executable, "--help"),
+            path.getParent,
+            environment,
+            canceled = canceled
+          )
+        )
+      case BendStructuredCheck.Negotiation.TimedOut =>
+        BendCliVerdictDecoder.Capability.TimedOut(
+          "Bend check protocol probe timed out; no source was checked."
+        )
+      case BendStructuredCheck.Negotiation.Unavailable(details) =>
+        BendCliVerdictDecoder.Capability.Unavailable(details)
+    capability match
       case BendCliVerdictDecoder.Capability.Supported(help) =>
         observed += ":" + BendAnalysisKey.sourceDigest(help)
       case BendCliVerdictDecoder.Capability.TimedOut(details) =>
@@ -185,7 +204,14 @@ final class BendCliCheckBackend(
       BendAnalysisKey.sourceDigest(snapshot.inputFingerprint + observed)
     )
     if snapshot.graph.nonEmpty then
-      return checkGraph(snapshot, key, executable, path, environment, canceled)
+      return checkGraph(
+        snapshot,
+        key,
+        executable,
+        environment,
+        canceled,
+        structured
+      )
     var temp: Path = null
     try
       temp = Files.createTempDirectory(tempParent, "bend-editor-check-")
@@ -217,13 +243,30 @@ final class BendCliCheckBackend(
         "BEND_LIB" -> offline.toString,
         "BEND_HUB" -> "file:///__bend_editor_offline__"
       )
-      val decoded = BendCliVerdictDecoder.check(
-        BendBoundedProcess.run(
-          List(executable, copied.toString, "--check-only"),
-          temp,
-          isolated,
-          canceled = canceled
-        )
+      val mappings = compilerInput(snapshot.text).toList.map {
+        case (text, blanks) =>
+          BendSourceMapping(
+            snapshot.root,
+            snapshot.sourceRevision,
+            snapshot.path,
+            copied.toString,
+            "",
+            snapshot.text,
+            snapshot.text,
+            Set.empty,
+            Nil,
+            text,
+            blanks
+          )
+      }
+      val (decoded, structuredDiagnostics) = runCheck(
+        executable,
+        temp,
+        copied,
+        isolated,
+        mappings,
+        canceled,
+        structured
       )
       if decoded.outcome == BendCheckOutcome.Success then
         BendCheckResult(
@@ -238,14 +281,25 @@ final class BendCliCheckBackend(
         val location = if decoded.sourceLocationAllowed then
           reliableLine(decoded.details, snapshot.text)
         else BendLocation.RootOnly
-        result(
-          decoded.outcome,
-          decoded.completeness,
-          decoded.reliance,
-          decoded.details,
-          location,
-          decoded.incompleteKind
-        )
+        if structured then
+          BendCheckResult(
+            key,
+            decoded.outcome,
+            decoded.completeness,
+            decoded.reliance,
+            structuredDiagnostics,
+            decoded.details,
+            incompleteKind = decoded.incompleteKind
+          )
+        else
+          result(
+            decoded.outcome,
+            decoded.completeness,
+            decoded.reliance,
+            decoded.details,
+            location,
+            decoded.incompleteKind
+          )
     catch
       case e: java.io.IOException =>
         result(
@@ -281,9 +335,9 @@ final class BendCliCheckBackend(
       snapshot: BendCheckSnapshot,
       key: BendAnalysisKey,
       executable: String,
-      executablePath: Path,
       environment: Map[String, String],
-      canceled: () => Boolean
+      canceled: () => Boolean,
+      structured: Boolean
   ): BendCheckResult =
     val graph = snapshot.graph.get
     val sources = graph.files.map(file =>
@@ -396,7 +450,10 @@ final class BendCliCheckBackend(
           val digest =
             BendAnalysisKey.sourceDigest(file.source.id.value).take(24)
           rootPath.getParent.resolve(
-            digest + "-" + Path.of(file.source.path).getFileName.toString
+            "source-" + digest + "-" + Path
+              .of(file.source.path)
+              .getFileName
+              .toString
           )
         file.source.id -> target
       }.toMap
@@ -491,13 +548,14 @@ final class BendCliCheckBackend(
         "BEND_LIB" -> offline.toString,
         "BEND_HUB" -> "file:///__bend_editor_offline__"
       )
-      val decoded = BendCliVerdictDecoder.check(
-        BendBoundedProcess.run(
-          List(executable, rootPath.toString, "--check-only"),
-          temp,
-          isolated,
-          canceled = canceled
-        )
+      val (decoded, structuredDiagnostics) = runCheck(
+        executable,
+        temp,
+        rootPath,
+        isolated,
+        mappings,
+        canceled,
+        structured
       )
       if decoded.outcome == BendCheckOutcome.Success then
         val expressionTypes = BendStructuredTypes.checked(
@@ -542,7 +600,7 @@ final class BendCliCheckBackend(
           graphLocation(decoded.details, mappings)
         else BendLocation.RootOnly
         val diagnostic =
-          if decoded.outcome == BendCheckOutcome.Failed &&
+          if !structured && decoded.outcome == BendCheckOutcome.Failed &&
             decoded.sourceLocationAllowed
           then
             BendStructuredDiagnostic
@@ -577,7 +635,7 @@ final class BendCliCheckBackend(
           if goal.nonEmpty then BendCompleteness.Incomplete
           else decoded.completeness,
           decoded.details,
-          List(diagnostic),
+          if structured then structuredDiagnostics else List(diagnostic),
           mappings,
           decoded.reliance,
           goal,
@@ -600,6 +658,48 @@ final class BendCliCheckBackend(
               val _ = Files.deleteIfExists(p)
             })
         finally files.close()
+
+  private def runCheck(
+      executable: String,
+      directory: Path,
+      root: Path,
+      environment: Map[String, String],
+      mappings: List[BendSourceMapping],
+      canceled: () => Boolean,
+      structured: Boolean
+  ): (BendCliVerdictDecoder.Check, List[BendDiagnostic]) =
+    if structured then
+      val verdict = BendStructuredCheck.check(
+        executable,
+        directory,
+        root,
+        environment,
+        mappings,
+        canceled
+      )
+      (
+        BendCliVerdictDecoder.Check(
+          verdict.outcome,
+          verdict.completeness,
+          verdict.reliance,
+          verdict.details,
+          verdict.outcome == BendCheckOutcome.Failed,
+          verdict.incompleteKind
+        ),
+        verdict.diagnostics
+      )
+    else
+      (
+        BendCliVerdictDecoder.check(
+          BendBoundedProcess.run(
+            List(executable, root.toString, "--check-only"),
+            directory,
+            environment,
+            canceled = canceled
+          )
+        ),
+        Nil
+      )
 
   private def graphLocation(
       output: String,

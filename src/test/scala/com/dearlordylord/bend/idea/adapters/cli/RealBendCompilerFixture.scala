@@ -50,7 +50,8 @@ object RealBendCompilerFixture:
         goalPrelude: String = "",
         comparisonPrelude: String = "",
         normalizationPrelude: String = "",
-        checkOnlyPrelude: String = ""
+        checkOnlyPrelude: String = "",
+        structuredChecks: Boolean = false
     ): Path =
       val helper = path.resolveSibling("bend-structured-helper.ts")
       val resource = getClass.getResourceAsStream(
@@ -63,9 +64,18 @@ object RealBendCompilerFixture:
           java.nio.file.StandardCopyOption.REPLACE_EXISTING
         )
       finally resource.close()
+      val checkCapability = if structuredChecks then
+        s"exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} check-capabilities \"$$BEND_TEST_COMPILER_DIR/bend2\""
+      else "exit 1"
       val lines = List(
+        "if [ \"${1:-}\" = \"--idea-check-capabilities\" ]; then",
+        checkCapability,
+        "fi",
         "if [ \"${1:-}\" = \"--idea-structured-capabilities\" ]; then",
         s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} capabilities \"$$BEND_TEST_COMPILER_DIR/bend2\"",
+        "fi",
+        "if [ \"${1:-}\" = \"--idea-check\" ]; then",
+        s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} check \"$$BEND_TEST_COMPILER_DIR/bend2\" \"$$2\"",
         "fi",
         "if [ \"${1:-}\" = \"--idea-structured-diagnostic\" ]; then",
         s"  exec \"$$BEND_TEST_BUN\" ${shellQuote(helper.toString)} diagnostic \"$$BEND_TEST_COMPILER_DIR/bend2\" \"$$2\"",

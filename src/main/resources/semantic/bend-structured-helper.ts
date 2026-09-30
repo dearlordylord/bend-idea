@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // Protocol 1 exposes the first error from the pinned Bend 2.0.25 sources.
-// The ordinary --check-only result remains the authority for the verdict.
+// Check protocol 1 is independent of the optional semantic protocol.
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -18,11 +18,11 @@ function emit(value: unknown): void {
 
 async function main(): Promise<void> {
   const [operation, compilerDir, root, requestedDigest, requestedStart, requestedEnd] = process.argv.slice(2);
-  if (operation !== "capabilities" && operation !== "diagnostic" && operation !== "goal" && operation !== "types" && operation !== "compare" && operation !== "normalize") {
+  if (operation !== "capabilities" && operation !== "check-capabilities" && operation !== "diagnostic" && operation !== "goal" && operation !== "types" && operation !== "compare" && operation !== "normalize" && operation !== "check") {
     emit({ protocol: 1, error: "unsupported operation" });
     return;
   }
-  if (!compilerDir || (operation !== "capabilities" && !root)) {
+  if (!compilerDir || (operation !== "capabilities" && operation !== "check-capabilities" && !root)) {
     emit({ protocol: 1, error: "missing compiler directory or root" });
     return;
   }
@@ -33,7 +33,14 @@ async function main(): Promise<void> {
       crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex") === expected;
   });
   if (!compatible) {
-    emit({ protocol: 1, compiler: "unsupported", operations: [] });
+    emit(operation === "check-capabilities" || operation === "check"
+      ? { checkProtocol: 0, compiler: "unsupported", operations: [] }
+      : { protocol: 1, compiler: "unsupported", operations: [] });
+    return;
+  }
+  if (operation === "check-capabilities") {
+    emit({ checkProtocol: 1, compiler: "bend-2.0.25-pinned", checkOnly: true,
+      locations: "compiler-source-utf16", operations: ["check"] });
     return;
   }
   if (operation === "capabilities") {
@@ -42,6 +49,10 @@ async function main(): Promise<void> {
   }
   const Bend = await import(url.pathToFileURL(path.join(dir, "bend.ts")).href);
   const Comp = await import(url.pathToFileURL(path.join(dir, "comp.ts")).href);
+  if (operation === "check") {
+    await check(Bend, Comp, root);
+    return;
+  }
   try {
     const book = Bend.book_nil();
     await Bend.book_load(book, root, "", new Map());
@@ -228,6 +239,69 @@ async function main(): Promise<void> {
     } else {
       emit({ protocol: 1, kind: "unavailable" });
     }
+  }
+}
+
+// Mirrors the pinned CLI book_read and reliance walk. Hash negotiation above
+// prevents using these private-version assumptions with a different compiler.
+async function check(Bend: any, Comp: any, root: string): Promise<void> {
+  const report = (outcome: string, completeness: string, reliance: string,
+    details: string, diagnostics: unknown[] = [], incompleteKind?: string) =>
+    emit({ checkProtocol: 1, outcome, completeness, reliance, details, diagnostics, incompleteKind });
+  try {
+    const book = Bend.book_nil();
+    const seen = new Map<string, string | null>();
+    const n0 = await Bend.book_load(book, root, "", seen);
+    const laws = path.join(path.dirname(root), "LAWS.bend");
+    if (path.basename(root) === "PROOF.bend" && fs.existsSync(laws) && !seen.has(fs.realpathSync(laws))) {
+      const message = "PROOF.bend must import ./LAWS.bend";
+      report("failed", "unknown", "unknown", message, [{ message }]);
+      return;
+    }
+    Bend.book_valid(book);
+    Comp.book_owned(book, Comp.SYNTH);
+    if (book.hols + book.open > 0) {
+      const message = `${book.hols + book.open} TODOs found. The code is incomplete.`;
+      report("failed", "incomplete", "unknown", message, [{ message }], "todo");
+      return;
+    }
+    const own = [...new Set<string>(book.order.slice(n0))];
+    const bad = new Set<string>(Object.keys(book.tlds).filter(k => {
+      const t = book.tlds[k];
+      return t.u === true || (t.i !== undefined && t.b !== true);
+    }));
+    const uses: Record<string, string[]> = Object.create(null);
+    const visited = new Set<string>();
+    function refs(term: any, out: Set<string>): void {
+      if (typeof term !== "object" || term === null) return;
+      if ((term.$ === "Ref" || term.$ === "ADT") && term.k !== undefined) out.add(term.k);
+      for (const [key, child] of Object.entries(term)) if (key !== "s") refs(child, out);
+    }
+    for (const pending = bad.size === 0 ? [] : own.slice(); pending.length > 0;) {
+      const name = pending.pop()!;
+      const declaration = book.tlds[name];
+      if (declaration !== undefined && !visited.has(name)) {
+        visited.add(name);
+        const references = new Set<string>();
+        for (const c of declaration.$ === "ADT" ? declaration.c : [declaration]) refs(Bend.term_lower(c.T), references);
+        refs(declaration.$ === "Def" ? declaration.e : undefined, references);
+        for (const ref of references) { (uses[ref] ??= []).push(name); pending.push(ref); }
+      }
+    }
+    for (const name of bad) uses[name]?.forEach(user => bad.add(user));
+    const reliance = own.some(name => bad.has(name)) ? "unsafe-or-foreign" : "none";
+    report("success", "complete", reliance,
+      reliance === "none" ? "Bend check complete." : "Bend check complete; relies on unsafe or foreign code.");
+  } catch (error) {
+    const structured = error && typeof error === "object" && "$" in error && error.$ === "Err";
+    const message = structured ? Bend.err_show(error) : String(error);
+    const err = error as any;
+    const span = structured && err.spn && typeof err.spn.src === "string" &&
+      Number.isInteger(err.spn.beg) && Number.isInteger(err.spn.end) && err.spn.beg >= 0 &&
+      err.spn.end > err.spn.beg && err.spn.end <= err.spn.src.length
+      ? { source: err.spn.src, start: err.spn.beg, end: err.spn.end } : undefined;
+    const named = structured && err.obs?.$ === "Hol" && err.obs.k !== "TODO";
+    report("failed", named ? "incomplete" : "unknown", "unknown", message, [{ message, span }], named ? "named-hole" : undefined);
   }
 }
 

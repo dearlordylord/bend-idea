@@ -59,6 +59,197 @@ final class BendCliCheckBackendTest:
         .count()
     finally paths.close()
 
+  @Test def unknownIncompleteKindCannotBecomeStructuredSuccess(): Unit =
+    withCompiler { real =>
+      val executable = real.resolveSibling("protocol-bend")
+      Files.writeString(
+        executable,
+        """#!/bin/sh
+      |if [ "${1:-}" = "--idea-check-capabilities" ]; then
+      |  printf '%s\n' '{"checkProtocol":1,"compiler":"test","checkOnly":true,"locations":"compiler-source-utf16","operations":["check"]}'
+      |else
+      |  printf '%s\n' '{"checkProtocol":1,"outcome":"success","completeness":"complete","reliance":"none","details":"complete","diagnostics":[],"incompleteKind":"future-kind"}'
+      |fi
+      |""".stripMargin
+      )
+      assertTrue(executable.toFile.setExecutable(true))
+      val checked = backend(executable).check(
+        snapshot(
+          executable,
+          "def main() -> Type:\n  Type\n",
+          real.resolveSibling("main.bend")
+        )
+      )
+      assertEquals(BendCheckOutcome.Unavailable, checked.outcome)
+    }
+
+  @Test def advertisedCheckWithoutProtocolNeverFallsBackToText(): Unit =
+    withCompiler { real =>
+      val executable = real.resolveSibling("missing-protocol")
+      val marker = real.resolveSibling("protocol-source-invoked")
+      Files.writeString(
+        executable,
+        s"""#!/bin/sh
+      |if [ "$${1:-}" = "--idea-check-capabilities" ]; then
+      |  printf '%s\n' '{"compiler":"test","checkOnly":true,"locations":"compiler-source-utf16","operations":["check"]}'
+      |elif [ "$${1:-}" = "--help" ]; then
+      |  printf '%s\n' '  bend <file.bend> --check-only check the file and its imports; run nothing'
+      |else
+      |  touch '${marker.toString}'
+      |  printf '%s\n' 'All terms check.'
+      |fi
+      |""".stripMargin
+      )
+      assertTrue(executable.toFile.setExecutable(true))
+      val checked = backend(executable).check(
+        snapshot(
+          executable,
+          "def main() -> Type:\n  Type\n",
+          real.resolveSibling("main.bend")
+        )
+      )
+      assertEquals(BendCheckOutcome.Unavailable, checked.outcome)
+      assertFalse(Files.exists(marker))
+    }
+
+  @Test def missingCapabilityArrayIsUnavailableWithoutThrowing(): Unit =
+    withCompiler { real =>
+      val executable = real.resolveSibling("null-operations")
+      Files.writeString(
+        executable,
+        """#!/bin/sh
+      |printf '%s\n' '{"checkProtocol":1,"compiler":"test","checkOnly":true,"locations":"compiler-source-utf16"}'
+      |""".stripMargin
+      )
+      assertTrue(executable.toFile.setExecutable(true))
+      val checked = backend(executable).check(
+        snapshot(
+          executable,
+          "def main() -> Type:\n  Type\n",
+          real.resolveSibling("main.bend")
+        )
+      )
+      assertEquals(BendCheckOutcome.Unavailable, checked.outcome)
+    }
+
+  @Test def pinnedProtocolChecksProofsHolesFailuresAndRelianceWithoutHelpOrRunningMain()
+      : Unit = withCompiler { legacy =>
+    val helper = legacy.resolveSibling("structured-bend")
+    val _ = compiler.writeStructuredLauncher(helper, structuredChecks = true)
+    val executable = legacy.resolveSibling("protocol-bend")
+    Files.writeString(
+      executable,
+      s"""#!/bin/sh
+      |if [ "$${1:-}" = "--help" ]; then
+      |  touch "$$0.help-invoked"
+      |  exit 1
+      |fi
+      |exec '${helper.toString}' "$$@"
+      |""".stripMargin
+    )
+    assertTrue(executable.toFile.setExecutable(true))
+    val cases = List(
+      (
+        "proof",
+        "import Base\nlaw same:\n  for x: Nat\n  {x == x : Nat}\ndef same(x):\n  {==}\n",
+        BendCheckOutcome.Success,
+        BendCompleteness.Complete,
+        BendReliance.None
+      ),
+      (
+        "todo",
+        "import Base\ndef main() -> U32:\n  ?TODO\n",
+        BendCheckOutcome.Failed,
+        BendCompleteness.Incomplete,
+        BendReliance.Unknown
+      ),
+      (
+        "named",
+        "import Base\ndef main() -> U32:\n  ?need\n",
+        BendCheckOutcome.Failed,
+        BendCompleteness.Incomplete,
+        BendReliance.Unknown
+      ),
+      (
+        "error",
+        "import Base\ndef main() -> U32:\n  missing_name\n",
+        BendCheckOutcome.Failed,
+        BendCompleteness.Unknown,
+        BendReliance.Unknown
+      ),
+      (
+        "unsafe",
+        "import Base\n@unsafe def main() -> U32:\n  1\n",
+        BendCheckOutcome.Success,
+        BendCompleteness.Complete,
+        BendReliance.UnsafeOrForeign
+      ),
+      (
+        "foreign",
+        "import Base\nlaw foreign:\n  IO(Unit)\ndef foreign():\n  import \"./never-executed.js\"\ndef main() -> IO(Unit):\n  foreign()\n",
+        BendCheckOutcome.Success,
+        BendCompleteness.Complete,
+        BendReliance.UnsafeOrForeign
+      ),
+      (
+        "effect",
+        "import Base\ndef main() -> IO(Unit):\n  do IO<Unit>:\n    IO.print(\"SIDE_EFFECT_MARKER\")\n",
+        BendCheckOutcome.Success,
+        BendCompleteness.Complete,
+        BendReliance.None
+      )
+    )
+    cases.foreach { case (name, source, outcome, completeness, reliance) =>
+      val original = legacy.resolveSibling(name + ".bend")
+      Files.writeString(original, "# original disk content\n")
+      val before = tempCount(legacy.getParent)
+      val checked =
+        backend(executable).check(snapshot(executable, source, original))
+      assertEquals(checked.details, outcome, checked.outcome)
+      assertEquals(name, completeness, checked.completeness)
+      assertEquals(name, reliance, checked.reliance)
+      assertFalse(checked.details.contains("SIDE_EFFECT_MARKER"))
+      assertEquals("# original disk content\n", Files.readString(original))
+      assertEquals(before, tempCount(legacy.getParent))
+      val fallback = backend(legacy).check(snapshot(legacy, source, original))
+      assertEquals(name, fallback.outcome, checked.outcome)
+      assertEquals(name, fallback.completeness, checked.completeness)
+      assertEquals(name, fallback.reliance, checked.reliance)
+    }
+    assertFalse(Files.exists(Path.of(executable.toString + ".help-invoked")))
+  }
+
+  @Test def incompatibleCheckVersionNeverInvokesSourceOrLegacyHelp(): Unit =
+    withCompiler { legacy =>
+      val helper = legacy.resolveSibling("structured-bend")
+      val _ = compiler.writeStructuredLauncher(helper, structuredChecks = true)
+      val executable = legacy.resolveSibling("future-protocol")
+      Files.writeString(
+        executable,
+        s"""#!/bin/sh
+      |if [ "$${1:-}" = "--idea-check-capabilities" ]; then
+      |  '${helper.toString}' "$$@" | sed 's/"checkProtocol":1/"checkProtocol":99/'
+      |else
+      |  touch "$$0.source-invoked"
+      |  exec '${helper.toString}' "$$@"
+      |fi
+      |""".stripMargin
+      )
+      assertTrue(executable.toFile.setExecutable(true))
+      val checked = backend(executable).check(
+        snapshot(
+          executable,
+          "import Base\ndef main() -> U32:\n  1\n",
+          legacy.resolveSibling("main.bend")
+        )
+      )
+      assertEquals(BendCheckOutcome.Unavailable, checked.outcome)
+      assertFalse(
+        Files.exists(Path.of(executable.toString + ".source-invoked"))
+      )
+      assertEquals(0L, tempCount(legacy.getParent))
+    }
+
   @Test def sideEffectingMainIsNeverRunAndSnapshotIsRemoved(): Unit =
     withCompiler { executable =>
       val original = executable.getParent.resolve("main.bend")
@@ -233,6 +424,7 @@ final class BendCliCheckBackendTest:
           "  printf '%s\\n' 'bend <file.bend> runs source only'\n" +
           "  exit 0\n" +
           "fi\n" +
+          "if [ \"${1:-}\" = \"--idea-check-capabilities\" ]; then exit 1; fi\n" +
           "touch \"$0.source-invoked\"\n" +
           "exit 1\n"
       )

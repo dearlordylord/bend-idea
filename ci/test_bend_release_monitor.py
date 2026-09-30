@@ -4,7 +4,7 @@ import tarfile
 import tempfile
 import unittest
 
-from ci.bend_release_monitor import candidates, extract_archive, pending_assets, record_results
+from ci.bend_release_monitor import COMPATIBILITY_SUITE, candidates, extract_archive, pending_assets, record_results
 
 
 def release(number, release_id, digest="a" * 64, assets=True):
@@ -29,7 +29,7 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual(["v2.0.30", "v2.0.31", "v2.0.32"], [item["tag"] for item in found])
 
     def test_recorded_result_is_skipped_but_changed_digest_is_retested(self):
-        recorded = {"32": {"tag": "v2.0.32", "digest": "a" * 64, "status": "failed"}}
+        recorded = {"32": {"tag": "v2.0.32", "digest": "a" * 64, "status": "failed", "suite": COMPATIBILITY_SUITE}}
         self.assertEqual([], candidates([release(32, 32)], recorded))
         self.assertEqual(1, len(candidates([release(32, 32, "b" * 64)], recorded)))
         self.assertEqual(1, len(candidates([release(32, 32)], recorded, "v2.0.32")))

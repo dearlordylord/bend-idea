@@ -13,6 +13,12 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- The optional pinned Bend 2.0.25 helper supplies versioned check-only verdicts,
+  completeness, reliance and mapped diagnostics. Incompatible advertised check
+  protocols remain unavailable; ordinary compilers retain guarded CLI checking.
+- Imported-root snapshots use compiler-compatible generated filenames, fixing
+  checks rejected by Bend 2.0.34's plain import-name restriction.
+
 ## 0.1.9
 
 - Keep function and constructor field hints responsive in large Bend files by

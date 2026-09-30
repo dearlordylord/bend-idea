@@ -24,6 +24,7 @@ from urllib.request import Request, urlopen
 UPSTREAM = "bendlang/bend"
 STATE_BRANCH = "bend-release-results"
 STATE_PATH = "bend-release-results.json"
+COMPATIBILITY_SUITE = "editor-compatibility-v2"
 MINIMUM_VERSION = (2, 0, 25)  # Existing pinned compiler is already gated by verify.yml.
 TAG = re.compile(r"v([0-9]+)\.([0-9]+)\.([0-9]+)\Z")
 DIGEST = re.compile(r"sha256:([0-9a-f]{64})\Z")
@@ -66,7 +67,7 @@ def candidates(releases, results, retry_tag=""):
         if not isinstance(release_id, int) or release_id <= 0:
             raise ValueError(f"Invalid release ID for {tag}")
         previous = results.get(str(release_id), {})
-        if not retry_tag and previous.get("digest") == match.group(1) and previous.get("tag") == tag:
+        if not retry_tag and previous.get("digest") == match.group(1) and previous.get("tag") == tag and previous.get("suite") == COMPATIBILITY_SUITE:
             continue
         selected.append({
             "id": release_id,
@@ -288,6 +289,8 @@ def main():
         return 0
     write_results([])
     outcomes = []
+    plugin_commit = os.environ.get("GITHUB_SHA") or subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], text=True).strip()
     failures = False
     for candidate in selected:
         tag = candidate["tag"]
@@ -310,6 +313,8 @@ def main():
             except subprocess.TimeoutExpired:
                 code = 124
         outcome = {
+            "suite": COMPATIBILITY_SUITE,
+            "plugin_commit": plugin_commit,
             "release_id": candidate["id"],
             "tag": tag,
             "commit": commit,
@@ -324,7 +329,7 @@ def main():
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with Path(summary).open("a") as output:
-            output.write("## Bend release compatibility\n\n")
+            output.write(f"## Bend release compatibility\n\nSuite: `{COMPATIBILITY_SUITE}`; plugin commit: `{plugin_commit}`.\n\n")
             output.write("| Release | Result | Source commit | Archive SHA-256 |\n| --- | --- | --- | --- |\n")
             for result in outcomes:
                 output.write(f"| {result['tag']} | {result['status']} | `{result['commit']}` | `{result['digest']}` |\n")

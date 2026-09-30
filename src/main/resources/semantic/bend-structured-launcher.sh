@@ -9,6 +9,12 @@ case "${1:-}" in
   --idea-structured-capabilities)
     exec "$BEND_IDEA_BUN" "$(dirname "$0")/bend-structured-helper.ts" capabilities "$BEND_IDEA_BEND_DIR"
     ;;
+  --idea-check-capabilities)
+    exec "$BEND_IDEA_BUN" "$(dirname "$0")/bend-structured-helper.ts" check-capabilities "$BEND_IDEA_BEND_DIR"
+    ;;
+  --idea-check)
+    exec "$BEND_IDEA_BUN" "$(dirname "$0")/bend-structured-helper.ts" check "$BEND_IDEA_BEND_DIR" "$2"
+    ;;
   --idea-structured-diagnostic)
     exec "$BEND_IDEA_BUN" "$(dirname "$0")/bend-structured-helper.ts" diagnostic "$BEND_IDEA_BEND_DIR" "$2"
     ;;

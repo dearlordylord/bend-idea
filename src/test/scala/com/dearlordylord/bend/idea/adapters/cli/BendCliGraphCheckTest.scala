@@ -104,7 +104,7 @@ final class BendCliGraphCheckTest:
 
   @Test def pinnedHelperMapsRealFirstErrorToUnsavedDependencyRange(): Unit =
     fixture { (dir, bend) =>
-      val _ = compiler.writeStructuredLauncher(bend)
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
       val dependency = dir.resolve("math.bend")
       Files.writeString(
         dependency,
@@ -134,7 +134,7 @@ final class BendCliGraphCheckTest:
 
   @Test def pinnedHelperReturnsDependentGoalFromUnsavedImportedSource(): Unit =
     fixture { (dir, bend) =>
-      val _ = compiler.writeStructuredLauncher(bend)
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
       val dependency = dir.resolve("proof.bend")
       Files.writeString(dependency, "def choose(A: Type, x: A) -> A:\n  x\n")
       val editedText = "def choose(A: Type, x: A) -> A:\n  ?need\n"
@@ -175,7 +175,7 @@ final class BendCliGraphCheckTest:
 
   @Test def pinnedHelperMapsCheckedApplicationAndDependentBinderTypes(): Unit =
     fixture { (dir, bend) =>
-      val _ = compiler.writeStructuredLauncher(bend)
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
       val dependency = dir.resolve("types.bend")
       Files.writeString(dependency, "def id(A: Type, x: A) -> A:\n  x\n")
       val editedText = "# 😀\ndef id(A: Type, x: A) -> A:\n  x\n"
@@ -631,7 +631,7 @@ final class BendCliGraphCheckTest:
       val marker = dir.resolve("source-invoked")
       Files.writeString(
         bend,
-        s"#!/bin/sh\nif [ \"$$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nif [ \"$$1\" = \"base\" ]; then printf 'import 0xabc/dependency.bend as Dep\\n'; exit 0; fi\ntouch '$marker'\n"
+        s"#!/bin/sh\nif [ \"$$1\" = \"--help\" ]; then echo '  bend <file.bend> --check-only check the file and its imports; run nothing'; exit 0; fi\nif [ \"$$1\" = \"--idea-check-capabilities\" ]; then exit 1; fi\nif [ \"$$1\" = \"base\" ]; then printf 'import 0xabc/dependency.bend as Dep\\n'; exit 0; fi\ntouch '$marker'\n"
       )
       val root = source(dir.resolve("main.bend"), "import Base\n")
       val selection = BendToolchainSelection(
