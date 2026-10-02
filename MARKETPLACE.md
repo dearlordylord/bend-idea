@@ -2,7 +2,7 @@
 
 Bend2's plugin ID is `com.dearlordylord.bend.idea`; its Marketplace listing name is `Bend2`. Build with JDK 21. The plugin targets IntelliJ IDEA 2025.1 and declares no upper IDE build limit. Verify newer IDE releases before claiming support.
 
-The public [Bend2 Marketplace listing](https://plugins.jetbrains.com/plugin/34452-bend2) serves version 0.1.8 as of 2026-09-29. The authenticated vendor page marks 0.1.8 **Approved** and 0.1.9 **Under review**. The public plugin details API reports the **Plugin Site** URL as `https://bend-idea.dearlordylord.com/`.
+The public [Bend2 Marketplace listing](https://plugins.jetbrains.com/plugin/34452-bend2) serves version 0.1.9 as of 2026-10-02. The authenticated vendor page marks 0.1.9 **Approved** and 0.1.10 **Under review**. The public plugin details API reports the **Plugin Site** URL as `https://bend-idea.dearlordylord.com/`.
 
 ## 0.1.2 submission
 
@@ -46,6 +46,14 @@ The JDK 21 release gate passed on 2026-09-28: 459 tests, zero failures or errors
 The signed 0.1.9 archive is available in [GitHub Release v0.1.9](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.9) with SHA-256 `0c86be3c85a33b6a06e4e4f08dc5467e057c8bf69bf7d278cb26d0e474aaaf2e`. A public download matched the locally signed ZIP. The public signing certificate is attached. Both the primary and fallback custom plugin feed URLs advertise 0.1.9, with metadata matching the signed plugin's `plugin.xml`.
 
 The clean JDK 21 release gate passed on 2026-09-29: 461 tests, zero failures or errors, one optional current-compiler smoke test skipped; architecture, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing, and signature verification passed. Implementer self-review under `REVIEWER.md` found no actionable issue against #27 and the applicable architecture rules. The same signed ZIP was uploaded through the authenticated JetBrains vendor page to the Stable channel as update **1182848**. Marketplace found no initial problems, but the vendor page shows **Under review**; 0.1.9 is not yet publicly available through Marketplace.
+
+## 0.1.10 release and Marketplace submission
+
+The signed 0.1.10 archive is available in [GitHub Release v0.1.10](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.10), tagged at the tested release commit `ea41f7a`, with SHA-256 `f97eb51bc217e19851bf18d77b2e921ed14726640b27559e43a7c5e2c8146a0f`. An unauthenticated public download matched the locally signed ZIP. The public signing certificate is attached; its SHA-256 fingerprint is unchanged from 0.1.9.
+
+The clean JDK 21.0.12.1 release gate passed on 2026-10-02: 475 tests, zero failures or errors, one optional current-compiler smoke test skipped; architecture, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing and signature verification passed. Verifier reports compatibility with the existing API usage notices, including six internal API usages in the Community report. Implementer self-review under `REVIEWER.md` found no actionable findings for #27 and rules A2, A3, A7 and A8. The parameter-hint fix was also confirmed in the user's IDEA session.
+
+JetBrains Marketplace accepted the same signed ZIP through the authenticated vendor page in Stable as update **1186157**. The page showed **Under review**, with no initial problems found; public Marketplace availability awaits JetBrains approval. The custom feed update is published separately after the release asset is verified.
 
 ## Future updates
 

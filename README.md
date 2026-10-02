@@ -81,9 +81,9 @@ Add `https://idea.dearlordylord.com/updatePlugins.xml` and click **OK**. If that
 
 <img src="docs/screenshots/plugin-repository-url.png" alt="Custom Plugin Repositories dialog with the Bend2 repository URL" width="600">
 
-Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.9.
+Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.10.
 
-To install a signed ZIP directly, download [`bend-idea-0.1.9-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.9/bend-idea-0.1.9-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.9/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.9) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
+To install a signed ZIP directly, download [`bend-idea-0.1.10-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.10/bend-idea-0.1.10-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.10/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.10) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
 
 ## Planned
 
@@ -101,11 +101,11 @@ The [Bend release compatibility workflow](.github/workflows/bend-releases.yml) p
 
 ### Optional Bend format check
 
-Build the pinned **0.1.9** standalone tool with JDK 21 using `./gradlew buildFormatTool`. The resulting `build/libs/bend-format-tool-0.1.9.jar` runs without IntelliJ, Bun, a Bend compiler, package downloads, or an open IDE process. After the build, the command reads only local files and EditorConfig settings. It uses the same conservative source policy as Reformat Code; a style result is **not** a compiler verdict. Compiler `--check-only` still requires a selected root and its loaded graph.
+Build the pinned **0.1.10** standalone tool with JDK 21 using `./gradlew buildFormatTool`. The resulting `build/libs/bend-format-tool-0.1.10.jar` runs without IntelliJ, Bun, a Bend compiler, package downloads, or an open IDE process. After the build, the command reads only local files and EditorConfig settings. It uses the same conservative source policy as Reformat Code; a style result is **not** a compiler verdict. Compiler `--check-only` still requires a selected root and its loaded graph.
 
 ```sh
-java -jar build/libs/bend-format-tool-0.1.9.jar check path/to/main.bend
-java -jar build/libs/bend-format-tool-0.1.9.jar fix path/to/main.bend
+java -jar build/libs/bend-format-tool-0.1.10.jar check path/to/main.bend
+java -jar build/libs/bend-format-tool-0.1.10.jar fix path/to/main.bend
 ```
 
 `check` reports `conforming`, `would-change`, or `unavailable` per explicit file and never writes files or the Git index. Exit status is 0 when all files conform, 1 when at least one would change, and 2 when any file is unavailable or the command cannot run. `fix` writes only working-tree files and leaves unsafe files alone. Both commands preserve existing line endings, final newlines, comments and literals. The formatter changes only supported comma spacing and simple single-body indentation; unsupported or incomplete source reports unavailable.
