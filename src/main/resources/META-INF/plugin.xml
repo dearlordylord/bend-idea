@@ -20,10 +20,12 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.9:</p>
+<p>Version 0.1.10:</p>
 <ul>
-  <li>Function parameter and constructor field hints remain responsive in large Bend files.</li>
-  <li>Hints refresh after source edits, imported declaration changes, and loading-setting changes.</li>
+  <li>Parameter and constructor field hints retry after dependency discovery or edits change the captured revision.</li>
+  <li>A clickable status-bar indicator shows compiler checking results and offers Check again.</li>
+  <li>The optional pinned compiler helper supplies versioned check-only verdicts and mapped diagnostics.</li>
+  <li>Imported-root checks use filenames compatible with Bend 2.0.34.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

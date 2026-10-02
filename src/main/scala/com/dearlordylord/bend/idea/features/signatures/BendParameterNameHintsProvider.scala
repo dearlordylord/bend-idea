@@ -55,7 +55,10 @@ final class BendParameterNameHintsProvider extends InlayParameterHintsProvider:
         .configurationRevision
     )
 
-  private def rendered(file: PsiFile): Map[Int, List[InlayInfo]] =
+  private def rendered(
+      file: PsiFile,
+      retryOnRevisionChange: Boolean = true
+  ): Map[Int, List[InlayInfo]] =
     val before = revision(file)
     val cached = file.getUserData(BendParameterNameHintsProvider.renderedKey)
     if cached != null && cached.revision == before then cached.byCallee
@@ -79,7 +82,10 @@ final class BendParameterNameHintsProvider extends InlayParameterHintsProvider:
           new InlayInfo(s"$name:", offset)
         })
         .toMap
-      if revision(file) != before then Map.empty
+      if revision(file) != before then
+        // Discovering dependency files can itself advance the VFS revision.
+        // Recompute once from the new revision; never publish the old pass.
+        if retryOnRevisionChange then rendered(file, false) else Map.empty
       else
         file.putUserData(
           BendParameterNameHintsProvider.renderedKey,

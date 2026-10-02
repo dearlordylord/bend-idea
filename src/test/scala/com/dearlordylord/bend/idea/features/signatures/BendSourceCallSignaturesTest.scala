@@ -9,6 +9,8 @@ import com.dearlordylord.bend.idea.symbols.api.{
   BendSourceCallSignatures
 }
 import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
+import com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph
+import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.psi.BendReferenceElement
 import com.dearlordylord.bend.idea.toolchain.api.{
@@ -28,6 +30,7 @@ import com.intellij.testFramework.utils.parameterInfo.{
   MockUpdateParameterInfoContext
 }
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.ServiceContainerUtil
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
 import scala.jdk.CollectionConverters.*
@@ -284,6 +287,108 @@ final class BendSourceCallSignaturesTest extends BasePlatformTestCase:
     assertEquals(
       "current:",
       provider.getParameterHints(updated, myFixture.getFile).get(0).getText
+    )
+
+  def testImportedConstructorHintsInsideLawEquality(): Unit =
+    myFixture.addFileToProject(
+      "battle/types.bend",
+      "type D20 is Data:\n  R01{}\ntype MedicineCheck is Data:\n" +
+        "  MedicineCheck{die: D20, bonus: Nat, penalty: Nat}\n"
+    )
+    myFixture.addFileToProject(
+      "battle/reducer/help_stabilize.bend",
+      "import ../types.bend as T\ndef medicine_succeeds(check: T.MedicineCheck) -> Bool:\n  True{}\n"
+    )
+    val source = myFixture.addFileToProject(
+      "laws/help_stabilize.bend",
+      "import ../battle/types.bend as T\n" +
+        "import ../battle/reducer/help_stabilize.bend as Help\n" +
+        "law medicine_natural_one_can_succeed:\n" +
+        "  {Help.medicine_succeeds(T.MedicineCheck{T.R01{},9n,0n}) == True{} : Bool}\n"
+    )
+    myFixture.configureFromExistingVirtualFile(source.getVirtualFile)
+    val reference = PsiTreeUtil
+      .findChildrenOfType(myFixture.getFile, classOf[BendReferenceElement])
+      .asScala
+      .find(_.getText == "T.MedicineCheck")
+      .get
+    val hints = (new BendParameterNameHintsProvider)
+      .getParameterHints(reference, myFixture.getFile)
+      .asScala
+      .toList
+    assertEquals(List("die:", "bonus:", "penalty:"), hints.map(_.getText))
+    myFixture.doHighlighting()
+    val offsets = myFixture.getEditor.getInlayModel
+      .getInlineElementsInRange(0, myFixture.getFile.getTextLength)
+      .asScala
+      .map(_.getOffset)
+      .toSet
+    List("T.R01{}", "9n", "0n").foreach { argument =>
+      assertTrue(argument, offsets.contains(source.getText.indexOf(argument)))
+    }
+
+  def testHintPassRetriesChangedDependencyWithoutPublishingOldFields(): Unit =
+    checkHintPassRevisionChange(false)
+
+  def testHintPassStopsAfterTwoChangingCaptures(): Unit =
+    checkHintPassRevisionChange(true)
+
+  private def checkHintPassRevisionChange(keepChanging: Boolean): Unit =
+    val types = myFixture.addFileToProject(
+      "types.bend",
+      "type Check is Data:\n  Check{old: Nat}\n"
+    )
+    val source = myFixture.addFileToProject(
+      "main.bend",
+      "import ./types.bend as T\ndef main():\n  T.Check{9n}\n"
+    )
+    myFixture.configureFromExistingVirtualFile(source.getVirtualFile)
+    val delegate = getProject.getService(classOf[BendWorkspaceGraph])
+    var captures = 0
+    val graph = new BendWorkspaceGraph:
+      override def load(
+          root: BendSourceRecord,
+          basePath: String,
+          packageCache: String,
+          canceled: () => Boolean
+      ) =
+        val captured = delegate.load(root, basePath, packageCache, canceled)
+        captures += 1
+        if captures == 1 || keepChanging then
+          WriteCommandAction.runWriteCommandAction(
+            getProject,
+            new Runnable:
+              override def run(): Unit =
+                val document =
+                  PsiDocumentManager.getInstance(getProject).getDocument(types)
+                document.setText(
+                  s"type Check is Data:\n  Check{field$captures: Nat}\n"
+                )
+                PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+          )
+        captured
+
+      override def siblingLaws(proofPath: String) =
+        delegate.siblingLaws(proofPath)
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[BendWorkspaceGraph],
+      graph,
+      getTestRootDisposable
+    )
+    val reference = PsiTreeUtil
+      .findChildrenOfType(myFixture.getFile, classOf[BendReferenceElement])
+      .asScala
+      .find(_.getText == "T.Check")
+      .get
+    val hints = (new BendParameterNameHintsProvider)
+      .getParameterHints(reference, myFixture.getFile)
+      .asScala
+      .toList
+    assertEquals(2, captures)
+    assertEquals(
+      if keepChanging then Nil else List("field1:"),
+      hints.map(_.getText)
     )
 
   def testNestedImportedConstructorHintsRefreshAfterDependencyEdit(): Unit =

@@ -13,6 +13,12 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.10
+
+- Parameter-name hints retry once when dependency discovery or an edit changes
+  the captured revision, avoiding an empty first result while rejecting stale
+  signatures and continuously changing sources.
+
 - A clickable Bend status-bar indicator shows checking, incomplete, stale and
   failed results, including unsafe/foreign reliance. Its popup displays compiler
   output and offers Check again; Show Bend Check Status opens the same details.
