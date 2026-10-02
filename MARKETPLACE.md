@@ -53,7 +53,7 @@ The signed 0.1.10 archive is available in [GitHub Release v0.1.10](https://githu
 
 The clean JDK 21.0.12.1 release gate passed on 2026-10-02: 475 tests, zero failures or errors, one optional current-compiler smoke test skipped; architecture, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing and signature verification passed. Verifier reports compatibility with the existing API usage notices, including six internal API usages in the Community report. Implementer self-review under `REVIEWER.md` found no actionable findings for #27 and rules A2, A3, A7 and A8. The parameter-hint fix was also confirmed in the user's IDEA session.
 
-JetBrains Marketplace accepted the same signed ZIP through the authenticated vendor page in Stable as update **1186157**. The page showed **Under review**, with no initial problems found; public Marketplace availability awaits JetBrains approval. The custom feed update is published separately after the release asset is verified.
+JetBrains Marketplace accepted the same signed ZIP through the authenticated vendor page in Stable as update **1186157**. The page showed **Under review**, with no initial problems found; public Marketplace availability awaits JetBrains approval. Cloudflare Pages deployed the custom feed from `master`; both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` were checked to advertise 0.1.10 with metadata matching the signed plugin, after its release asset was verified.
 
 ## Future updates
 
