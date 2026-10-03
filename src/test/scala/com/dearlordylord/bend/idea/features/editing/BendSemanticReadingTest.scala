@@ -69,6 +69,98 @@ final class BendSemanticReadingTest extends BasePlatformTestCase:
     assertTrue(hasSemanticColor(BendColors.SemanticAlias, "Library"))
     assertFalse(hasSemanticColor(BendColors.SemanticDefinition, "unknown"))
 
+  def testNestedQualifiedConstructorPatternUsesExactResolvedRanges(): Unit =
+    val module = myFixture.addFileToProject(
+      "creature.bend",
+      "type Creature is Data:\n  Cr{vitals, economy, ac, features, positive_ac, valid_grant, valid_features}\ntype Vitals is Data:\n  Alive{state, temp, kind}\ntype Economy is Data:\n  Ec{available, bonus, grant}\n"
+    )
+    val source =
+      "import ./creature.bend as T\ntype Bool is Data:\n  True{}\n  False{}\ndef actor_available_creature(+actor: T.Creature) -> Bool:\n  match actor:\n    case T.Cr{T.Alive{state,temp,kind},T.Ec{True{},bonus,grant},ac,features,positive_ac,valid_grant,valid_features}:\n      True{}\n    case _: False{}\ndef unresolved(actor):\n  match actor:\n    case T.Missing{field}:\n      field\n"
+    myFixture.configureByText("main.bend", source)
+    val highlights = myFixture.doHighlighting().asScala.toList
+    def exactColor(
+        key: com.intellij.openapi.editor.colors.TextAttributesKey,
+        start: Int,
+        spelling: String
+    ): Unit =
+      assertTrue(
+        s"$spelling at $start has $key",
+        highlights.exists(info =>
+          info.forcedTextAttributesKey == key && info.getText == spelling &&
+            info.getStartOffset == start && info.getEndOffset == start + spelling.length
+        )
+      )
+    def noConstructor(start: Int, spelling: String): Unit =
+      assertFalse(
+        s"$spelling at $start is not a constructor",
+        highlights.exists(info =>
+          info.forcedTextAttributesKey == BendColors.SemanticConstructor &&
+            info.getStartOffset < start + spelling.length && info.getEndOffset > start
+        )
+      )
+    val patternStart = source.indexOf("case T.Cr")
+    for member <- List("Cr", "Alive", "Ec") do
+      val aliasAt = source.indexOf(s"T.$member", patternStart)
+      val memberAt = aliasAt + 2
+      exactColor(BendColors.SemanticAlias, aliasAt, "T")
+      exactColor(BendColors.SemanticConstructor, memberAt, member)
+      assertFalse(
+        "Dot is outside semantic ranges",
+        highlights.exists(info =>
+          Set(BendColors.SemanticAlias, BendColors.SemanticConstructor)
+            .contains(info.forcedTextAttributesKey) &&
+            info.getStartOffset <= aliasAt + 1 && info.getEndOffset > aliasAt + 1
+        )
+      )
+      val alias = myFixture.getFile.findReferenceAt(aliasAt)
+      assertNotNull(alias)
+      assertEquals(new TextRange(0, 1), alias.getRangeInElement)
+      val aliasTarget = alias.resolve()
+      assertNotNull(aliasTarget)
+      assertEquals(myFixture.getFile, aliasTarget.getContainingFile)
+      val reference = myFixture.getFile.findReferenceAt(memberAt)
+      assertNotNull(reference)
+      assertEquals(
+        new TextRange(2, 2 + member.length),
+        reference.getRangeInElement
+      )
+      val target = reference.resolve()
+      assertNotNull(target)
+      assertEquals(module, target.getContainingFile)
+      assertEquals(module.getText.indexOf(s"$member{"), target.getTextOffset)
+    val patternTrue = source.indexOf("True{}", patternStart)
+    val bodyTrue = source.indexOf("True{}", patternTrue + 1)
+    for at <- List(patternTrue, bodyTrue) do
+      exactColor(BendColors.SemanticConstructor, at, "True")
+      val reference = myFixture.getFile.findReferenceAt(at)
+      assertNotNull(reference)
+      val target = reference.resolve()
+      assertNotNull(target)
+      assertEquals(myFixture.getFile, target.getContainingFile)
+      assertEquals(source.indexOf("True{}"), target.getTextOffset)
+    for field <- List(
+        "state",
+        "temp",
+        "kind",
+        "bonus",
+        "grant",
+        "ac",
+        "features",
+        "positive_ac",
+        "valid_grant",
+        "valid_features"
+      )
+    do noConstructor(source.indexOf(field, patternStart), field)
+    noConstructor(source.indexOf("case _") + 5, "_")
+    val missingAt = source.indexOf("T.Missing") + 2
+    noConstructor(missingAt, "Missing")
+    val missing = myFixture.getFile.findReferenceAt(missingAt)
+    assertNotNull(missing)
+    assertNull(
+      "Unresolved constructor-shaped member stays unresolved",
+      missing.resolve()
+    )
+
   def testBreadcrumbsFollowNestedBodyAndDeclarationStructure(): Unit =
     val source =
       "def main(value):\n  match value:\n    case Box{item}:\n      do IO<Unit>:\n        ?TO<caret>DO\n"

@@ -31,9 +31,22 @@ object BendLayoutPolicy:
     val width = tabWidth.getOrElse(
       if value("indent_size").nonEmpty then size else base.tabWidth
     )
-    Right(Settings(size, style.fold(base.useTabs)(_ == "tab"), width))
-  final case class Settings(indentSize: Int, useTabs: Boolean, tabWidth: Int):
-    def valid: Boolean = indentSize > 0 && tabWidth > 0
+    val maximum = value("bend_max_line_length") match
+      case None | Some("unset") => Some(100)
+      case Some("off")          => None
+      case Some(raw)            =>
+        raw.toIntOption.filter(_ > 0) match
+          case Some(number) => Some(number)
+          case None         => return Left("Invalid bend_max_line_length")
+    Right(Settings(size, style.fold(base.useTabs)(_ == "tab"), width, maximum))
+  final case class Settings(
+      indentSize: Int,
+      useTabs: Boolean,
+      tabWidth: Int,
+      maxLineLength: Option[Int] = Some(100)
+  ):
+    def valid: Boolean =
+      indentSize > 0 && tabWidth > 0 && maxLineLength.forall(_ > 0)
 
     def columns(text: String): Int =
       text.foldLeft(0) { (column, char) =>
@@ -81,24 +94,151 @@ object BendLayoutPolicy:
       case Left(reason)  => return Left(reason)
       case Right(tokens) => tokens
 
-    val incompleteHeader = source.linesIterator.exists { line =>
-      val trimmed = line.trim
-      (trimmed.startsWith("def ") || trimmed.startsWith("law ") ||
-        trimmed.startsWith("type ")) && !trimmed.endsWith(":")
-    }
-    if incompleteHeader then return Left("Incomplete declaration header")
-
     val replacements = scala.collection.mutable.ArrayBuffer.empty[Edit]
-    significant.sliding(2).foreach {
-      case List(left, right) =>
-        val gap = source.substring(left.end, right.start)
-        if !gap.exists(c => c == '\n' || c == '\r') then
-          if right.text == "," && gap.nonEmpty then
-            replacements += Edit(left.end, right.start, "")
-          else if left.text == "," &&
-            !Set(")", "]", "}").contains(right.text) && gap != " "
-          then replacements += Edit(left.end, right.start, " ")
-      case _ => ()
+    val structure = recognize(source, significant) match
+      case Left(reason) => return Left(reason)
+      case Right(value) => value
+    val gaps = scala.collection.mutable.Map.empty[Int, String]
+    significant.indices.drop(1).foreach { index =>
+      val left = significant(index - 1)
+      val right = significant(index)
+      val gap = source.substring(left.end, right.start)
+      if !gap.exists(c => c == '\n' || c == '\r') then
+        if right.text == "," && gap.nonEmpty then gaps(index) = ""
+        else if left.text == "," && !Set(")", "]", "}", ">").contains(
+            right.text
+          ) && gap != " "
+        then gaps(index) = " "
+    }
+    def originalGap(index: Int): String =
+      gaps.getOrElse(
+        index,
+        source.substring(significant(index - 1).end, significant(index).start)
+      )
+    def spelling(from: Int, until: Int): String =
+      (from to until).map { index =>
+        (if index == from then "" else originalGap(index)) + significant(
+          index
+        ).text
+      }.mkString
+    val newline = if source.contains("\r\n") then "\r\n" else "\n"
+    def indentation(at: Int): Int =
+      val beginning = source.lastIndexOf('\n', at - 1) + 1
+      settings.columns(
+        source.substring(beginning, at).takeWhile(c => c == ' ' || c == '\t')
+      )
+    var unsafe = Option.empty[String]
+    def indent(columns: Int): String = settings.indent(columns) match
+      case Some(value) => value
+      case None        =>
+        unsafe = Some("Indentation cannot be safely represented")
+        ""
+    def compact(from: Int, until: Int): Unit =
+      (from + 1 to until).foreach { index =>
+        val gap = originalGap(index)
+        if gap.exists(c => c == '\n' || c == '\r') then
+          val left = significant(index - 1).text
+          val right = significant(index).text
+          gaps(index) =
+            if Set("(", "{", "[").contains(left) || Set(")", "}", "]", ",")
+                .contains(right)
+            then ""
+            else " "
+      }
+    def overlong(text: String, prefix: Int): Boolean =
+      settings.maxLineLength.exists { width =>
+        text.split("\n", -1).zipWithIndex.exists { (line, index) =>
+          settings.columns((if index == 0 then " " * prefix
+                            else "") + line.stripSuffix("\r")) > width
+        }
+      }
+    def expand(list: LayoutList, base: Int): Unit =
+      if list.items.nonEmpty then
+        compact(list.open, list.close)
+        list.items.foreach { (from, until) =>
+          gaps(from) = newline + indent(base + settings.indentSize)
+          list.children
+            .filter(child => child.open >= from && child.close <= until)
+            .foreach { child =>
+              val whole = spelling(
+                from,
+                until
+              ) + (if until + 1 < list.close && significant(
+                       until + 1
+                     ).text == ","
+                   then ","
+                   else "")
+              if child.eligible && overlong(whole, base + settings.indentSize)
+              then expand(child, base + settings.indentSize)
+            }
+        }
+        gaps(list.close) = newline + indent(base)
+    def select(list: LayoutList): Unit =
+      val start = source.lastIndexOf('\n', significant(list.open).start - 1) + 1
+      val end = source.indexOf('\n', significant(list.close).end) match
+        case -1    => source.length
+        case value => value
+      val from = significant.indexWhere(_.start >= start)
+      val signature = list.open >= 2 && significant(list.open - 2).text == "def"
+      val until = if signature then significant.lastIndexWhere(_.end <= end)
+      else if list.close + 1 < significant.length && significant(
+          list.close + 1
+        ).text == ":"
+      then list.close + 1
+      else list.close
+      val region =
+        source.substring(start, significant(from).start) + spelling(from, until)
+      if list.items.nonEmpty && overlong(region, 0) then
+        if significant
+            .slice(list.open, list.close + 1)
+            .exists(_.text.startsWith("#"))
+        then unsafe = Some("Comment-sensitive list layout")
+        else if significant
+            .slice(list.open + 1, list.close)
+            .exists(token =>
+              Set("do", "match", "case", "return", ";", "%", "\\")
+                .contains(token.text)
+            )
+        then unsafe = Some("Unsupported block expression in list")
+        else if structure.exists(atomic =>
+            !atomic.eligible && atomic.open > list.open && atomic.close < list.close &&
+              source
+                .substring(
+                  significant(atomic.open).start,
+                  significant(atomic.close).end
+                )
+                .exists(c => c == '\n' || c == '\r')
+          )
+        then unsafe = Some("Unsupported multiline atomic expression")
+        else if source.contains("\r") && source
+            .replace("\r\n", "")
+            .exists(c => c == '\n' || c == '\r')
+        then unsafe = Some("Mixed line endings")
+        else
+          val separated = list.items.forall((from, _) =>
+            originalGap(from).contains('\n')
+          ) && originalGap(list.close).contains('\n')
+          if separated then list.children.filter(_.eligible).foreach(select)
+          else expand(list, indentation(significant(list.open).start))
+    if settings.maxLineLength.nonEmpty then
+      structure
+        .filter(_.eligible)
+        .filter { list =>
+          !structure.exists(parent =>
+            parent.open < list.open && parent.close > list.close &&
+              (parent.eligible || Set("{", "<")
+                .contains(significant(parent.open).text))
+          )
+        }
+        .foreach(select)
+    unsafe match
+      case Some(reason) => return Left(reason)
+      case None         => ()
+    gaps.toList.sortBy(_._1).foreach { (index, replacement) =>
+      val left = significant(index - 1)
+      val right = significant(index)
+      if source.substring(left.end, right.start) != replacement then
+        replacements += Edit(left.end, right.start, replacement)
     }
 
     // The existing formatter only adjusts one simple definition/law body.
@@ -142,8 +282,199 @@ object BendLayoutPolicy:
     if unrepresentable then Left("Indentation cannot be safely represented")
     else Right(replacements.toList)
 
-  private def scan(source: String): Either[String, List[Token]] =
-    val tokens = List.newBuilder[Token]
+  private final case class LayoutList(
+      open: Int,
+      close: Int,
+      eligible: Boolean,
+      items: Vector[(Int, Int)],
+      children: Vector[LayoutList]
+  )
+
+  /** Delimiter trees retain atomic proofs, annotations and type applications.
+    * Only named argument/constructor lists expose sibling comma boundaries.
+    */
+  private def recognize(
+      source: String,
+      tokens: Vector[Token]
+  ): Either[String, Vector[LayoutList]] = scala.util.boundary:
+    val pairs = scala.collection.mutable.Map.empty[Int, Int]
+    val stack = scala.collection.mutable.ArrayBuffer.empty[(Int, String)]
+    val openings = Set("(", "[", "{")
+    val closings = Map(")" -> "(", "]" -> "[", "}" -> "{")
+    def name(text: String): Boolean = text.matches("[A-Za-z_][A-Za-z0-9_.]*")
+    def angleEnd(index: Int): Boolean =
+      var at = index + 1
+      var depth = 0
+      while at < tokens.length do
+        val text = tokens(at).text
+        if depth == 0 && text == ">" then return true
+        if depth == 0 && (Set(")", "}", "]")
+            .contains(text) || Set("def", "law", "type").contains(text))
+        then return false
+        if openings(text) then depth += 1
+        else if closings.contains(text) then depth -= 1
+        at += 1
+      false
+    tokens.indices.foreach { index =>
+      val token = tokens(index)
+      val angle =
+        token.text == "<" && index > 0 && name(tokens(index - 1).text) &&
+          tokens(index - 1).end == token.start && (tokens(
+            index - 1
+          ).text.head.isUpper || angleEnd(index))
+      if openings(token.text) || angle then stack += ((index, token.text))
+      else if closings.contains(
+          token.text
+        ) || token.text == ">" && stack.lastOption.exists(_._2 == "<")
+      then
+        val expected = closings.getOrElse(token.text, "<")
+        if stack.lastOption.exists(_._2 == expected) then
+          val (open, _) = stack.remove(stack.size - 1)
+          pairs(open) = index
+        else scala.util.boundary.break(Left("Unrecognized delimiter context"))
+    }
+    if stack.nonEmpty then
+      scala.util.boundary.break(Left("Incomplete type or list syntax"))
+    // A continued header is accepted only through balanced groups. A new line
+    // outside a group cannot silently turn a missing colon into a valid header.
+    tokens.indices
+      .filter(index => Set("def", "law", "type").contains(tokens(index).text))
+      .foreach { first =>
+        val prefix = source.substring(
+          source.lastIndexOf('\n', tokens(first).start - 1) + 1,
+          tokens(first).start
+        )
+        if prefix.trim.isEmpty || prefix.trim == "@unsafe" then
+          if first + 1 >= tokens.length || !name(tokens(first + 1).text) then
+            scala.util.boundary.break(Left("Incomplete declaration name"))
+          if tokens(
+              first
+            ).text == "def" && (first + 2 >= tokens.length || tokens(
+              first + 2
+            ).text != "(")
+          then scala.util.boundary.break(Left("Unsupported definition header"))
+          var index = first + 1
+          var found = false
+          while index < tokens.length && !found do
+            if tokens(index).text == ":" then
+              if index > 0 && tokens(index - 1).text == "->" then
+                scala.util.boundary.break(Left("Incomplete result type"))
+              if tokens(first).text == "def" then
+                val body = tokens
+                  .drop(index + 1)
+                  .find(token => !token.text.startsWith("#"))
+                if body.isEmpty || body.exists(token =>
+                    Set("def", "law", "type").contains(token.text)
+                  )
+                then
+                  scala.util.boundary.break(Left("Incomplete definition body"))
+              found = true
+            else if tokens(index).text.startsWith("#") then
+              scala.util.boundary.break(
+                Left("Comment-sensitive declaration header")
+              )
+            else if pairs.contains(index) then index = pairs(index)
+            if !found && index + 1 < tokens.length && source
+                .substring(tokens(index).end, tokens(index + 1).start)
+                .exists(c => c == '\n' || c == '\r')
+            then
+              scala.util.boundary.break(Left("Incomplete declaration header"))
+            index += 1
+          if !found then
+            scala.util.boundary.break(Left("Incomplete declaration header"))
+      }
+    def build(open: Int): Either[String, LayoutList] =
+      val close = pairs(open)
+      val previous = if open > 0 then tokens(open - 1) else Token("", 0, 0)
+      val attached = previous.end == tokens(open).start
+      val sameLine = !source
+        .substring(previous.end, tokens(open).start)
+        .exists(c => c == '\n' || c == '\r')
+      val head =
+        name(previous.text) || tokens(open).text == "(" && Set(")", "]", "}")
+          .contains(previous.text)
+      val proofBrace =
+        tokens(open).text == "{" && open + 1 < close && Set("=", "==").contains(
+          tokens(open + 1).text
+        )
+      val eligible = Set("(", "{").contains(
+        tokens(open).text
+      ) && head && (attached || tokens(
+        open
+      ).text == "(" && sameLine) && !proofBrace &&
+        !Set("match", "case", "if", "switch", "do", "rewrite", "with", "return")
+          .contains(previous.text)
+      val commas = Vector.newBuilder[Int]
+      val children = Vector.newBuilder[LayoutList]
+      var index = open + 1
+      while index < close do
+        if pairs.contains(index) then
+          build(index) match
+            case Left(reason) => scala.util.boundary.break(Left(reason))
+            case Right(child) => children += child
+          index = pairs(index) + 1
+        else
+          if tokens(index).text == "," then commas += index
+          index += 1
+      val separators = commas.result()
+      if separators.nonEmpty && !eligible && tokens(open).text != "<" && tokens(
+          open
+        ).text != "["
+      then scala.util.boundary.break(Left("Unsupported comma-separated syntax"))
+      val bounds = Vector(open) ++ separators ++ Vector(close)
+      val rawItems = if close == open + 1 then Vector.empty
+      else bounds.sliding(2).map(pair => (pair(0) + 1, pair(1) - 1)).toVector
+      val items = if separators.lastOption.contains(close - 1) then
+        rawItems.dropRight(1)
+      else rawItems
+      if items.exists((from, until) => from > until) then
+        scala.util.boundary.break(Left("Incomplete comma-separated list"))
+      if eligible && items.exists((_, until) =>
+          Set(
+            ":",
+            "->",
+            "=>",
+            "+",
+            "-",
+            "*",
+            "/",
+            "%",
+            "<",
+            ">",
+            "<=",
+            ">=",
+            "&&",
+            "||",
+            "&",
+            "|",
+            "^",
+            "=",
+            "==",
+            "!=",
+            "~"
+          ).contains(tokens(until).text) && !pairs.valuesIterator.contains(
+            until
+          )
+        )
+      then scala.util.boundary.break(Left("Incomplete list item"))
+      Right(LayoutList(open, close, eligible, items, children.result()))
+    val all = Vector.newBuilder[LayoutList]
+    def collect(list: LayoutList): Unit =
+      all += list
+      list.children.foreach(collect)
+    pairs.keys.toVector.sorted
+      .filter(open =>
+        !pairs.exists((parent, close) => parent < open && close > open)
+      )
+      .foreach { open =>
+        build(open) match
+          case Left(reason) => scala.util.boundary.break(Left(reason))
+          case Right(list)  => collect(list)
+      }
+    Right(all.result())
+
+  private def scan(source: String): Either[String, Vector[Token]] =
+    val tokens = Vector.newBuilder[Token]
     val stack = scala.collection.mutable.ArrayBuffer.empty[Char]
     var index = 0
     var unsafe = false
@@ -158,8 +489,11 @@ object BendLayoutPolicy:
       else if char == '"' || char == '\'' then
         index += 1
         var closed = false
+        var scalars = 0
         while index < source.length && !closed do
           val current = source.charAt(index)
+          if current != char && !Character.isLowSurrogate(current) then
+            scalars += 1
           if current == '\\' then
             index += 1
             if index >= source.length then unsafe = true
@@ -179,7 +513,12 @@ object BendLayoutPolicy:
               if index == digitsStart || index - digitsStart > 8 ||
                 index >= source.length || source.charAt(index) != '}'
               then unsafe = true
-              else index += 1
+              else
+                val codepoint = java.lang.Long
+                  .parseLong(source.substring(digitsStart, index), 16)
+                if codepoint > 0x10ffffL || codepoint >= 0xd800L && codepoint <= 0xdfffL
+                then unsafe = true
+                index += 1
             else
               unsafe = true
               index += 1
@@ -187,8 +526,44 @@ object BendLayoutPolicy:
             index += 1
             closed = true
           else index += 1
-        if !closed then unsafe = true
+        if !closed || char == '\'' && scalars != 1 then unsafe = true
         tokens += Token(source.substring(start, index), start, index)
+      else if char.isLetterOrDigit || char == '_' then
+        index += 1
+        while index < source.length && (source
+            .charAt(index)
+            .isLetterOrDigit || "_.".contains(source.charAt(index)))
+        do index += 1
+        tokens += Token(source.substring(start, index), start, index)
+      else if List(
+          "<&>",
+          "->",
+          "=>",
+          "==",
+          "!=",
+          "<=",
+          ">=",
+          "<-",
+          "&&",
+          "||",
+          "::"
+        ).exists(operator => source.startsWith(operator, index))
+      then
+        val operator = List(
+          "<&>",
+          "->",
+          "=>",
+          "==",
+          "!=",
+          "<=",
+          ">=",
+          "<-",
+          "&&",
+          "||",
+          "::"
+        ).find(operator => source.startsWith(operator, index)).get
+        index += operator.length
+        tokens += Token(operator, start, index)
       else
         char match
           case '('             => stack += ')'

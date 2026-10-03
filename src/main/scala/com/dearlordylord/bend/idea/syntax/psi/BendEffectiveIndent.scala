@@ -10,7 +10,16 @@ import scala.util.control.NonFatal
 /** Reads IntelliJ defaults and EditorConfig properties for one physical file.
   */
 object BendEffectiveIndent:
-  def forFile(file: PsiFile): BendLayoutPolicy.Settings =
+  def forFormattingFile(file: PsiFile): BendLayoutPolicy.Settings =
+    effective(file, true)
+
+  /** Typing indentation is independent of wrapping validity or width. */
+  def forFile(file: PsiFile): BendLayoutPolicy.Settings = effective(file, false)
+
+  private def effective(
+      file: PsiFile,
+      wrapping: Boolean
+  ): BendLayoutPolicy.Settings =
     val options = CodeStyle.getIndentOptions(file)
     val base = BendLayoutPolicy.Settings(
       options.INDENT_SIZE,
@@ -19,7 +28,8 @@ object BendEffectiveIndent:
     )
     Option(file.getVirtualFile) match
       case None              => base
-      case Some(virtualFile) => forPath(virtualFile.getPath, base)
+      case Some(virtualFile) =>
+        indentOverride(virtualFile.getPath, base, wrapping).getOrElse(base)
 
   def forPath(
       path: String,
@@ -29,7 +39,8 @@ object BendEffectiveIndent:
 
   def indentOverride(
       path: String,
-      base: BendLayoutPolicy.Settings
+      base: BendLayoutPolicy.Settings,
+      wrapping: Boolean = true
   ): Option[BendLayoutPolicy.Settings] =
     try
       val properties = new EditorConfig()
@@ -39,14 +50,21 @@ object BendEffectiveIndent:
           pair.getKey.toLowerCase(java.util.Locale.ROOT) -> pair.getVal
         )
         .toMap
-      if !properties.keysIterator.exists(
-          Set("indent_style", "indent_size", "tab_width")
+      val relevant =
+        if wrapping then properties else properties - "bend_max_line_length"
+      if !relevant.keysIterator.exists(
+          Set(
+            "indent_style",
+            "indent_size",
+            "tab_width",
+            "bend_max_line_length"
+          )
         )
       then None
       else
         Some(
           BendLayoutPolicy
-            .fromEditorConfig(properties, base)
+            .fromEditorConfig(relevant, base)
             .getOrElse(base.copy(indentSize = 0))
         )
     catch case NonFatal(_) => Some(base.copy(indentSize = 0))

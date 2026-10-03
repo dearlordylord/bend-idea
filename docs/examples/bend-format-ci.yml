@@ -13,7 +13,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - name: Build pinned offline format tool 0.1.8
+      - name: Build offline format tool
         run: ./gradlew --no-daemon buildFormatTool
       - name: Check every tracked Bend file
         run: bash ci/bend-format-all-tracked.sh

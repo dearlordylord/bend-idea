@@ -101,16 +101,29 @@ The [Bend release compatibility workflow](.github/workflows/bend-releases.yml) p
 
 ### Optional Bend format check
 
-Build the pinned **0.1.10** standalone tool with JDK 21 using `./gradlew buildFormatTool`. The resulting `build/libs/bend-format-tool-0.1.10.jar` runs without IntelliJ, Bun, a Bend compiler, package downloads, or an open IDE process. After the build, the command reads only local files and EditorConfig settings. It uses the same conservative source policy as Reformat Code; a style result is **not** a compiler verdict. Compiler `--check-only` still requires a selected root and its loaded graph.
+Build the standalone tool with JDK 21 using `./gradlew buildFormatTool`. The resulting `build/libs/bend-format-tool-<project-version>.jar` runs without IntelliJ, Bun, a Bend compiler, package downloads, or an open IDE process. After the build, the command reads only local files and EditorConfig settings. It uses the same conservative source policy as Reformat Code; a style result is **not** a compiler verdict. Compiler `--check-only` still requires a selected root and its loaded graph.
 
 ```sh
-java -jar build/libs/bend-format-tool-0.1.10.jar check path/to/main.bend
-java -jar build/libs/bend-format-tool-0.1.10.jar fix path/to/main.bend
+# Run in Bash; reject missing or ambiguous artifacts.
+shopt -s nullglob
+tools=(build/libs/bend-format-tool-*.jar)
+if ((${#tools[@]} != 1)); then
+  echo "Expected exactly one built formatter; clean build/libs and rebuild." >&2
+  exit 2
+fi
+tool="${tools[0]}"
+java -jar "$tool" --version
+java -jar "$tool" check path/to/main.bend
+java -jar "$tool" fix path/to/main.bend
 ```
 
-`check` reports `conforming`, `would-change`, or `unavailable` per explicit file and never writes files or the Git index. Exit status is 0 when all files conform, 1 when at least one would change, and 2 when any file is unavailable or the command cannot run. `fix` writes only working-tree files and leaves unsafe files alone. Both commands preserve existing line endings, final newlines, comments and literals. The formatter changes only supported comma spacing and simple single-body indentation; unsupported or incomplete source reports unavailable.
+`--version` reports the packaged project version, regardless of the JAR filename. Missing or blank build metadata reports unavailable on stderr and exits 2; `check` and `fix` remain usable.
 
-The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including when the working tree has other edits. Copy it into `.git/hooks/pre-commit` and make it executable after building the tool. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks the working-tree version of every tracked `.bend` file; the [CI example](docs/examples/bend-format-ci.yml) runs that script with the pinned tool. Neither script invokes Bend compiler checking.
+`check` reports `conforming`, `would-change`, or `unavailable` per explicit file and never writes files or the Git index. Exit status is 0 when all files conform, 1 when at least one would change, and 2 when any file is unavailable or the command cannot run. `fix` writes only working-tree files and leaves unsafe files alone. Both commands preserve existing line endings, final newlines, comments and literals. The formatter normalizes safe comma spacing and simple single-body indentation, and wraps complete constructor patterns, constructor expressions, calls and definition parameter lists. Overlong recognized multiline lists reflow one item per line; fitting multiline groups stay intact. Dependent annotations and proof terms remain atomic. Incomplete source, unsupported layout, mixed line endings requiring inserted breaks and unsafe comment attachment report unavailable without edits to that file. Batches process files independently: a safe file can be formatted even when another file is unavailable, with overall exit 2.
+
+The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including when the working tree has other edits. Copy it into `.git/hooks/pre-commit` and make it executable after building the tool. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks the working-tree version of every tracked `.bend` file; the [CI example](docs/examples/bend-format-ci.yml) runs that script with the built tool. Neither script invokes Bend compiler checking.
+
+Wrapping uses a shared soft limit of 100 visual columns. The plugin-specific EditorConfig property `bend_max_line_length` accepts a positive integer or `off`; absent and `unset` use 100, and invalid values make formatting unavailable. Width-only EditorConfig sections are supported, with inherited and nested overrides. Tabs count using `tab_width` tab stops. `off` preserves existing breaks while allowing safe spacing. This property is specific to Bend IDEA and its offline tool; other EditorConfig clients need not support it. The formatter keeps names, literals, operators and arbitrary proof expressions intact even when they exceed the limit. Recognized list openers stay attached to their constructor names or application terms; qualified and literal dotted names, affine/template markers and existing trailing commas are retained. Anonymous proof/type braces and type arguments stay atomic. Continued definition signatures must have a complete supported header and body; malformed continuations are unavailable. It does not reflow arbitrary expressions, imports or comments. Whole-file Reformat Code applies wrapping; a selected range applies only safe horizontal spacing to avoid partially wrapping a list.
 
 IntelliJ's standard Reformat Code action is available for selected Bend files and directories. Its opt-in Actions on Save and Commit Checks call the same formatter. The headless fixtures exercise the shared Reformat Code path; they do not drive the save or commit dialogs. For the manual acceptance scenario, see [manual feature verification](docs/manual-verification.md).
 

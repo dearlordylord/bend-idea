@@ -2,12 +2,14 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-tool="$repo_root/build/libs/bend-format-tool-0.1.8.jar"
-java_executable="${JAVA_HOME:+$JAVA_HOME/bin/}java"
-if [[ ! -f "$tool" ]]; then
-  printf 'Bend format tool 0.1.8 is unavailable; run ./gradlew buildFormatTool first.\n' >&2
+shopt -s nullglob
+tools=("$repo_root"/build/libs/bend-format-tool-*.jar)
+if ((${#tools[@]} != 1)); then
+  printf 'Expected exactly one built Bend format tool; clean build/libs and run ./gradlew buildFormatTool.\n' >&2
   exit 2
 fi
+tool="${tools[0]}"
+java_executable="${JAVA_HOME:+$JAVA_HOME/bin/}java"
 
 status=0
 while IFS= read -r -d '' path; do

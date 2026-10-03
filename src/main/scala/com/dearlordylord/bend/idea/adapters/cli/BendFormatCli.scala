@@ -12,15 +12,21 @@ import scala.util.control.NonFatal
 /** Optional offline style command. It never invokes the Bend compiler or IDE.
   */
 object BendFormatCli:
-  private val version = "0.1.8"
-
   def main(args: Array[String]): Unit =
     System.exit(run(args.toList))
 
   def run(args: List[String]): Int =
     if args == List("--version") then
-      println(s"bend-format-tool $version")
-      return 0
+      Option(getClass.getPackage.getImplementationVersion)
+        .filter(_.trim.nonEmpty) match
+        case Some(version) =>
+          println(s"bend-format-tool $version")
+          return 0
+        case None =>
+          System.err.println(
+            "Bend format tool build version metadata is unavailable"
+          )
+          return 2
     val (fix, stdinPath, paths) = args match
       case "check" :: "--stdin-path" :: path :: Nil =>
         (false, Some(path), List(path))

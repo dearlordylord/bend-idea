@@ -53,6 +53,7 @@ compiler-backed features. See the
         <stubIndex implementation="com.dearlordylord.bend.idea.symbols.index.BendDottedComponentIndex"/>
         <gotoSymbolContributor implementation="com.dearlordylord.bend.idea.symbols.index.BendChooseByNameContributor"/>
         <additionalLibraryRootsProvider implementation="com.dearlordylord.bend.idea.symbols.index.BendSymbolLibraryRootsProvider"/>
+        <preFormatProcessor implementation="com.dearlordylord.bend.idea.features.formatting.BendFormattingProcessor"/>
         <lang.formatter language="Bend"
                         implementationClass="com.dearlordylord.bend.idea.features.formatting.BendFormattingModelBuilder"/>
         <lang.syntaxHighlighterFactory language="Bend"

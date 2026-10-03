@@ -91,6 +91,7 @@ val buildFormatTool by tasks.registering(Jar::class) {
     archiveVersion.set(project.version.toString())
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest.attributes["Main-Class"] = "com.dearlordylord.bend.idea.adapters.cli.BendFormatCli"
+    manifest.attributes["Implementation-Version"] = project.version.toString()
     from(sourceSets.main.get().output) {
         include("com/dearlordylord/bend/idea/syntax/parser/BendLayoutPolicy*.class")
         include("com/dearlordylord/bend/idea/adapters/cli/BendFormatCli*.class")
@@ -105,6 +106,8 @@ val buildFormatTool by tasks.registering(Jar::class) {
 tasks.test {
     dependsOn(buildFormatTool)
     systemProperty("bend.format.tool.jar", buildFormatTool.get().archiveFile.get().asFile.absolutePath)
+    systemProperty("bend.format.tool.version", project.version.toString())
+    systemProperty("bend.format.tool.classes", sourceSets.main.get().output.classesDirs.asPath)
 }
 
 tasks.test {

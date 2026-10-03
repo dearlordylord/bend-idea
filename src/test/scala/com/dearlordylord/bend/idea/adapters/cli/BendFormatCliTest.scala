@@ -1,5 +1,6 @@
 package com.dearlordylord.bend.idea.adapters.cli
 
+import com.dearlordylord.bend.idea.features.formatting.BendWrappingFixtures
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.charset.StandardCharsets
@@ -112,7 +113,7 @@ final class BendFormatCliTest:
       val working = "def main(x: U32, y: U32) -> U32:\n  x\n"
       Files.writeString(file, working)
       val toolDirectory = Files.createDirectories(dir.resolve("build/libs"))
-      Files.copy(jar, toolDirectory.resolve("bend-format-tool-0.1.8.jar"))
+      Files.copy(jar, toolDirectory.resolve(jar.getFileName))
       val hook = Path.of("contrib/hooks/pre-commit").toAbsolutePath.toString
       val result = run(dir, "bash", hook)
       assertEquals(result._2, 1, result._1)
@@ -136,6 +137,162 @@ final class BendFormatCliTest:
       assertEquals(1, allTracked._1)
       assertTrue(allTracked._2.contains("nested/tracked.bend"))
       assertFalse(allTracked._2.contains("untracked.bend"))
-      val _ = Files.delete(toolDirectory.resolve("bend-format-tool-0.1.8.jar"))
+      val ambiguous = toolDirectory.resolve("bend-format-tool-other.jar")
+      val _ = Files.copy(jar, ambiguous)
       assertEquals(2, run(dir, "bash", hook)._1)
+      assertEquals(2, run(dir, "bash", all)._1)
+      val _ = Files.delete(ambiguous)
+      val _ = Files.delete(toolDirectory.resolve(jar.getFileName))
+      assertEquals(2, run(dir, "bash", hook)._1)
+    }
+
+  @Test def approvedLayoutsAreIdenticalInTheActualStandaloneJar(): Unit =
+    temporary { dir =>
+      for (before, after) <- List(
+          BendWrappingFixtures.actorBefore -> BendWrappingFixtures.actorAfter,
+          BendWrappingFixtures.healBefore -> BendWrappingFixtures.healAfter,
+          BendWrappingFixtures.signatureBefore -> BendWrappingFixtures.signatureAfter
+        )
+      do
+        val file = dir.resolve("example.bend")
+        Files.writeString(file, before)
+        assertEquals(1, tool(dir, "check", file.toString)._1)
+        assertEquals(before, Files.readString(file))
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(after, Files.readString(file))
+        assertEquals(0, tool(dir, "check", file.toString)._1)
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(after, Files.readString(file))
+    }
+
+  @Test def batchFixKeepsUnavailableFileAndFormatsSafeFile(): Unit = temporary {
+    dir =>
+      val safe = dir.resolve("safe.bend")
+      val unsafe = dir.resolve("unsafe.bend")
+      val bad = "def unfinished(x,y\n"
+      Files.writeString(safe, BendWrappingFixtures.actorBefore)
+      Files.writeString(unsafe, bad)
+      assertEquals(2, tool(dir, "fix", safe.toString, unsafe.toString)._1)
+      assertEquals(BendWrappingFixtures.actorAfter, Files.readString(safe))
+      assertEquals(bad, Files.readString(unsafe))
+  }
+
+  @Test def widthOnlyEditorConfigNestedOverridesAndThresholds(): Unit =
+    temporary { dir =>
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nbend_max_line_length = 28\n"
+      )
+      val parent = dir.resolve("parent.bend")
+      Files.writeString(parent, BendWrappingFixtures.callBefore)
+      assertEquals(0, tool(dir, "fix", parent.toString)._1)
+      assertEquals(BendWrappingFixtures.callWrapped, Files.readString(parent))
+      for (width, expected) <- BendWrappingFixtures.widthCases do
+        val child = Files.createDirectory(dir.resolve("width" + width))
+        Files.writeString(
+          child.resolve(".editorconfig"),
+          s"[*.bend]\nbend_max_line_length = $width\n"
+        )
+        val file = child.resolve("child.bend")
+        Files.writeString(file, BendWrappingFixtures.callBefore)
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(expected, Files.readString(file))
+        assertEquals(0, tool(dir, "check", file.toString)._1)
+      val invalid = Files.createDirectory(dir.resolve("invalid"))
+      Files.writeString(
+        invalid.resolve(".editorconfig"),
+        "[*.bend]\nbend_max_line_length = invalid\n"
+      )
+      val file = invalid.resolve("child.bend")
+      Files.writeString(file, BendWrappingFixtures.callBefore)
+      assertEquals(2, tool(dir, "fix", file.toString)._1)
+      assertEquals(BendWrappingFixtures.callBefore, Files.readString(file))
+    }
+
+  @Test def wrappingPreservesCrLfAndNoFinalNewlineBytes(): Unit = temporary {
+    dir =>
+      for
+        (before, after) <- BendWrappingFixtures.exactCases
+        suffix <- List("\n", "")
+      do
+        val source = before.stripSuffix("\n") + suffix
+        val expected = after.stripSuffix("\n") + suffix
+        val file = dir.resolve("crlf.bend")
+        Files.writeString(file, source.replace("\n", "\r\n"))
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(expected.replace("\n", "\r\n"), Files.readString(file))
+        assertEquals(0, tool(dir, "check", file.toString)._1)
+  }
+
+  @Test def tabWidthAndNoFinalNewlineMatchEditorLayout(): Unit = temporary {
+    dir =>
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nindent_style = tab\nindent_size = 4\ntab_width = 4\nbend_max_line_length = 28\n"
+      )
+      val file = dir.resolve("tabs.bend")
+      Files.writeString(file, BendWrappingFixtures.tabBefore)
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      assertEquals(BendWrappingFixtures.tabAfter, Files.readString(file))
+      assertEquals(0, tool(dir, "check", file.toString)._1)
+  }
+
+  @Test def unsafeWrappingRequestsNeverWriteAnyBytes(): Unit = temporary {
+    dir =>
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nbend_max_line_length = 20\n"
+      )
+      for source <- BendWrappingFixtures.unsafeCases do
+        val file = dir.resolve("unsafe.bend")
+        Files.writeString(file, source)
+        assertEquals(2, tool(dir, "check", file.toString)._1)
+        assertEquals(source, Files.readString(file))
+        assertEquals(2, tool(dir, "fix", file.toString)._1)
+        assertEquals(source, Files.readString(file))
+  }
+
+  @Test def existingMultilineSignaturesAndNestedSiblingGrouping(): Unit =
+    temporary { dir =>
+      val file = dir.resolve("groups.bend")
+      Files.writeString(file, BendWrappingFixtures.multilineSignatureBefore)
+      assertEquals(0, tool(dir, "check", file.toString)._1)
+      assertEquals(
+        BendWrappingFixtures.multilineSignatureBefore,
+        Files.readString(file)
+      )
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nbend_max_line_length = 20\n"
+      )
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      assertEquals(
+        BendWrappingFixtures.multilineSignatureAfter,
+        Files.readString(file)
+      )
+      assertEquals(0, tool(dir, "check", file.toString)._1)
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nbend_max_line_length = 30\n"
+      )
+      Files.writeString(file, BendWrappingFixtures.siblingsBefore)
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      assertEquals(BendWrappingFixtures.siblingsAfter, Files.readString(file))
+      assertEquals(0, tool(dir, "check", file.toString)._1)
+    }
+
+  @Test def groupedCallsAndUnrelatedSiblingListsUseBoundedWidth(): Unit =
+    temporary { dir =>
+      for ((width, source, expected), index) <-
+          BendWrappingFixtures.boundedCases.zipWithIndex
+      do
+        Files.writeString(
+          dir.resolve(".editorconfig"),
+          s"root = true\n[*.bend]\nbend_max_line_length = $width\n"
+        )
+        val file = dir.resolve(s"bounded-$index.bend")
+        Files.writeString(file, source)
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(expected, Files.readString(file))
+        assertEquals(0, tool(dir, "check", file.toString)._1)
     }

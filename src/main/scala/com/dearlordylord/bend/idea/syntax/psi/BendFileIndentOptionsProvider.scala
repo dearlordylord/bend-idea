@@ -23,7 +23,8 @@ final class BendFileIndentOptionsProvider extends FileIndentOptionsProvider:
         base.INDENT_SIZE,
         base.USE_TAB_CHARACTER,
         base.TAB_SIZE
-      )
+      ),
+      wrapping = false
     )
     if effective.isEmpty || !effective.get.valid then return null
     val result = new CommonCodeStyleSettings.IndentOptions()

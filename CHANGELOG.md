@@ -13,6 +13,17 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Wrap long constructor patterns, constructor expressions, calls and dependent
+  definition signatures in Reformat Code and the offline formatter. Reflow
+  recognized overlong multiline lists while preserving fitting grouping.
+- Add the shared plugin-specific EditorConfig `bend_max_line_length` setting:
+  a 100-column soft default, positive widths and `off`, including width-only
+  sections and inherited overrides. Unsafe formatting leaves that file intact.
+
+
+- The standalone formatter reports its packaged build version; formatter hook and
+  CI examples select exactly one built artifact without a release-number literal.
+
 ## 0.1.10
 
 - Parameter-name hints retry once when dependency discovery or an edit changes
