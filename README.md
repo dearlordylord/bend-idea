@@ -28,6 +28,8 @@ Supports IntelliJ IDEA **2025.1 and newer**. Compatibility has been verified wit
 - Parameter information, parameter-name hints, source semantic highlights, constructor-case generation, and an explicit import action for unresolved names.
 - Token-aware spelling for comments and supported string text, using the IDE's spellchecker dictionaries and fixes.
 
+To distinguish resolved constructors from ordinary calls, open **Settings → Editor → Color Scheme → Bend → Resolved constructor**, disable inherited attributes, and choose a foreground color. The default inherits the scheme’s function-call color, which may be white. **Resolved import alias** has its own configurable category. These semantic colors require resolvable declarations or imports; an unresolved name is not colored as a constructor.
+
 ### Structure and refactoring
 
 - The structure view lists definitions, laws, data types, and constructors, and navigates to their source.
@@ -81,9 +83,9 @@ Add `https://idea.dearlordylord.com/updatePlugins.xml` and click **OK**. If that
 
 <img src="docs/screenshots/plugin-repository-url.png" alt="Custom Plugin Repositories dialog with the Bend2 repository URL" width="600">
 
-Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.10.
+Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.11.
 
-To install a signed ZIP directly, download [`bend-idea-0.1.10-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.10/bend-idea-0.1.10-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.10/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.10) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
+To install a signed ZIP directly, download [`bend-idea-0.1.11-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-idea-0.1.11-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.11) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
 
 ## Planned
 
@@ -91,20 +93,60 @@ To install a signed ZIP directly, download [`bend-idea-0.1.10-signed.zip`](https
 
 The [implementation specification](https://github.com/dearlordylord/bend-idea/issues/1) and [feature issues](https://github.com/dearlordylord/bend-idea/issues) track the full roadmap.
 
-## Build
+## Standalone formatter and style checker
 
-Use a full **JDK 21**. The Gradle wrapper downloads the pinned build tools and IDE dependencies as needed. Distributions must always be signed. Keep `private.pem` and `chain.crt` outside the repository in the directory named by `BEND_IDEA_SIGNING_DIR`.
+The optional console tool checks formatting and can fix it using the same conservative policy as **Reformat Code**. It runs with **Java 21 or newer**, without IntelliJ, Bun or a Bend compiler. It reads only local source files and EditorConfig settings; it does not perform semantic linting or compiler checking.
 
-The real compiler tests in `./gradlew check` require `BEND_TEST_COMPILER_DIR` to name a clean Bend checkout and `BEND_TEST_BUN` to name an absolute Bun executable. The approved Bend commit and the exact Bun version/revision are recorded in [`ci/bend-test-toolchain.properties`](ci/bend-test-toolchain.properties); the test gate fails before running tests if either supplied input is missing or mismatched. CI checks Bend out separately under `_ci/bend`, provisions Bun at the recorded release, and logs both inputs before the gate. Local test runs can use any clean checkout of the recorded Bend commit and Bun executable matching the recorded version and revision; supplied `.references` checkouts are not changed.
-
-The [Bend release compatibility workflow](.github/workflows/bend-releases.yml) polls published Bend releases every six hours and can be run manually with a specific tag. It checks each release newer than the approved pin using the release's SHA-256-verified Linux archive, its compiler and matching Base, then exercises **Check Current Bend File** for complete, TODO/named-hole, failed, unsafe/foreign and side-effecting-main cases, plus parsing, navigation, conservative formatting with compiler comparisons, and unsaved imported-source diagnostics. Results include the compatibility-suite identity and tested plugin commit and are recorded on the `bend-release-results` branch and in the workflow summary; a failed release can be retried with the manual `release_tag` input. This compatibility smoke test does not change the pinned `./gradlew check` gate or claim support for the pinned-source structured helper on a new compiler. Older basic-smoke results are queued again under `editor-compatibility-v2`. Each run checks up to 20 candidates after Bend 2.0.25; later polls continue any backlog. A local release smoke run uses `BEND_TEST_CURRENT_COMPILER=/absolute/path/to/bend/bin/bend BEND_TEST_CURRENT_BASE=/absolute/path/to/bend/bend2/base.bend ./gradlew -PbendReleaseSmoke=true test` with JDK 21.
-
-### Optional Bend format check
-
-Build the standalone tool with JDK 21 using `./gradlew buildFormatTool`. The resulting `build/libs/bend-format-tool-<project-version>.jar` runs without IntelliJ, Bun, a Bend compiler, package downloads, or an open IDE process. After the build, the command reads only local files and EditorConfig settings. It uses the same conservative source policy as Reformat Code; a style result is **not** a compiler verdict. Compiler `--check-only` still requires a selected root and its loaded graph.
+Download [`bend-format-tool-0.1.11.jar`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-format-tool-0.1.11.jar) from the [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.11), then run:
 
 ```sh
-# Run in Bash; reject missing or ambiguous artifacts.
+tool=./bend-format-tool-0.1.11.jar
+java -jar "$tool" --version  # bend-format-tool 0.1.11
+java -jar "$tool" check src/main.bend src/types.bend
+java -jar "$tool" fix src/main.bend src/types.bend
+```
+
+Pass one or more explicit `.bend` paths. `check` never writes files or the Git index. `fix` changes only safe working-tree files and leaves unavailable files intact. Files in a batch are processed independently, even if another file is unavailable.
+
+| Exit | `check` | `fix` |
+|---|---|---|
+| `0` | All files conform. | All files conform or were safely formatted. |
+| `1` | At least one file would change. | — |
+| `2` | A file is unavailable or the command cannot run. | A file is unavailable or the command cannot run; safe files may already have been formatted. |
+
+`--version` reads packaged build metadata, independent of the JAR filename. Missing or blank metadata exits `2`; formatting commands remain usable.
+
+### EditorConfig and wrapping
+
+Place an `.editorconfig` in your project; the IDE formatter and console tool share these settings:
+
+```ini
+root = true
+
+[*.bend]
+indent_style = space
+indent_size = 2
+tab_width = 4
+bend_max_line_length = 100
+```
+
+- `bend_max_line_length` accepts a positive integer or `off`. Absent or `unset` uses the default **100 visual columns**. `off` preserves existing breaks while allowing safe spacing. Invalid values make formatting unavailable. This is a Bend-specific extension, not a standard EditorConfig property.
+- `indent_style`, `indent_size` (including `tab`) and `tab_width` follow shared indentation decoding. Tab width controls visual tab stops independently of space indentation; tab indentation uses tabs plus any remaining spaces. Unsupported standard-property values are ignored individually, preserving other valid settings.
+- Nested and inherited overrides work, including sections that set only the line width. When IntelliJ’s EditorConfig support is disabled in Code Style settings, Bend typing and formatting use IDE defaults. The console tool always reads local EditorConfig files. If the optional IDE EditorConfig plugin is absent, Bend retains local property lookup. Generic save properties remain owned by IntelliJ.
+
+Wrapping applies to complete constructor patterns, constructor expressions, calls and definition parameter lists. Recognized overlong multiline lists reflow; fitting multiline grouping remains intact. Names, literals, operators, dependent annotations and arbitrary proof terms stay intact, even when they exceed the soft limit. Comments, line endings and the presence or absence of a final newline are preserved. Header-looking text inside multiline literals remains literal text.
+
+Incomplete source, unsupported layout, unsafe comment attachment, significant newlines that could change call/index parsing, and mixed line endings requiring inserted breaks yield `unavailable` without edits to that file. The formatter does not reflow arbitrary expressions, imports or comments.
+
+In IntelliJ, invoke **Reformat Code** on the whole file, or use **Select All → Reformat Code**; omitting surrounding whitespace or the final newline from that selection still allows wrapping. Partial selections apply only safe horizontal spacing. The opt-in **Actions on Save** and **Commit Checks** use the same formatter. Enter and Backspace stay conservative where tab normalization could change physical body ownership. See [manual feature verification](docs/manual-verification.md).
+
+### Hooks, CI and building the tool
+
+The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including partially staged files. Copy it into `.git/hooks/pre-commit` and make it executable. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks working-tree content; the [CI example](docs/examples/bend-format-ci.yml) builds the tool and runs that script. Neither invokes compiler checking.
+
+Build from source with JDK 21 using `./gradlew buildFormatTool`. Select the artifact by its generated name rather than hardcoding a release version:
+
+```bash
 shopt -s nullglob
 tools=(build/libs/bend-format-tool-*.jar)
 if ((${#tools[@]} != 1)); then
@@ -114,20 +156,15 @@ fi
 tool="${tools[0]}"
 java -jar "$tool" --version
 java -jar "$tool" check path/to/main.bend
-java -jar "$tool" fix path/to/main.bend
 ```
 
-`--version` reports the packaged project version, regardless of the JAR filename. Missing or blank build metadata reports unavailable on stderr and exits 2; `check` and `fix` remain usable.
+## Build
 
-`check` reports `conforming`, `would-change`, or `unavailable` per explicit file and never writes files or the Git index. Exit status is 0 when all files conform, 1 when at least one would change, and 2 when any file is unavailable or the command cannot run. `fix` writes only working-tree files and leaves unsafe files alone. Both commands preserve existing line endings, final newlines, comments and literals. The formatter normalizes safe comma spacing and simple single-body indentation, and wraps complete constructor patterns, constructor expressions, calls and definition parameter lists. Overlong recognized multiline lists reflow one item per line; fitting multiline groups stay intact. Dependent annotations and proof terms remain atomic. Header-looking lines inside multiline strings remain literal text. Comparisons using `<` support uppercase and lowercase operands alike. Incomplete source, unsupported layout, mixed line endings requiring inserted breaks and unsafe comment attachment report unavailable without edits to that file. Batches process files independently: a safe file can be formatted even when another file is unavailable, with overall exit 2.
+Use a full **JDK 21**. The Gradle wrapper downloads the pinned build tools and IDE dependencies as needed. Distributions must always be signed. Keep `private.pem` and `chain.crt` outside the repository in the directory named by `BEND_IDEA_SIGNING_DIR`.
 
-The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including when the working tree has other edits. Copy it into `.git/hooks/pre-commit` and make it executable after building the tool. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks the working-tree version of every tracked `.bend` file; the [CI example](docs/examples/bend-format-ci.yml) runs that script with the built tool. Neither script invokes Bend compiler checking.
+The real compiler tests in `./gradlew check` require `BEND_TEST_COMPILER_DIR` to name a clean Bend checkout and `BEND_TEST_BUN` to name an absolute Bun executable. The approved Bend commit and the exact Bun version/revision are recorded in [`ci/bend-test-toolchain.properties`](ci/bend-test-toolchain.properties); the test gate fails before running tests if either supplied input is missing or mismatched. CI checks Bend out separately under `_ci/bend`, provisions Bun at the recorded release, and logs both inputs before the gate. Local test runs can use any clean checkout of the recorded Bend commit and Bun executable matching the recorded version and revision; supplied `.references` checkouts are not changed.
 
-Wrapping uses a shared soft limit of 100 visual columns. The plugin-specific EditorConfig property `bend_max_line_length` accepts a positive integer or `off`; absent and `unset` use 100, and invalid values make formatting unavailable. Width-only EditorConfig sections are supported, with inherited and nested overrides. Tabs count using `tab_width` tab stops. `off` preserves existing breaks while allowing safe spacing. This property is specific to Bend IDEA and its offline tool; other EditorConfig clients need not support it. The formatter keeps names, literals, operators and arbitrary proof expressions intact even when they exceed the limit. Recognized list openers stay attached to their constructor names or application terms; qualified and literal dotted names, affine/template markers and existing trailing commas are retained. Anonymous proof/type braces and type arguments stay atomic. Continued definition signatures must have a complete supported header and body; malformed continuations are unavailable. Reflow also refuses significant newlines before call or index openers when joining them could change application parsing; the entire file stays unchanged. It does not reflow arbitrary expressions, imports or comments. Whole-file Reformat Code applies wrapping, including a selection covering all source tokens while omitting surrounding whitespace or the final newline. A partial selection applies only safe horizontal spacing to avoid partially wrapping a list.
-
-The shared indentation decoder supports `indent_style`, `indent_size` (including `tab`) and `tab_width`. Tab width controls visual tab stops independently of space indentation; tab indentation uses tabs followed by any remaining spaces. Bend measures physical character columns for body ownership, so Enter and Backspace conservatively skip automatic normalization when a visual tab transition would reverse physical indentation or change a same-level physical prefix. Invalid or unsupported values of these standard properties are ignored independently, retaining the applicable defaults and other valid properties. Invalid `bend_max_line_length` remains unavailable. When IntelliJ’s EditorConfig support is disabled in Code Style settings, Bend typing and formatting use IDE defaults; the offline tool continues reading local EditorConfig files. If the optional IDE EditorConfig plugin is absent, Bend retains its local indentation and width lookup. Generic save properties remain owned by IntelliJ.
-
-IntelliJ's standard Reformat Code action is available for selected Bend files and directories. Its opt-in Actions on Save and Commit Checks call the same formatter. The headless fixtures exercise the shared Reformat Code path; they do not drive the save or commit dialogs. For the manual acceptance scenario, see [manual feature verification](docs/manual-verification.md).
+The [Bend release compatibility workflow](.github/workflows/bend-releases.yml) polls published Bend releases every six hours and can be run manually with a specific tag. It checks each release newer than the approved pin using the release's SHA-256-verified Linux archive, its compiler and matching Base, then exercises **Check Current Bend File** for complete, TODO/named-hole, failed, unsafe/foreign and side-effecting-main cases, plus parsing, navigation, conservative formatting with compiler comparisons, and unsaved imported-source diagnostics. Results include the compatibility-suite identity and tested plugin commit and are recorded on the `bend-release-results` branch and in the workflow summary; a failed release can be retried with the manual `release_tag` input. This compatibility smoke test does not change the pinned `./gradlew check` gate or claim support for the pinned-source structured helper on a new compiler. Older basic-smoke results are queued again under `editor-compatibility-v2`. Each run checks up to 20 candidates after Bend 2.0.25; later polls continue any backlog. A local release smoke run uses `BEND_TEST_CURRENT_COMPILER=/absolute/path/to/bend/bin/bend BEND_TEST_CURRENT_BASE=/absolute/path/to/bend/bend2/base.bend ./gradlew -PbendReleaseSmoke=true test` with JDK 21.
 
 ```sh
 BEND_TEST_COMPILER_DIR=/absolute/path/to/bend \

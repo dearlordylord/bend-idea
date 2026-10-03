@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.11
+
 - Preserve multiline string contents containing header-like text during
   formatting, and handle `<` comparisons with uppercase operands.
 
@@ -31,7 +33,6 @@ version. Use the versioned entry when writing GitHub release notes.
 - Add the shared plugin-specific EditorConfig `bend_max_line_length` setting:
   a 100-column soft default, positive widths and `off`, including width-only
   sections and inherited overrides. Unsafe formatting leaves that file intact.
-
 
 - The standalone formatter reports its packaged build version; formatter hook and
   CI examples select exactly one built artifact without a release-number literal.
