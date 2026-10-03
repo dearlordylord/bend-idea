@@ -4,5 +4,6 @@
 .intellijPlatform/
 build/
 .idea/
+.wrangler/
 *.iml
 __pycache__/
