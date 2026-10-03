@@ -110,7 +110,7 @@ All five native archive/smoke jobs and publication passed in [run 37150609036](h
 
 Homebrew tap commit `302b003676de67b2c6ab4df853f4c0f525c53e16` updates all four macOS/Linux archive URLs/checksums and tests the renamed version output, help, argument errors and dash-prefixed files. [Install and test run 37150752894](https://github.com/dearlordylord/homebrew-tap/actions/runs/37150752894) passed style/audit, actual installation, command/formatter tests and uninstall on all four targets. Local Homebrew was unavailable; native tap CI provides installation evidence.
 
-The custom feed metadata targets 0.1.14 and matches the signed plugin. Live deployment is checked after this feed commit is pushed. An interactive new-version IDE installation/update was not exercised. The signed ZIP is published for the custom repository; Marketplace submission/approval remains separate. See [docs/releasing.md](docs/releasing.md).
+On 2026-10-03, both the primary custom feed and its Cloudflare Pages fallback served 0.1.14 with metadata matching the signed plugin. Its anonymous ZIP download matched the locally verified signed artifact. GitHub Release v0.1.14 is published as the stable latest release. An interactive new-version IDE installation/update was not exercised. The signed ZIP is published for the custom repository; Marketplace submission/approval remains separate. See [docs/releasing.md](docs/releasing.md).
 
 ## Homebrew distribution
 
