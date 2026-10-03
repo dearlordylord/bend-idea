@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-idea-0.1.11-signed.zip"
-          version="0.1.11">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-idea-0.1.12-signed.zip"
+          version="0.1.12">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,12 +19,10 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.11:</p>
+    <change-notes><![CDATA[<p>Version 0.1.12:</p>
 <ul>
-  <li>Reformat Code and the standalone formatter wrap long constructor patterns, calls, and dependent definition signatures, and reflow supported multiline lists.</li>
-  <li>EditorConfig controls the soft line width through bend_max_line_length, with improved tab indentation, inherited settings, and respect for the IDE enable setting.</li>
-  <li>Whole-file selections support wrapping; formatting preserves multiline literals and significant newline boundaries and refuses unsafe transformations.</li>
-  <li>The standalone formatter reports its packaged version and supports offline formatting checks and fixes without a compiler or IDE.</li>
+  <li>Ready-to-run standalone formatter archives include the bend-format command and its runtime for Linux, macOS, and Windows.</li>
+  <li>The standalone formatter applies local EditorConfig settings on Windows while preserving Unix filenames.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>

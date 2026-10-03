@@ -66,6 +66,18 @@ The clean JDK 21.0.12.1 release gate passed on 2026-10-03: 526 tests passed, zer
 
 Both the primary and fallback custom feed URLs were verified publicly on 2026-10-03 to advertise 0.1.11. Their metadata matches the signed archive's packaged plugin.xml; the feed was published after public asset verification. This release uses GitHub and the custom repository by maintainer choice; 0.1.11 was not submitted to JetBrains Marketplace.
 
+## 0.1.12 formatter distributions and custom repository release
+
+[GitHub Release v0.1.12](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.12) is tagged at tested product candidate `8496325ecc8b167da380d5804ca1d05a2c962589`. It contains the signed plugin, portable formatter JAR and five ready-to-run runtime archives: Linux x64/ARM64, macOS Intel/Apple Silicon and Windows x64. All five native-platform smoke tests passed in [workflow run 37136283151](https://github.com/dearlordylord/bend-idea/actions/runs/37136283151), including the Windows EditorConfig regression. Public downloads of all eight payload assets matched their checksum manifests. The standalone archives contain the exact release JAR and Temurin 21.0.12.1+1; the metadata source revision identifies the packaging workflow source, while the JAR hash identifies formatter bytes.
+
+- Signed ZIP SHA-256: `b2bdeda965cc95a46713593633c53fbda43fada9becb28f6ff10e6a75a873b30`.
+- Portable JAR SHA-256: `7a95698368650502b6dba55674a451ec90d9ba2bbc3a2b6f6fdaafa3cb160c09`.
+- Runtime archive checksums: [BEND-FORMAT-SHA256SUMS.txt](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/BEND-FORMAT-SHA256SUMS.txt).
+
+The clean JDK 21 release gate passed on 2026-10-03: 527 tests passed, zero failures/errors, one optional current-compiler smoke skipped; both architecture tests, quality checks, packaging, structure, project configuration, Plugin Verifier for IC 2025.1 and IU 2026.1, signing and signature verification passed. The local runtime archive smoke passed as well. Existing verifier API notices remain. Independent Astra reviewed the adapter correction and the user instructions with no outstanding actionable findings. The shared formatting policy is unchanged from 0.1.11.
+
+The custom feed is updated from the signed plugin's packaged metadata after public asset verification. This release uses GitHub and the custom repository and was not submitted to JetBrains Marketplace.
+
 ## Future updates
 
 The verified 0.1.4 signed archive is also available in the public [GitHub Release v0.1.4](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), tagged at tested candidate commit `6e91d38c3c6194b42cffe651594bf587a1748212`. The release asset was downloaded without authentication and matched the SHA-256 above. A public copy of the self-signed certificate is attached for users who choose to trust it in IDEA. The GitHub release does not establish Marketplace approval.
