@@ -488,3 +488,35 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
           .sorted(java.util.Comparator.reverseOrder())
           .forEach(p => { val _ = Files.deleteIfExists(p) })
       finally paths.close()
+
+  def testTupleListAndContinuedResultPreserveCompilerAndSourceIdentities()
+      : Unit =
+    val directory = Files.createTempDirectory("bend-format-coverage-")
+    try
+      val root = directory.resolve("main.bend")
+      val source = BendWrappingFixtures.coverageBefore
+      val expected = BendWrappingFixtures.coverageAfter
+      val _ = Files.writeString(root, source)
+      checkPinnedFile(root)
+      val file = myFixture.configureByText("coverage.bend", source)
+      val beforeTokens = tokens(file).map(t => (t._1, t._2))
+      val beforeShape = shape(file)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(expected, myFixture.getEditor.getDocument.getText)
+      assertEquals(beforeTokens, tokens(file).map(t => (t._1, t._2)))
+      assertEquals(beforeShape, shape(file))
+      val _ = Files.writeString(root, expected)
+      checkPinnedFile(root)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(expected, myFixture.getEditor.getDocument.getText)
+      myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+      assertEquals(source, myFixture.getEditor.getDocument.getText)
+    finally
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
+      finally paths.close()

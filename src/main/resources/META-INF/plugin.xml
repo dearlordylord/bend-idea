@@ -20,10 +20,11 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.12:</p>
+<p>Version 0.1.13:</p>
 <ul>
-  <li>Ready-to-run standalone formatter archives include the bend-format command and its runtime for Linux, macOS, and Windows.</li>
-  <li>The standalone formatter applies local EditorConfig settings on Windows while preserving Unix filenames.</li>
+  <li>Format tuples and list literals, including calls containing multiline lists.</li>
+  <li>Recognize definition result arrows continued on an indented line.</li>
+  <li>The IDE and standalone formatter retain shared conservative checks and idempotent wrapping.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

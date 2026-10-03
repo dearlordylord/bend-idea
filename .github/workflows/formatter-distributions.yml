@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Existing release containing the tested formatter JAR
         required: true
-        default: v0.1.12
+        default: v0.1.13
       publish:
         description: Attach tested runtime archives to that release
         type: boolean

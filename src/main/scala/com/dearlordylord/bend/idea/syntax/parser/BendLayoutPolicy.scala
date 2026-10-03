@@ -255,7 +255,7 @@ object BendLayoutPolicy:
         else if significant
             .slice(list.open + 1, list.close)
             .exists(token =>
-              Set("do", "match", "case", "return", ";", "%", "\\")
+              Set("do", "match", "case", "return", "=", ";", "%", "\\")
                 .contains(token.text)
             )
         then unsafe = Some("Unsupported block expression in list")
@@ -316,7 +316,8 @@ object BendLayoutPolicy:
   )
 
   /** Delimiter trees retain atomic proofs, annotations and type applications.
-    * Only named argument/constructor lists expose sibling comma boundaries.
+    * Argument/constructor lists, tuples and list literals expose sibling comma
+    * boundaries.
     */
   private def recognize(
       source: String,
@@ -421,7 +422,20 @@ object BendLayoutPolicy:
                 .substring(tokens(index).end, tokens(index + 1).start)
                 .exists(c => c == '\n' || c == '\r')
             then
-              scala.util.boundary.break(Left("Incomplete declaration header"))
+              // Bend permits a continued result arrow after the parameter
+              // telescope. Keep the continuation indented and require the
+              // arrow, rather than accepting arbitrary next-line body text.
+              val next = tokens(index + 1)
+              val lineStart = source.lastIndexOf('\n', next.start - 1) + 1
+              val continuedResult = tokens(first).text == "def" &&
+                first + 2 < tokens.length &&
+                pairs.get(first + 2).contains(index) && next.text == "->" &&
+                source.substring(lineStart, next.start).nonEmpty &&
+                source
+                  .substring(lineStart, next.start)
+                  .forall(c => c == ' ' || c == '\t')
+              if !continuedResult then
+                scala.util.boundary.break(Left("Incomplete declaration header"))
             index += 1
           if !found then
             scala.util.boundary.break(Left("Incomplete declaration header"))
@@ -433,23 +447,29 @@ object BendLayoutPolicy:
       val sameLine = !source
         .substring(previous.end, tokens(open).start)
         .exists(c => c == '\n' || c == '\r')
-      val head =
-        name(previous.text) || tokens(open).text == "(" && Set(")", "]", "}")
-          .contains(previous.text)
+      val namedHead = name(previous.text) && !Set(
+        "match",
+        "case",
+        "if",
+        "switch",
+        "do",
+        "rewrite",
+        "with",
+        "return"
+      ).contains(previous.text)
+      val closedHead = Set(")", "]", "}").contains(previous.text)
+      val expressionHead = namedHead || closedHead
       val proofBrace =
         tokens(open).text == "{" && open + 1 < close && Set("=", "==").contains(
           tokens(open + 1).text
         )
-      val eligible = Set("(", "{").contains(
-        tokens(open).text
-      ) && head && (attached || tokens(
-        open
-      ).text == "(" && sameLine) && !proofBrace &&
-        !Set("match", "case", "if", "switch", "do", "rewrite", "with", "return")
-          .contains(previous.text)
+      val namedList = Set("(", "{").contains(tokens(open).text) &&
+        (namedHead || tokens(open).text == "(" && closedHead) &&
+        (attached || tokens(open).text == "(" && sameLine) && !proofBrace
       val commas = Vector.newBuilder[Int]
       val children = Vector.newBuilder[LayoutList]
       var index = open + 1
+      var topLevelColon = false
       while index < close do
         if pairs.contains(index) then
           build(index) match
@@ -458,8 +478,20 @@ object BendLayoutPolicy:
           index = pairs(index) + 1
         else
           if tokens(index).text == "," then commas += index
+          if tokens(index).text == ":" then topLevelColon = true
           index += 1
       val separators = commas.result()
+      // A bare parenthesized comma list is a tuple, not an application.
+      // Square brackets in term position are list literals; an adjacent
+      // expression head makes them indexes, which remain atomic. Colon forms
+      // inside brackets are arrays and are also kept atomic.
+      val tuple = tokens(open).text == "(" && separators.nonEmpty &&
+        !(expressionHead && sameLine)
+      val listLiteral = tokens(open).text == "[" &&
+        !(expressionHead && sameLine) && !topLevelColon
+      if tuple && separators.lastOption.contains(close - 1) then
+        scala.util.boundary.break(Left("Incomplete tuple item"))
+      val eligible = namedList || tuple || listLiteral
       if separators.nonEmpty && !eligible && tokens(open).text != "<" && tokens(
           open
         ).text != "["

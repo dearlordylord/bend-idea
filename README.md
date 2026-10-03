@@ -68,6 +68,8 @@ To distinguish resolved constructors from ordinary calls, open **Settings → Ed
 ## Compiler and release details
 
 See the [changelog](CHANGELOG.md) for released changes and work awaiting release.
+Maintainers: follow the [release procedure](docs/releasing.md) for Homebrew archives,
+signing, the IntelliJ custom repository and version metadata.
 The plugin's **What's New** text is maintained separately in
 [`plugin.xml`](src/main/resources/META-INF/plugin.xml) when a release is prepared.
 

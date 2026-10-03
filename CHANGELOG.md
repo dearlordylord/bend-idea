@@ -13,6 +13,12 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.13
+
+- Format tuples and list literals, including calls containing multiline lists,
+  and recognize definition result arrows continued on an indented line.
+  The IDE and offline formatter share the same conservative checks.
+
 ## 0.1.12
 
 - Ship ready-to-run formatter archives for Linux, macOS and Windows with a

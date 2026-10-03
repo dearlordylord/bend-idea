@@ -313,3 +313,30 @@ final class BendLayoutPolicyTest:
           .format(source, twoSpaces)
           .isInstanceOf[BendLayoutPolicy.Outcome.Unavailable]
       )
+
+  @Test def newListFormsRetainIncompleteAndAtomicGuards(): Unit =
+    val settings = twoSpaces.copy(maxLineLength = Some(20))
+    for source <- List(
+        "def f():\n  (alpha,,beta)\n",
+        "def f():\n  (alpha,)\n",
+        "def f():\n  [alpha *,beta]\n",
+        "def f():\n  (alpha *,beta)\n",
+        "def f(first: U32)\n    first\n",
+        "def f(first: U32)\n-> U32:\n  first\n",
+        "def f(first: U32)\n    -> :\n  first\n",
+        "def f():\n  [alpha, # attachment\n    beta]\n",
+        "def f():\n  (alpha, # attachment\n    beta)\n"
+      )
+    do assertTrue(source, BendLayoutPolicy.edits(source, settings).isLeft)
+    for source <- List(
+        "def f():\n  array[index]\n",
+        "def f():\n  [value : U32*4]\n",
+        "def f():\n  (alpha, beta)\n",
+        "def f():\n  [alpha, beta]\n"
+      )
+    do
+      assertEquals(
+        source,
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(source, settings)
+      )

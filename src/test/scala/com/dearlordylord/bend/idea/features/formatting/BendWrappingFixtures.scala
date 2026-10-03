@@ -1,6 +1,8 @@
 package com.dearlordylord.bend.idea.features.formatting
 
-/** Exact approved issue #83 excerpts shared by the editor and packaged CLI. */
+/** Approved wrapping excerpts and compiler-valid coverage regressions shared by
+  * the editor and packaged CLI.
+  */
 object BendWrappingFixtures:
   val actorBefore =
     """def actor_available_creature(+actor: T.Creature) -> Bool:
@@ -106,7 +108,7 @@ object BendWrappingFixtures:
     "def main():\n  combine('ab',alpha,beta)\n",
     ("def main():\n  combine('" + 92.toChar + "u{110000}',alpha,beta)\n"),
     "def dangling(first: U32, second: U32, third: U32) -> U32:\n",
-    "def main():\n  (alpha,beta)\n",
+    "def main():\n  (alpha,,beta)\n",
     "def main():\n  combine(alpha,beta, # keep attachment\n    gamma)\n",
     "def main():\n  combine(\"unterminated,beta)\n"
   ) ++ separatedApplicationCases
@@ -151,3 +153,61 @@ object BendWrappingFixtures:
         header.replace(",", ", ") + "    " + body
       )
   }
+
+  val coverageBefore =
+    """import Base
+      |# Preserve this comment and literal punctuation: (a,b) [c,d].
+      |def a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(value: U32) -> U32:
+      |  value
+      |def tuple_results(+value: U32) -> U32 & U32:
+      |  previous = a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(value)
+      |  (a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(previous),a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(value))
+      |type Entry is Data:
+      |  Entry{first: U32, second: U32, third: U32, fourth: U32}
+      |def select_entry(+entries: List<&2, Entry>, first: U32, second: U32) -> U32:
+      |  first
+      |def list_results() -> U32:
+      |  select_entry([
+      |    Entry{1,2,3,4}, Entry{5,6,7,8}, Entry{9,10,11,12}, Entry{13,14,15,16}, Entry{17,18,19,20}, Entry{21,22,23,24}
+      |  ],9,10)
+      |def continued_result(first: U32,second: U32)
+      |    -> U32:
+      |  first
+      |def literal() -> String:
+      |  "(a,b) [c,d]"
+      |""".stripMargin
+
+  val coverageAfter =
+    """import Base
+      |# Preserve this comment and literal punctuation: (a,b) [c,d].
+      |def a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(value: U32) -> U32:
+      |  value
+      |def tuple_results(+value: U32) -> U32 & U32:
+      |  previous = a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(value)
+      |  (
+      |    a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(previous),
+      |    a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(value)
+      |  )
+      |type Entry is Data:
+      |  Entry{first: U32, second: U32, third: U32, fourth: U32}
+      |def select_entry(+entries: List<&2, Entry>, first: U32, second: U32) -> U32:
+      |  first
+      |def list_results() -> U32:
+      |  select_entry(
+      |    [
+      |      Entry{1, 2, 3, 4},
+      |      Entry{5, 6, 7, 8},
+      |      Entry{9, 10, 11, 12},
+      |      Entry{13, 14, 15, 16},
+      |      Entry{17, 18, 19, 20},
+      |      Entry{21, 22, 23, 24}
+      |    ],
+      |    9,
+      |    10
+      |  )
+      |def continued_result(first: U32, second: U32)
+      |    -> U32:
+      |  first
+      |def literal() -> String:
+      |  "(a,b) [c,d]"
+      |""".stripMargin

@@ -1,5 +1,9 @@
 # Installing Bend2 before Marketplace publication
 
+For the current combined Homebrew and IntelliJ release procedure, use
+[docs/releasing.md](../docs/releasing.md). The dated observations below retain
+their original scope.
+
 Checked 2026-09-26 against this repository and first-party JetBrains and GitHub documentation. The signed 0.1.4 ZIP is available as a [GitHub Release asset](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), and the [custom repository XML](https://idea.dearlordylord.com/updatePlugins.xml) is publicly served over HTTPS. The feed has not been tested in an IDE.
 
 A Git-connected Cloudflare Pages project serves this XML at `https://idea.dearlordylord.com/updatePlugins.xml`. Its authoritative Gandi DNS has a CNAME record `idea → bend-idea-plugins.pages.dev`; Cloudflare reports ownership and HTTPS validation active. [Cloudflare Pages custom domain instructions](https://developers.cloudflare.com/pages/configuration/custom-domains/)

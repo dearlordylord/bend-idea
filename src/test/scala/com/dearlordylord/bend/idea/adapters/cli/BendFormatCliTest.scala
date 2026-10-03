@@ -397,3 +397,16 @@ final class BendFormatCliTest:
         assertEquals(0, tool(dir, "fix", file.toString)._1)
         assertEquals(expected, Files.readString(file))
   }
+
+  @Test def tupleListAndContinuedResultMatchTheEditor(): Unit = temporary {
+    dir =>
+      val file = dir.resolve("coverage.bend")
+      Files.writeString(file, BendWrappingFixtures.coverageBefore)
+      assertEquals(1, tool(dir, "check", file.toString)._1)
+      assertEquals(BendWrappingFixtures.coverageBefore, Files.readString(file))
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      assertEquals(BendWrappingFixtures.coverageAfter, Files.readString(file))
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      assertEquals(0, tool(dir, "check", file.toString)._1)
+      assertEquals(BendWrappingFixtures.coverageAfter, Files.readString(file))
+  }
