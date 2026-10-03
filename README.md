@@ -142,7 +142,7 @@ In IntelliJ, invoke **Reformat Code** on the whole file, or use **Select All →
 
 ### Hooks, CI and building the tool
 
-The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including partially staged files. Copy it into `.git/hooks/pre-commit` and make it executable. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks working-tree content; the [CI example](docs/examples/bend-format-ci.yml) builds the tool and runs that script. Neither invokes compiler checking.
+The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including partially staged files. After building the tool, copy it into `.git/hooks/pre-commit` and make it executable. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks working-tree content; the [CI example](docs/examples/bend-format-ci.yml) builds the tool and runs that script. Neither invokes compiler checking.
 
 Build from source with JDK 21 using `./gradlew buildFormatTool`. Select the artifact by its generated name rather than hardcoding a release version:
 

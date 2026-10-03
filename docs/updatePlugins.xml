@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.10/bend-idea-0.1.10-signed.zip"
-          version="0.1.10">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-idea-0.1.11-signed.zip"
+          version="0.1.11">
     <idea-version since-build="251"/>
     <name>Bend2</name>
-    <!-- The description is the stable plugin overview; match packaged change-notes for version history. -->
-    <description><![CDATA[
-Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
+    <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
 
 <ul>
   <li>Syntax highlighting, hash line comments, and editable snippets</li>
@@ -20,16 +18,13 @@ Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in In
 
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
-<a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
-    ]]></description>
-    <change-notes><![CDATA[
-<p>Version 0.1.10:</p>
+<a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
+    <change-notes><![CDATA[<p>Version 0.1.11:</p>
 <ul>
-  <li>Parameter and constructor field hints retry after dependency discovery or edits change the captured revision.</li>
-  <li>A clickable status-bar indicator shows compiler checking results and offers Check again.</li>
-  <li>The optional pinned compiler helper supplies versioned check-only verdicts and mapped diagnostics.</li>
-  <li>Imported-root checks use filenames compatible with Bend 2.0.34.</li>
-</ul>
-    ]]></change-notes>
+  <li>Reformat Code and the standalone formatter wrap long constructor patterns, calls, and dependent definition signatures, and reflow supported multiline lists.</li>
+  <li>EditorConfig controls the soft line width through bend_max_line_length, with improved tab indentation, inherited settings, and respect for the IDE enable setting.</li>
+  <li>Whole-file selections support wrapping; formatting preserves multiline literals and significant newline boundaries and refuses unsafe transformations.</li>
+  <li>The standalone formatter reports its packaged version and supports offline formatting checks and fixes without a compiler or IDE.</li>
+</ul>]]></change-notes>
   </plugin>
 </plugins>

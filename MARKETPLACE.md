@@ -2,7 +2,7 @@
 
 Bend2's plugin ID is `com.dearlordylord.bend.idea`; its Marketplace listing name is `Bend2`. Build with JDK 21. The plugin targets IntelliJ IDEA 2025.1 and declares no upper IDE build limit. Verify newer IDE releases before claiming support.
 
-The public [Bend2 Marketplace listing](https://plugins.jetbrains.com/plugin/34452-bend2) serves version 0.1.9 as of 2026-10-02. The authenticated vendor page marks 0.1.9 **Approved** and 0.1.10 **Under review**. The public plugin details API reports the **Plugin Site** URL as `https://bend-idea.dearlordylord.com/`.
+The public [Bend2 Marketplace listing](https://plugins.jetbrains.com/plugin/34452-bend2) serves version 0.1.9 as of the public API check on 2026-10-03. The authenticated vendor page last checked on 2026-10-02 marked 0.1.9 **Approved** and 0.1.10 **Under review**. The public plugin details API reports the **Plugin Site** URL as `https://bend-idea.dearlordylord.com/`.
 
 ## 0.1.2 submission
 
@@ -54,6 +54,17 @@ The signed 0.1.10 archive is available in [GitHub Release v0.1.10](https://githu
 The clean JDK 21.0.12.1 release gate passed on 2026-10-02: 475 tests, zero failures or errors, one optional current-compiler smoke test skipped; architecture, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing and signature verification passed. Verifier reports compatibility with the existing API usage notices, including six internal API usages in the Community report. Implementer self-review under `REVIEWER.md` found no actionable findings for #27 and rules A2, A3, A7 and A8. The parameter-hint fix was also confirmed in the user's IDEA session.
 
 JetBrains Marketplace accepted the same signed ZIP through the authenticated vendor page in Stable as update **1186157**. The page showed **Under review**, with no initial problems found; public Marketplace availability awaits JetBrains approval. Cloudflare Pages deployed the custom feed from `master`; both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` were checked to advertise 0.1.10 with metadata matching the signed plugin, after its release asset was verified.
+
+## 0.1.11 GitHub and custom repository release
+
+[GitHub Release v0.1.11](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.11) is tagged at tested candidate `ae7af4010ff6690f2d240374c0f661b6d79575f3`. It includes the signed plugin ZIP, standalone formatter/style-checker JAR, public signing certificate and SHA256SUMS.txt. Unauthenticated downloads matched the local artifacts, and the downloaded JAR reports `bend-format-tool 0.1.11`.
+
+- Signed ZIP SHA-256: `55dc968dceec5ab45a98dc02ca6b5db952457a784a6439f982c3ee15336b892d`.
+- Standalone JAR SHA-256: `8beab941b5a409ef52c814c1ba4eeda5245cc112b433d1e801bf8e19e0b2dac8`.
+
+The clean JDK 21.0.12.1 release gate passed on 2026-10-03: 526 tests passed, zero failures or errors, and one optional current-compiler smoke test skipped. Architecture, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing and signature verification passed. Verifier classified both IDE targets as compatible with existing API usage notices. Independent Astra Standards and Spec reviews found no outstanding actionable findings; the user confirmed reformatting and configured constructor highlighting in IDEA.
+
+The custom feed metadata is derived from the signed archive's packaged plugin.xml and is published only after public asset verification. This release uses GitHub and the custom repository by maintainer choice; 0.1.11 was not submitted to JetBrains Marketplace.
 
 ## Future updates
 
