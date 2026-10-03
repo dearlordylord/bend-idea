@@ -70,6 +70,26 @@ final class BendFormatCliTest:
       assertEquals(0, tool(dir, "fix", file.toString)._1)
   }
 
+  @Test def unixLiteralBackslashFilenameRetainsItsEditorConfigIdentity(): Unit =
+    org.junit.Assume.assumeTrue(java.io.File.separatorChar == '/')
+    temporary { dir =>
+      val file = dir.resolve("literal\\backslash.bend")
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[literal\\\\backslash.bend]\nindent_size = 4\nbend_max_line_length = 20\n"
+      )
+      val source = "def main():\n  combine_three_arguments(1,2,3)\n"
+      Files.writeString(file, source)
+      assertEquals(1, tool(dir, "check", file.toString)._1)
+      assertEquals(source, Files.readString(file))
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      assertEquals(
+        "def main():\n    combine_three_arguments(\n        1,\n        2,\n        3\n    )\n",
+        Files.readString(file)
+      )
+      assertEquals(0, tool(dir, "check", file.toString)._1)
+    }
+
   @Test def unsafeAndMissingInputsRemainUnavailable(): Unit = temporary { dir =>
     val bad = dir.resolve("bad.bend")
     val source = "def f(x: U32,y: U32\n  x\n"

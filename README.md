@@ -4,7 +4,7 @@
 
 Language support for [Bend 2](https://github.com/bendlang/bend) in IntelliJ IDEA. The plugin recognizes `.bend` files and provides source editing features without a Bend installation. Compiler diagnostics use a separately configured Bend executable.
 
-[Bend2 plugin website](https://bend-idea.dearlordylord.com/) · [Install instructions](https://bend-idea.dearlordylord.com/#install)
+[Bend2 plugin website](https://bend-idea.dearlordylord.com/) · [Install instructions](https://bend-idea.dearlordylord.com/#install) · [Standalone formatter](#standalone-formatter-and-style-checker)
 
 <!-- Keep installation guidance focused on user tasks; put version history in CHANGELOG.md and release notes. -->
 ## Install
@@ -83,9 +83,9 @@ Add `https://idea.dearlordylord.com/updatePlugins.xml` and click **OK**. If that
 
 <img src="docs/screenshots/plugin-repository-url.png" alt="Custom Plugin Repositories dialog with the Bend2 repository URL" width="600">
 
-Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.11.
+Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.12.
 
-To install a signed ZIP directly, download [`bend-idea-0.1.11-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-idea-0.1.11-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.11) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
+To install a signed ZIP directly, download [`bend-idea-0.1.12-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-idea-0.1.12-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.12) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
 
 ## Planned
 
@@ -95,16 +95,38 @@ The [implementation specification](https://github.com/dearlordylord/bend-idea/is
 
 ## Standalone formatter and style checker
 
-The optional console tool checks formatting and can fix it using the same conservative policy as **Reformat Code**. It runs with **Java 21 or newer**, without IntelliJ, Bun or a Bend compiler. It reads only local source files and EditorConfig settings; it does not perform semantic linting or compiler checking.
+The console tool checks formatting and can fix it using the same conservative policy as **Reformat Code**. It reads local source files and EditorConfig; it does not perform semantic linting or compiler checking.
 
-Download [`bend-format-tool-0.1.11.jar`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.11/bend-format-tool-0.1.11.jar) from the [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.11), then run:
+### Install `bend-format`
+
+Download the archive for your machine from the [latest release](https://github.com/dearlordylord/bend-idea/releases/latest) and extract it:
+
+| Your machine | Download |
+|---|---|
+| Linux Intel/AMD 64-bit | [Linux x64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-format-0.1.12-linux-x64.tar.gz) |
+| Linux ARM64 | [Linux ARM64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-format-0.1.12-linux-aarch64.tar.gz) |
+| macOS Intel | [macOS Intel](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-format-0.1.12-macos-x64.tar.gz) |
+| macOS Apple Silicon | [macOS Apple Silicon](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-format-0.1.12-macos-aarch64.tar.gz) |
+| Windows Intel/AMD 64-bit | [Windows x64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-format-0.1.12-windows-x64.zip) |
+
+Keep the extracted directory together and add its `bin` directory to your PATH:
+
+- **Linux/macOS:** move the extracted directory to `~/tools/bend-format`, then add `export PATH="$HOME/tools/bend-format/bin:$PATH"` to your shell profile (`~/.zshrc` or `~/.bashrc`). Open a new terminal.
+- **Windows:** move the extracted directory to a permanent location, open **Edit environment variables for your account → Path → Edit → New**, and add the full path to its `bin` directory. Open a new terminal. PowerShell and Command Prompt both accept `bend-format`.
+
+To try it before changing PATH, open a terminal in the extracted directory and run `./bin/bend-format --version` on Linux/macOS, or `bin\bend-format.cmd --version` in Windows Command Prompt. If the path contains spaces, quote it; in PowerShell use `& 'C:\path to\bend-format\bin\bend-format.cmd' --version`.
+
+### Format a project
+
+Run these commands from your project directory:
 
 ```sh
-tool=./bend-format-tool-0.1.11.jar
-java -jar "$tool" --version  # bend-format-tool 0.1.11
-java -jar "$tool" check src/main.bend src/types.bend
-java -jar "$tool" fix src/main.bend src/types.bend
+bend-format --version
+bend-format check src/main.bend src/types.bend
+bend-format fix src/main.bend src/types.bend
 ```
+
+The tool is ready to run after extraction and works offline. `check` reports files that need formatting; `fix` applies safe formatting changes.
 
 Pass one or more explicit `.bend` paths. `check` never writes files or the Git index. `fix` changes only safe working-tree files and leaves unavailable files intact. Files in a batch are processed independently, even if another file is unavailable.
 
@@ -113,8 +135,6 @@ Pass one or more explicit `.bend` paths. `check` never writes files or the Git i
 | `0` | All files conform. | All files conform or were safely formatted. |
 | `1` | At least one file would change. | — |
 | `2` | A file is unavailable or the command cannot run. | A file is unavailable or the command cannot run; safe files may already have been formatted. |
-
-`--version` reads packaged build metadata, independent of the JAR filename. Missing or blank metadata exits `2`; formatting commands remain usable.
 
 ### EditorConfig and wrapping
 
@@ -144,7 +164,22 @@ In IntelliJ, invoke **Reformat Code** on the whole file, or use **Select All →
 
 The sample [pre-commit hook](contrib/hooks/pre-commit) checks staged `.bend` content, including partially staged files. After building the tool, copy it into `.git/hooks/pre-commit` and make it executable. The [all-tracked-files script](ci/bend-format-all-tracked.sh) checks working-tree content; the [CI example](docs/examples/bend-format-ci.yml) builds the tool and runs that script. Neither invokes compiler checking.
 
-Build from source with JDK 21 using `./gradlew buildFormatTool`. Select the artifact by its generated name rather than hardcoding a release version:
+### Alternative download and building from source
+
+`--version` reads packaged build metadata, independent of the JAR filename. Missing or blank metadata exits `2`; formatting commands remain usable.
+
+For users who already manage Java, the smaller [portable JAR](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.12/bend-format-tool-0.1.12.jar) requires Java 21 or newer:
+
+```sh
+java -jar bend-format-tool-0.1.12.jar check src/main.bend
+java -jar bend-format-tool-0.1.12.jar fix src/main.bend
+```
+
+The standard archives include a private Java runtime and do not use system Java or JAVA_HOME. Linux builds target glibc distributions and are tested on Ubuntu 22.04; Alpine/musl and Windows ARM64 are not supported. macOS archives are not notarized. Each archive records its runtime provenance and includes license notices. Verify downloads against `BEND-FORMAT-SHA256SUMS.txt` on the release page. To update, replace the extracted directory with the new version and keep PATH pointed at its `bin` directory.
+
+Build a runtime archive for your current OS/architecture with JDK 21 and Python 3.12+ using `./gradlew buildFormatDistribution`; validate the extracted archive with `./gradlew testFormatDistribution`. Select a non-default Python executable with `-PformatDistributionPython=/path/to/python3.12`. Output is under `build/distributions/bend-format/`. Packaging derives the required Java modules with `jdeps`, includes runtime/dependency notices and records runtime provenance. The [distribution workflow](.github/workflows/formatter-distributions.yml) builds and tests each native platform against an existing release JAR before optionally attaching all archives. See the [packaging research](research/bend-format-cli-distribution.md) for the decision and tradeoffs.
+
+Build the portable JAR from source with JDK 21 using `./gradlew buildFormatTool`. Select the artifact by its generated name rather than hardcoding a release version:
 
 ```bash
 shopt -s nullglob

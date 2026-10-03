@@ -13,6 +13,13 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.12
+
+- Ship ready-to-run formatter archives for Linux, macOS and Windows with a
+  bundled runtime and the `bend-format` command.
+- Apply local EditorConfig settings in the standalone formatter on Windows;
+  preserve literal backslashes in Unix filenames.
+
 ## 0.1.11
 
 - Preserve multiline string contents containing header-like text during

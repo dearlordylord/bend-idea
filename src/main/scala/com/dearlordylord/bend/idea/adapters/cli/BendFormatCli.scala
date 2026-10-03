@@ -92,7 +92,10 @@ object BendFormatCli:
       path: Path
   ): BendLayoutPolicy.Settings =
     val properties = editorConfig
-      .getProperties(path.toString)
+      // editorconfig-core normalizes its glob and config directory, but not
+      // the target path. Convert only the native separator so Unix filenames
+      // containing a literal backslash retain their identity.
+      .getProperties(path.toString.replace(java.io.File.separatorChar, '/'))
       .asScala
       .map(pair =>
         pair.getKey.toLowerCase(java.util.Locale.ROOT) -> pair.getVal
