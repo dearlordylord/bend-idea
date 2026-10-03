@@ -38,7 +38,8 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21.0.12.1+1'
+          # Adoptium API SemVer for OpenJDK 21.0.12.1+1-LTS.
+          java-version: '21.0.12+101.0.LTS'
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
