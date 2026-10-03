@@ -394,3 +394,97 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
           .sorted(java.util.Comparator.reverseOrder())
           .forEach(p => { val _ = Files.deleteIfExists(p) })
       finally paths.close()
+
+  def testMultilineStringFakeDeclarationRemainsByteIdenticalWhileRealHeaderFormats()
+      : Unit =
+    val literal = "\"hello\ndef fake():\n  contents\n\n\""
+    val text =
+      "import Base\ndef text(\n  x: U32,y: U32\n) -> String:\n  " + literal + "\n"
+    val directory = Files.createTempDirectory("bend-format-multiline-string-")
+    try
+      val original = directory.resolve("original.bend")
+      val _ = Files.writeString(original, text)
+      checkPinnedFile(original)
+      val formatted = BendLayoutPolicy.format(
+        text,
+        BendLayoutPolicy.Settings(4, false, 4)
+      ) match
+        case BendLayoutPolicy.Outcome.Formatted(value) => value
+        case other                                     =>
+          fail(
+            s"Safe real header comma edit must remain available around multiline literal: $other"
+          )
+          text
+      assertTrue(formatted.contains("x: U32, y: U32"))
+      assertTrue(
+        "The entire multiline string must remain byte-identical",
+        formatted.contains(literal)
+      )
+      val before = myFixture.configureByText("literal-preservation.bend", text)
+      val beforeTokens = tokens(before).map(t => (t._1, t._2))
+      val beforeShape = shape(before)
+      val after =
+        myFixture.configureByText("literal-preservation.bend", formatted)
+      assertEquals(beforeTokens, tokens(after).map(t => (t._1, t._2)))
+      assertEquals(beforeShape, shape(after))
+      val snapshot = directory.resolve("formatted.bend")
+      val _ = Files.writeString(snapshot, formatted)
+      checkPinnedFile(snapshot)
+      assertEquals(text, Files.readString(original))
+    finally
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => { val _ = Files.deleteIfExists(p) })
+      finally paths.close()
+
+  def testUppercaseAndLowercaseNatComparisonsBothPreserveCompilerAndBinderIdentity()
+      : Unit =
+    val text =
+      "import Base\ndef less.upper(A: Nat,B: Nat) -> Bool:\n  (A< B : Nat)\ndef less.lower(a: Nat,b: Nat) -> Bool:\n  (a< b : Nat)\n"
+    val directory =
+      Files.createTempDirectory("bend-format-uppercase-comparison-")
+    try
+      val original = directory.resolve("original.bend")
+      val _ = Files.writeString(original, text)
+      checkPinnedFile(original)
+      val formatted = BendLayoutPolicy.format(
+        text,
+        BendLayoutPolicy.Settings(4, false, 4)
+      ) match
+        case BendLayoutPolicy.Outcome.Formatted(value) => value
+        case other                                     =>
+          fail(
+            s"Ordinary annotated comparisons must remain available for both binder cases: $other"
+          )
+          text
+      assertEquals(
+        text
+          .replace("Nat,B", "Nat, B")
+          .replace("Nat,b", "Nat, b")
+          .replace("\n  (", "\n    ("),
+        formatted
+      )
+      val before =
+        myFixture.configureByText("comparison-preservation.bend", text)
+      val beforeTokens = tokens(before).map(t => (t._1, t._2))
+      val beforeShape = shape(before)
+      assertEquals(Set("A", "B", "a", "b"), beforeShape._2.map(_._1).toSet)
+      assertTrue(beforeShape._3.exists(r => r._1 == "A" && r._4.nonEmpty))
+      assertTrue(beforeShape._3.exists(r => r._1 == "a" && r._4.nonEmpty))
+      val after =
+        myFixture.configureByText("comparison-preservation.bend", formatted)
+      assertEquals(beforeTokens, tokens(after).map(t => (t._1, t._2)))
+      assertEquals(beforeShape, shape(after))
+      val snapshot = directory.resolve("formatted.bend")
+      val _ = Files.writeString(snapshot, formatted)
+      checkPinnedFile(snapshot)
+      assertEquals(text, Files.readString(original))
+    finally
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => { val _ = Files.deleteIfExists(p) })
+      finally paths.close()

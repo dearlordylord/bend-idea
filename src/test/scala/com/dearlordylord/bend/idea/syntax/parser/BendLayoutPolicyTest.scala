@@ -272,3 +272,44 @@ final class BendLayoutPolicyTest:
       Some("\t"),
       BendIndentPolicy.afterEnter(tabbedComment, tabbedComment.length, settings)
     )
+
+  @Test def declarationIndentationNeverEditsMultilineLiteralContents(): Unit =
+    val literal = "\"hello\ndef fake():\n  contents\n\n\""
+    val source =
+      "def text(\n  x: U32\n) -> String:\n  " + literal + "\ndef other(x: U32,y: U32) -> U32:\n  x\n"
+    val expected =
+      "def text(\n  x: U32\n) -> String:\n  " + literal + "\ndef other(x: U32, y: U32) -> U32:\n    x\n"
+    val settings = BendLayoutPolicy.Settings(4, false, 4)
+    assertEquals(
+      BendLayoutPolicy.Outcome.Formatted(expected),
+      BendLayoutPolicy.format(source, settings)
+    )
+    assertEquals(
+      BendLayoutPolicy.Outcome.Unchanged,
+      BendLayoutPolicy.format(expected, settings)
+    )
+
+  @Test def comparisonRecognitionDoesNotDependOnBinderCapitalization(): Unit =
+    for (left, right) <- List(("A", "B"), ("a", "b")) do
+      val source =
+        s"def less($left: Nat,$right: Nat) -> Bool:\n    ($left< $right : Nat)\n"
+      val expected =
+        s"def less($left: Nat, $right: Nat) -> Bool:\n  ($left< $right : Nat)\n"
+      assertEquals(
+        BendLayoutPolicy.Outcome.Formatted(expected),
+        BendLayoutPolicy.format(source, twoSpaces)
+      )
+      assertEquals(
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(expected, twoSpaces)
+      )
+    for source <- List(
+        "type Family<a: Type:\n  Constructor{}\n",
+        "def f(x: Family<Nat, Nat) -> Nat:\n  x\n"
+      )
+    do
+      assertTrue(
+        BendLayoutPolicy
+          .format(source, twoSpaces)
+          .isInstanceOf[BendLayoutPolicy.Outcome.Unavailable]
+      )

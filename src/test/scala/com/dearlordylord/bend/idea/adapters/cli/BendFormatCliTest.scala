@@ -323,3 +323,57 @@ final class BendFormatCliTest:
         assertEquals(expected, Files.readString(file))
         assertEquals(0, tool(dir, "check", file.toString)._1)
     }
+
+  @Test def multilineLiteralBytesRemainExactWhileActualHeaderAndBodyChange()
+      : Unit = temporary { dir =>
+    Files.writeString(
+      dir.resolve(".editorconfig"),
+      "root = true\n[*.bend]\nindent_size = 4\n"
+    )
+    val file = dir.resolve("literal.bend")
+    Files.writeString(file, BendWrappingFixtures.multilineLiteralBefore)
+    assertEquals(1, tool(dir, "check", file.toString)._1)
+    assertEquals(
+      BendWrappingFixtures.multilineLiteralBefore,
+      Files.readString(file)
+    )
+    assertEquals(0, tool(dir, "fix", file.toString)._1)
+    assertEquals(
+      BendWrappingFixtures.multilineLiteralAfterFourSpaces,
+      Files.readString(file)
+    )
+    assertEquals(0, tool(dir, "check", file.toString)._1)
+    assertEquals(0, tool(dir, "fix", file.toString)._1)
+    assertEquals(
+      BendWrappingFixtures.multilineLiteralAfterFourSpaces,
+      Files.readString(file)
+    )
+  }
+
+  @Test def uppercaseAndLowercaseComparisonsFormatIdenticallyUnderBothIndents()
+      : Unit = temporary { root =>
+    for (name, before, twoSpaces, fourSpaces) <-
+        BendWrappingFixtures.comparisonCases
+    do
+      for (label, expected) <- List(
+          "default" -> twoSpaces,
+          "four" -> fourSpaces
+        )
+      do
+        val dir = Files.createDirectory(root.resolve(name + label))
+        Files.writeString(
+          dir.resolve(".editorconfig"),
+          "root = true\n[*.bend]\n" + (if label == "four" then
+                                         "indent_size = 4\n"
+                                       else "")
+        )
+        val file = dir.resolve("comparison.bend")
+        Files.writeString(file, before)
+        assertEquals(1, tool(dir, "check", file.toString)._1)
+        assertEquals(before, Files.readString(file))
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(expected, Files.readString(file))
+        assertEquals(0, tool(dir, "check", file.toString)._1)
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(expected, Files.readString(file))
+  }

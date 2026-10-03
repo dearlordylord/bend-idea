@@ -135,3 +135,19 @@ object BendWrappingFixtures:
     ("indent_style = tab\nindent_size = 4\ntab_width = 3\n", "\t ", "\t\t  "),
     ("indent_style = tab\nindent_size = 4\ntab_width = 8\n", "    ", "\t")
   )
+
+  val multilineLiteralBefore =
+    "import Base\ndef text(\n  x: U32\n) -> String:\n  \"hello\ndef fake():\n  contents\n\n\"\ndef other(x: U32,y: U32) -> U32:\n  x\n"
+  val multilineLiteralAfterFourSpaces =
+    "import Base\ndef text(\n  x: U32\n) -> String:\n  \"hello\ndef fake():\n  contents\n\n\"\ndef other(x: U32, y: U32) -> U32:\n    x\n"
+  val comparisonCases = List(("upper", "A", "B"), ("lower", "a", "b")).map {
+    (name, left, right) =>
+      val header = s"import Base\ndef less($left: Nat,$right: Nat) -> Bool:\n"
+      val body = s"($left< $right : Nat)\n"
+      (
+        name,
+        header + "    " + body,
+        header.replace(",", ", ") + "  " + body,
+        header.replace(",", ", ") + "    " + body
+      )
+  }

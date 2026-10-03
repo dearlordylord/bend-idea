@@ -13,6 +13,9 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Preserve multiline string contents containing header-like text during
+  formatting, and handle `<` comparisons with uppercase operands.
+
 - Respect IntelliJ’s EditorConfig enable setting for Bend typing and formatting.
   Keep space indentation independent of tab width, support tab indentation with
   remaining spaces, and ignore invalid standard indentation properties while

@@ -93,9 +93,10 @@ object BendLayoutPolicy:
       case Right(tokens) => tokens
 
     val replacements = scala.collection.mutable.ArrayBuffer.empty[Edit]
-    val structure = recognize(source, significant) match
+    val recognized = recognize(source, significant) match
       case Left(reason) => return Left(reason)
       case Right(value) => value
+    val structure = recognized.lists
     val effectiveBodyIndent = scala.collection.mutable.Map.empty[Int, Int]
     // The existing formatter only adjusts one simple definition/law body.
     // Avoid changing indentation in nested or multiline syntax whose layout
@@ -115,7 +116,12 @@ object BendLayoutPolicy:
               line.trim.nonEmpty && line.headOption
                 .exists(c => c == ' ' || c == '\t')
             }
-            if body.trim.nonEmpty && !body.trim.startsWith(
+            val bodyTokenStart =
+              offset + lines(index).length + 1 + leading.length
+            if recognized.declarationBodies
+                .get(offset)
+                .contains(bodyTokenStart) &&
+              body.trim.nonEmpty && !body.trim.startsWith(
                 "#"
               ) && following.isEmpty
             then
@@ -304,24 +310,32 @@ object BendLayoutPolicy:
       children: Vector[LayoutList]
   )
 
+  private final case class LayoutStructure(
+      lists: Vector[LayoutList],
+      declarationBodies: Map[Int, Int]
+  )
+
   /** Delimiter trees retain atomic proofs, annotations and type applications.
     * Only named argument/constructor lists expose sibling comma boundaries.
     */
   private def recognize(
       source: String,
       tokens: Vector[Token]
-  ): Either[String, Vector[LayoutList]] = scala.util.boundary:
+  ): Either[String, LayoutStructure] = scala.util.boundary:
     val pairs = scala.collection.mutable.Map.empty[Int, Int]
+    val declarationBodies = scala.collection.mutable.Map.empty[Int, Int]
     val stack = scala.collection.mutable.ArrayBuffer.empty[(Int, String)]
     val openings = Set("(", "[", "{")
     val closings = Map(")" -> "(", "]" -> "[", "}" -> "{")
     def name(text: String): Boolean = text.matches("[A-Za-z_][A-Za-z0-9_.]*")
-    def angleEnd(index: Int): Boolean =
+    def angleSyntax(index: Int): Boolean =
       var at = index + 1
       var depth = 0
       while at < tokens.length do
         val text = tokens(at).text
-        if depth == 0 && text == ">" then return true
+        // parse_term_ops commits to family arguments only at a comma or
+        // closing angle after its first term; otherwise < is comparison.
+        if depth == 0 && (text == ">" || text == ",") then return true
         if depth == 0 && (Set(")", "}", "]")
             .contains(text) || Set("def", "law", "type").contains(text))
         then return false
@@ -331,11 +345,19 @@ object BendLayoutPolicy:
       false
     tokens.indices.foreach { index =>
       val token = tokens(index)
-      val angle =
-        token.text == "<" && index > 0 && name(tokens(index - 1).text) &&
-          tokens(index - 1).end == token.start && (tokens(
-            index - 1
-          ).text.head.isUpper || angleEnd(index))
+      val declarationParameters = index >= 2 && tokens(index - 2).text == "type"
+      val sameLineHead = index > 0 && !source
+        .substring(tokens(index - 1).end, token.start)
+        .exists(c => c == '\n' || c == '\r')
+      val operatorSuffix =
+        index + 1 < tokens.length && tokens(index + 1).start == token.end &&
+          Set("<", ">", "=", "-").contains(tokens(index + 1).text)
+      val angle = token.text == "<" && index > 0 && name(
+        tokens(index - 1).text
+      ) &&
+        !operatorSuffix && (declarationParameters || sameLineHead && angleSyntax(
+          index
+        ))
       if openings(token.text) || angle then stack += ((index, token.text))
       else if closings.contains(
           token.text
@@ -352,7 +374,10 @@ object BendLayoutPolicy:
     // A continued header is accepted only through balanced groups. A new line
     // outside a group cannot silently turn a missing colon into a valid header.
     tokens.indices
-      .filter(index => Set("def", "law", "type").contains(tokens(index).text))
+      .filter(index =>
+        Set("def", "law", "type").contains(tokens(index).text) &&
+          !pairs.exists((open, close) => open < index && close > index)
+      )
       .foreach { first =>
         val prefix = source.substring(
           source.lastIndexOf('\n', tokens(first).start - 1) + 1,
@@ -373,10 +398,14 @@ object BendLayoutPolicy:
             if tokens(index).text == ":" then
               if index > 0 && tokens(index - 1).text == "->" then
                 scala.util.boundary.break(Left("Incomplete result type"))
+              val body = tokens
+                .drop(index + 1)
+                .find(token => !token.text.startsWith("#"))
+              if Set("def", "law").contains(tokens(first).text) then
+                body.foreach(token =>
+                  declarationBodies(tokens(first).start) = token.start
+                )
               if tokens(first).text == "def" then
-                val body = tokens
-                  .drop(index + 1)
-                  .find(token => !token.text.startsWith("#"))
                 if body.isEmpty || body.exists(token =>
                     Set("def", "law", "type").contains(token.text)
                   )
@@ -485,7 +514,7 @@ object BendLayoutPolicy:
           case Left(reason) => scala.util.boundary.break(Left(reason))
           case Right(list)  => collect(list)
       }
-    Right(all.result())
+    Right(LayoutStructure(all.result(), declarationBodies.toMap))
 
   private def scan(source: String): Either[String, Vector[Token]] =
     val tokens = Vector.newBuilder[Token]

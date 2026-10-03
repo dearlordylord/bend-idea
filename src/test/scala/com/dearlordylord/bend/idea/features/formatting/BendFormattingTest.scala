@@ -478,3 +478,63 @@ final class BendFormattingTest extends BasePlatformTestCase:
     assertTrue(result.startsWith(prefix))
     assertEquals(source.count(_ == '\n'), result.count(_ == '\n'))
     assertTrue(result.contains("case T.Cr{T.Alive{"))
+
+  def testMultilineStringWithFakeHeaderKeepsLiteralBytesDuringRealEdits()
+      : Unit =
+    val root = Files.createTempDirectory(
+      Files.createDirectories(java.nio.file.Path.of(getProject.getBasePath)),
+      "literal-provenance-"
+    )
+    Files.writeString(
+      root.resolve(".editorconfig"),
+      "root = true\n[*.bend]\nindent_size = 4\n"
+    )
+    val path = root.resolve("literal.bend")
+    Files.writeString(path, BendWrappingFixtures.multilineLiteralBefore)
+    myFixture.configureFromExistingVirtualFile(
+      com.intellij.openapi.vfs.LocalFileSystem.getInstance
+        .refreshAndFindFileByNioFile(path)
+    )
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(
+      BendWrappingFixtures.multilineLiteralAfterFourSpaces,
+      myFixture.getEditor.getDocument.getText
+    )
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(
+      BendWrappingFixtures.multilineLiteralAfterFourSpaces,
+      myFixture.getEditor.getDocument.getText
+    )
+    myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+    assertEquals(
+      BendWrappingFixtures.multilineLiteralBefore,
+      myFixture.getEditor.getDocument.getText
+    )
+
+  def testUpperAndLowercaseComparisonOperandsHaveIdenticalFormattingSupport()
+      : Unit =
+    val root = Files.createTempDirectory(
+      Files.createDirectories(java.nio.file.Path.of(getProject.getBasePath)),
+      "comparison-operands-"
+    )
+    for (name, before, twoSpaces, fourSpaces) <-
+        BendWrappingFixtures.comparisonCases
+    do
+      assertEquals(twoSpaces, reformat(before))
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(twoSpaces, myFixture.getEditor.getDocument.getText)
+      val dir = Files.createDirectories(root.resolve(name))
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nindent_size = 4\n"
+      )
+      val path = dir.resolve("comparison.bend")
+      Files.writeString(path, before)
+      myFixture.configureFromExistingVirtualFile(
+        com.intellij.openapi.vfs.LocalFileSystem.getInstance
+          .refreshAndFindFileByNioFile(path)
+      )
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(fourSpaces, myFixture.getEditor.getDocument.getText)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(fourSpaces, myFixture.getEditor.getDocument.getText)
