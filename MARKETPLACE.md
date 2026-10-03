@@ -96,6 +96,22 @@ Homebrew tap commit `cca665eabd7542a4df3517d9cf6a98a8de9abcdd` advances all four
 
 On 2026-10-03, both the primary custom repository and its Cloudflare Pages fallback served 0.1.13 with metadata matching the signed plugin. The signed ZIP was publicly downloaded and its checksum verified. An interactive IDE installation/update was not exercised. GitHub Release v0.1.13 is published as the stable latest release. The signed ZIP is prepared for IntelliJ distribution; Marketplace submission and approval remain separate. The combined maintainer workflow is documented in [docs/releasing.md](docs/releasing.md).
 
+## 0.1.14 release
+
+[GitHub Release v0.1.14](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.14) is tagged at tested source commit `df87e66441f3927e1f6e3bd5960b17a6e71d993a`. The CLI now identifies itself as `bend-format`, provides top-level and subcommand help, explains argument/file errors, and supports `--` for dash-prefixed filenames. Repository-wide checks work from subdirectories. The shared formatter policy, compiler pin and architecture boundaries remain unchanged (A1–A4/A9); filesystem and argument handling stay in the CLI/script owners.
+
+- Signed plugin SHA-256: `01d77cec8ba5549c233d0e1957755d04604b5a49b3c85f4a1a8c303ff3c8a0f3`.
+- Portable JAR SHA-256: `b848c176dce8cc25000b8b6bab47db2007e229f42757b5147638a8efa571b933`.
+- Runtime archive checksums: [BEND-FORMAT-SHA256SUMS.txt](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/BEND-FORMAT-SHA256SUMS.txt).
+
+The clean JDK 21 release gate passed on 2026-10-03: 533 tests passed, zero failures/errors, one optional installed-compiler smoke skipped; both architecture tests, quality checks, packaging, structure, project configuration, signing and signature verification passed. Plugin Verifier reports compatibility with Community 2025.1 and Ultimate 2026.1, with the existing API usage notices. Independent UX and DX reviews covered the CLI/integrations; implementation and release self-review followed `REVIEWER.md` and found no remaining actionable findings.
+
+All five native archive/smoke jobs and publication passed in [run 37150609036](https://github.com/dearlordylord/bend-idea/actions/runs/37150609036). Anonymous downloads of every payload matched both manifests and the locally signed ZIP/JAR/public certificate. The existing signing identity is reused. The published Linux ARM64 archive and the consumer CI check body were also exercised locally with hostile `JAVA_HOME`, tracked spaced/dash filenames, untracked exclusion, read-only behavior and exit statuses 0/1. The [consumer CI example](docs/examples/bend-format-user-ci.yml) pins the verified 0.1.14 Linux x64 archive and digest.
+
+Homebrew tap commit `302b003676de67b2c6ab4df853f4c0f525c53e16` updates all four macOS/Linux archive URLs/checksums and tests the renamed version output, help, argument errors and dash-prefixed files. [Install and test run 37150752894](https://github.com/dearlordylord/homebrew-tap/actions/runs/37150752894) passed style/audit, actual installation, command/formatter tests and uninstall on all four targets. Local Homebrew was unavailable; native tap CI provides installation evidence.
+
+The custom feed metadata targets 0.1.14 and matches the signed plugin. Live deployment is checked after this feed commit is pushed. An interactive new-version IDE installation/update was not exercised. The signed ZIP is published for the custom repository; Marketplace submission/approval remains separate. See [docs/releasing.md](docs/releasing.md).
+
 ## Homebrew distribution
 
 The initial public [Homebrew tap](https://github.com/dearlordylord/homebrew-tap) installed the 0.1.12 formatter archives with `brew install dearlordylord/tap/bend-format`. The formula retains the complete bundled runtime and notices. [Native installation run 37138435794](https://github.com/dearlordylord/homebrew-tap/actions/runs/37138435794) passed on all four targets on 2026-10-03, covering formula style/audit, installation, the installed command's version and EditorConfig check/fix behavior, exit statuses and removal on macOS Intel/Apple Silicon and Linux x64/ARM64. This distribution adds no plugin or formatter code changes.

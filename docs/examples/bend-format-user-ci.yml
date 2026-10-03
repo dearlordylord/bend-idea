@@ -11,8 +11,8 @@ jobs:
       - name: Install pinned formatter
         shell: bash
         env:
-          FORMATTER_VERSION: '0.1.13'
-          FORMATTER_SHA256: '387371a917f2b2a300a7455a3ead6ae9ff1c2268644c48c7915511b51d7c69f1'
+          FORMATTER_VERSION: '0.1.14'
+          FORMATTER_SHA256: '6d615a089717b968fa93b6cefab7d3b6b02f26dda1c92666965644f1420e2472'
         run: |
           set -euo pipefail
           archive="bend-format-${FORMATTER_VERSION}-linux-x64.tar.gz"
