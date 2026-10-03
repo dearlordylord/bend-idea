@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Bend2 is a Bend 2 plugin for IntelliJ IDEA with syntax highlighting, code completion, navigation, proof tools, and optional compiler checks. Install it for IDEA 2025.1+.">
+  <meta name="description" content="Bend 2 support for IntelliJ IDEA: completion, navigation, formatting, proof tools, and optional compiler checks. Install Bend2 for IDEA 2025.1+.">
   <meta name="theme-color" content="#f7f9fb">
   <link rel="canonical" href="https://bend-idea.dearlordylord.com/">
   <link rel="icon" type="image/png" href="favicon.png">
@@ -17,7 +17,7 @@
   <meta name="twitter:card" content="summary">
   <title>Bend2 — Bend 2 plugin for IntelliJ IDEA</title>
   <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"WebSite","name":"Bend2","url":"https://bend-idea.dearlordylord.com/"}
+    {"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Bend2","url":"https://bend-idea.dearlordylord.com/"},{"@type":"SoftwareApplication","name":"Bend2","url":"https://bend-idea.dearlordylord.com/","applicationCategory":"DeveloperApplication","operatingSystem":"Windows, macOS, Linux","softwareRequirements":"IntelliJ IDEA 2025.1 or newer","description":"Bend 2 language support for IntelliJ IDEA with completion, navigation, formatting, proof tools, and optional compiler checks.","downloadUrl":"https://plugins.jetbrains.com/plugin/34452-bend2","license":"https://github.com/dearlordylord/bend-idea/blob/master/LICENSE","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}]}
   </script>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17212b; background: #f7f9fb; }
@@ -103,6 +103,11 @@
       <h2 id="alternative-title">Alternative installation</h2>
       <p>To use the custom plugin repository, open <strong>Settings → Plugins → gear icon → Manage Plugin Repositories</strong> and add <code>https://idea.dearlordylord.com/updatePlugins.xml</code>.</p>
       <p>Then search for <strong>Bend2</strong> in the Plugins Marketplace tab and install it. If the repository address cannot be reached, use <code>https://bend-idea-plugins.pages.dev/updatePlugins.xml</code>.</p>
+    </section>
+    <section class="alternative" aria-labelledby="formatter-title">
+      <h2 id="formatter-title">Format Bend from your terminal</h2>
+      <p><a href="https://bend-format.dearlordylord.com/">bend-format</a> is the standalone Bend formatter and style checker, using the same formatting policy as the plugin.</p>
+      <p><code>brew install dearlordylord/tap/bend-format</code></p>
     </section>
     <footer>
       <span>IntelliJ IDEA 2025.1+</span>

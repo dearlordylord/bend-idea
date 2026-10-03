@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bend-format — Bend formatter &amp; style checker</title>
+<meta name="description" content="Format Bend source from your terminal with bend-format. Install with Homebrew on macOS or Linux, share EditorConfig settings with IntelliJ IDEA, and check formatting in CI.">
+<meta name="theme-color" content="#f7f9fb">
+<link rel="canonical" href="https://bend-format.dearlordylord.com/">
+<link rel="icon" type="image/png" href="favicon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="bend-format">
+<meta property="og:title" content="bend-format — Bend formatter &amp; style checker">
+<meta property="og:description" content="Consistent Bend formatting. From your editor to your terminal to CI. Install with Homebrew.">
+<meta property="og:url" content="https://bend-format.dearlordylord.com/">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"bend-format","url":"https://bend-format.dearlordylord.com/","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux, Windows","description":"Standalone Bend source formatter and style checker with EditorConfig support.","license":"https://github.com/dearlordylord/bend-idea/blob/master/LICENSE","downloadUrl":"https://github.com/dearlordylord/bend-idea/releases/latest","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+<style>
+:root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17212b; background: #f7f9fb; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 920px; margin: auto; padding: 64px 28px 50px; }
+a { color: #185b8b; text-underline-offset: 3px; }
+.eyebrow { margin: 0 0 14px; color: #566674; font-size: 15px; font-weight: 600; }
+h1 { margin: 0; font-size: clamp(42px, 7vw, 72px); line-height: 1.05; letter-spacing: -.055em; }
+.bend-word { white-space: nowrap; }
+.bend-letter { display: inline-block; height: .75em; height: 1.025cap; aspect-ratio: 9950 / 13600; margin-right: .015em; vertical-align: -.012em; border-radius: 3px; overflow: hidden; color: transparent; background-image: url("media/bend-letter.svg"); background-size: contain; background-repeat: no-repeat; }
+.bend-letter:hover { background-color: #e5edf3; }
+.intro { max-width: 710px; margin: 24px 0 40px; font-size: 19px; line-height: 1.6; }
+section { border-top: 1px solid #dce3e9; padding-top: 28px; margin-top: 32px; }
+h2 { margin: 0 0 18px; font-size: 24px; letter-spacing: -.035em; }
+p { line-height: 1.6; }
+pre { overflow-x: auto; border: 1px solid #dce3e9; border-radius: 6px; background: #fff; padding: 16px 20px; font-size: 14px; line-height: 1.8; }
+code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.note { color: #566674; font-size: 15px; }
+footer { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 48px; padding-top: 20px; border-top: 1px solid #dce3e9; color: #647382; font-size: 14px; }
+a:focus-visible { outline: 2px solid #185b8b; outline-offset: 3px; }
+@media (max-width: 600px) { main { padding: 40px 20px 36px; } pre { padding: 14px; font-size: 12px; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">bend-format · Command-line tool</p>
+  <h1><span class="bend-word"><a class="bend-letter" href="https://bend-lang.com/" title="Bend language">B</a>end</span> formatter<br>and style checker.</h1>
+  <p class="intro">Format <a href="https://github.com/bendlang/bend">Bend</a> files from your terminal. The same formatting policy as <a href="https://bend-idea.dearlordylord.com/">Bend IDEA</a>, with your project’s EditorConfig settings.</p>
+  <section aria-labelledby="install-title">
+    <h2 id="install-title">Install with Homebrew</h2>
+    <pre><code>brew install dearlordylord/tap/bend-format</code></pre>
+    <p class="note">For macOS and Linux. <a href="https://github.com/dearlordylord/bend-idea/blob/master/docs/bend-format.md#install-from-an-archive">Other installation options</a>.</p>
+  </section>
+  <section aria-labelledby="usage-title">
+    <h2 id="usage-title">Check or format</h2>
+    <pre><code>bend-format check src/main.bend
+bend-format fix src/main.bend</code></pre>
+    <p class="note">Check leaves files untouched. Fix applies safe formatting changes. <a href="https://github.com/dearlordylord/bend-idea/blob/master/docs/bend-format.md">Read the guide</a> for EditorConfig, pre-commit hooks, and CI.</p>
+  </section>
+  <footer>
+    <a href="https://bend-idea.dearlordylord.com/">Bend IDEA plugin</a>
+    <a href="https://github.com/dearlordylord/bend-idea">GitHub</a>
+    <a href="https://github.com/dearlordylord/bend-idea/releases/latest">Downloads</a>
+    <a href="https://github.com/dearlordylord/bend-idea/blob/master/LICENSE">Apache 2.0</a>
+  </footer>
+</main>
+</body>
+</html>
