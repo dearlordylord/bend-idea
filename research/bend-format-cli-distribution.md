@@ -42,3 +42,11 @@ The distribution and existing verification workflows use Node 24 action releases
 The final 0.1.12 native matrix passed on all five targets in [run 37136283151](https://github.com/dearlordylord/bend-idea/actions/runs/37136283151). Compressed archives range from 28.4 to 32.0 MB (decimal). All publicly downloaded archives matched their release checksum manifest, and each contained the exact published JAR. Windows testing exposed an existing editorconfig-core path-matching requirement; the CLI now passes native separators as forward slashes while preserving literal Unix backslashes. Astra reviewed the correction and README with no remaining findings.
 
 `distribution.json` source revision is the packaging workflow's source revision, not a claim about the downloaded formatter JAR's Git source; `jarSha256` identifies the exact release JAR. The release tag pins its tested product source independently. Adoptium's canonical API SemVer for OpenJDK 21.0.12.1+1-LTS is `21.0.12+101.0.LTS`, which setup-java requires when pinning this patch.
+
+## Package-manager installation
+
+Homebrew is the first package-manager channel for macOS and Linux. The public [tap](https://github.com/dearlordylord/homebrew-tap) provides `brew install dearlordylord/tap/bend-format`; [Homebrew's tap documentation](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap) describes automatic tap installation with a fully qualified formula name. The formula selects the existing immutable runtime archive for OS and CPU, verifies its SHA-256, retains runtime/legal files under `libexec`, and links the launcher into `bin`. Updates use `brew update` and `brew upgrade bend-format`.
+
+An npm channel remains optional: [npm package metadata](https://docs.npmjs.com/cli/configuring-npm/package-json/) supports executable mappings and OS/CPU selection, but that delivery would require Node/npm and another wrapper/package publication lifecycle. Homebrew is sufficient for the initial macOS/Linux installation flow. Windows retains the ready-to-run release archive. Neither channel changes formatter logic.
+
+Astra reviewed the tap formula and both installation READMEs with no remaining findings. Native installation evidence is recorded in MARKETPLACE.md.

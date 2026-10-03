@@ -99,7 +99,17 @@ The console tool checks formatting and can fix it using the same conservative po
 
 ### Install `bend-format`
 
-Download the archive for your machine from the [latest release](https://github.com/dearlordylord/bend-idea/releases/latest) and extract it:
+On **macOS or Linux**, install with [Homebrew](https://brew.sh/):
+
+```sh
+brew install dearlordylord/tap/bend-format
+```
+
+Then [use `bend-format`](#format-a-project) directly from your project directory. To update later, run `brew update` followed by `brew upgrade bend-format`. To remove it, run `brew uninstall bend-format`.
+
+### Install from an archive
+
+On **Windows**, or if you prefer a manual installation, download the archive for your machine from the [latest release](https://github.com/dearlordylord/bend-idea/releases/latest) and extract it:
 
 | Your machine | Download |
 |---|---|
@@ -126,7 +136,7 @@ bend-format check src/main.bend src/types.bend
 bend-format fix src/main.bend src/types.bend
 ```
 
-The tool is ready to run after extraction and works offline. `check` reports files that need formatting; `fix` applies safe formatting changes.
+The tool is ready to run after installation and works offline. `check` reports files that need formatting; `fix` applies safe formatting changes.
 
 Pass one or more explicit `.bend` paths. `check` never writes files or the Git index. `fix` changes only safe working-tree files and leaves unavailable files intact. Files in a batch are processed independently, even if another file is unavailable.
 

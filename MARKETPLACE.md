@@ -78,7 +78,13 @@ The clean JDK 21 release gate passed on 2026-10-03: 527 tests passed, zero failu
 
 Both primary and fallback custom feed URLs were verified publicly on 2026-10-03 to advertise 0.1.12, with metadata matching the signed plugin, after public asset verification. This release uses GitHub and the custom repository and was not submitted to JetBrains Marketplace.
 
+## Homebrew distribution
+
+The public [Homebrew tap](https://github.com/dearlordylord/homebrew-tap) installs the existing 0.1.12 formatter archives with `brew install dearlordylord/tap/bend-format`. The formula retains the complete bundled runtime and notices. [Native installation run 37138435794](https://github.com/dearlordylord/homebrew-tap/actions/runs/37138435794) passed on all four targets on 2026-10-03, covering formula style/audit, installation, the installed command's version and EditorConfig check/fix behavior, exit statuses and removal on macOS Intel/Apple Silicon and Linux x64/ARM64. This distribution adds no plugin or formatter code changes.
+
 ## Future updates
+
+After publishing and verifying future formatter archives, update the four versioned URLs and SHA-256 values in [Formula/bend-format.rb](https://github.com/dearlordylord/homebrew-tap/blob/main/Formula/bend-format.rb). Keep all platform versions aligned and require the tap's native installation checks to pass before advertising the update.
 
 The verified 0.1.4 signed archive is also available in the public [GitHub Release v0.1.4](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.4), tagged at tested candidate commit `6e91d38c3c6194b42cffe651594bf587a1748212`. The release asset was downloaded without authentication and matched the SHA-256 above. A public copy of the self-signed certificate is attached for users who choose to trust it in IDEA. The GitHub release does not establish Marketplace approval.
 
