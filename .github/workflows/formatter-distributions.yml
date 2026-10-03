@@ -1,0 +1,102 @@
+name: Formatter distributions
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release containing the tested formatter JAR
+        required: true
+        default: v0.1.11
+      publish:
+        description: Attach tested runtime archives to that release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            target: linux-x64
+          - runner: ubuntu-22.04-arm
+            target: linux-aarch64
+          - runner: macos-15-intel
+            target: macos-x64
+          - runner: macos-15
+            target: macos-aarch64
+          - runner: windows-2022
+            target: windows-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21.0.12.1+1'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Download existing tested JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          version="${RELEASE_TAG#v}"
+          gh release download "$RELEASE_TAG" --pattern "bend-format-tool-$version.jar" --pattern SHA256SUMS.txt --dir build/incoming
+          cd build/incoming
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          jars = list(Path('.').glob('bend-format-tool-*.jar'))
+          assert len(jars) == 1
+          jar = jars[0]
+          expected = dict(line.split(maxsplit=1)[::-1] for line in Path('SHA256SUMS.txt').read_text().splitlines())
+          assert hashlib.sha256(jar.read_bytes()).hexdigest() == expected[jar.name]
+          PY
+      - name: Package bundled runtime
+        shell: bash
+        run: |
+          python scripts/package-bend-format.py --jar build/incoming/bend-format-tool-*.jar --jdk "$JAVA_HOME" --output build/formatter --project .
+      - name: Test extracted archive without system Java
+        shell: bash
+        run: python scripts/test-bend-format-distribution.py --distribution-dir build/formatter --jar build/incoming/bend-format-tool-*.jar
+      - uses: actions/upload-artifact@v6
+        with:
+          name: bend-format-${{ matrix.target }}
+          path: |
+            build/formatter/*.tar.gz
+            build/formatter/*.zip
+          if-no-files-found: error
+
+  publish:
+    if: inputs.publish
+    needs: package
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: bend-format-*
+          merge-multiple: true
+          path: archives
+      - name: Attach all verified distributions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd archives
+          sha256sum *.tar.gz *.zip > BEND-FORMAT-SHA256SUMS.txt
+          gh release upload "$RELEASE_TAG" *.tar.gz *.zip BEND-FORMAT-SHA256SUMS.txt

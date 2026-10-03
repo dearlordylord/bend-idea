@@ -103,6 +103,55 @@ val buildFormatTool by tasks.registering(Jar::class) {
     }
 }
 
+val formatDistributionJdk = javaToolchains.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(21))
+}
+val formatDistributionDirectory = layout.buildDirectory.dir("distributions/bend-format")
+val formatDistributionPython = providers.gradleProperty("formatDistributionPython").orElse(
+    if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3"
+)
+
+val buildFormatDistribution by tasks.registering(Exec::class) {
+    description = "Packages the offline formatter with a native Java 21 runtime for this OS and architecture."
+    group = "distribution"
+    dependsOn(buildFormatTool)
+    inputs.file(buildFormatTool.flatMap { it.archiveFile })
+    inputs.file("scripts/package-bend-format.py")
+    inputs.file("scripts/BEND-FORMAT-THIRD-PARTY-NOTICES.txt")
+    inputs.file("LICENSE")
+    if (file("NOTICE").isFile) inputs.file("NOTICE")
+    inputs.file(formatDistributionJdk.map { it.metadata.installationPath.file("release") })
+    outputs.dir(formatDistributionDirectory)
+    // Source revision/dirty provenance must reflect this packaging invocation.
+    outputs.upToDateWhen { false }
+    workingDir = rootDir
+    doFirst {
+        commandLine(
+            formatDistributionPython.get(), file("scripts/package-bend-format.py").absolutePath,
+            "--jar", buildFormatTool.get().archiveFile.get().asFile.absolutePath,
+            "--jdk", formatDistributionJdk.get().metadata.installationPath.asFile.absolutePath,
+            "--output", formatDistributionDirectory.get().asFile.absolutePath,
+            "--project", rootDir.absolutePath
+        )
+    }
+}
+
+val testFormatDistribution by tasks.registering(Exec::class) {
+    description = "Extracts and smoke-tests the native formatter distribution without system Java."
+    group = "verification"
+    dependsOn(buildFormatDistribution)
+    inputs.file("scripts/test-bend-format-distribution.py")
+    outputs.upToDateWhen { false }
+    workingDir = rootDir
+    doFirst {
+        commandLine(
+            formatDistributionPython.get(), file("scripts/test-bend-format-distribution.py").absolutePath,
+            "--distribution-dir", formatDistributionDirectory.get().asFile.absolutePath,
+            "--jar", buildFormatTool.get().archiveFile.get().asFile.absolutePath
+        )
+    }
+}
+
 tasks.test {
     dependsOn(buildFormatTool)
     systemProperty("bend.format.tool.jar", buildFormatTool.get().archiveFile.get().asFile.absolutePath)
