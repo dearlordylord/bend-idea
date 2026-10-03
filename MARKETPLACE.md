@@ -76,7 +76,7 @@ Both the primary and fallback custom feed URLs were verified publicly on 2026-10
 
 The clean JDK 21 release gate passed on 2026-10-03: 527 tests passed, zero failures/errors, one optional current-compiler smoke skipped; both architecture tests, quality checks, packaging, structure, project configuration, Plugin Verifier for IC 2025.1 and IU 2026.1, signing and signature verification passed. The local runtime archive smoke passed as well. Existing verifier API notices remain. Independent Astra reviewed the adapter correction and the user instructions with no outstanding actionable findings. The shared formatting policy is unchanged from 0.1.11.
 
-The custom feed is updated from the signed plugin's packaged metadata after public asset verification. This release uses GitHub and the custom repository and was not submitted to JetBrains Marketplace.
+Both primary and fallback custom feed URLs were verified publicly on 2026-10-03 to advertise 0.1.12, with metadata matching the signed plugin, after public asset verification. This release uses GitHub and the custom repository and was not submitted to JetBrains Marketplace.
 
 ## Future updates
 
