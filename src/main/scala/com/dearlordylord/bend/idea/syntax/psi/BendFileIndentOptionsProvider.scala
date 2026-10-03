@@ -16,6 +16,7 @@ final class BendFileIndentOptionsProvider extends FileIndentOptionsProvider:
   ): CommonCodeStyleSettings.IndentOptions =
     if file.getFileType.getDefaultExtension != "bend" || file.getVirtualFile == null
     then return null
+    if !BendEffectiveIndent.editorConfigEnabled(file) then return null
     val base = settings.getIndentOptions(file.getFileType)
     val effective = BendEffectiveIndent.indentOverride(
       file.getVirtualFile.getPath,

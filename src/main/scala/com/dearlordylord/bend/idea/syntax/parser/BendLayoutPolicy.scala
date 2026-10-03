@@ -15,21 +15,20 @@ object BendLayoutPolicy:
         .filterNot(_ == "unset")
     def positive(key: String): Option[Int] =
       value(key).flatMap(_.toIntOption).filter(_ > 0)
-    val style = value("indent_style")
-    if style.exists(raw => raw != "tab" && raw != "space") then
-      return Left("Unsupported indent_style")
+    // Standard EditorConfig properties ignore unsupported values independently.
+    // The Bend-specific width property below deliberately reports invalid input.
+    val style =
+      value("indent_style").filter(raw => raw == "tab" || raw == "space")
     val tabWidth = positive("tab_width")
-    if value("tab_width").nonEmpty && tabWidth.isEmpty then
-      return Left("Invalid tab_width")
-    if value("indent_size").exists(_ != "tab") &&
-      positive("indent_size").isEmpty
-    then return Left("Invalid indent_size")
-    val size = value("indent_size") match
+    val indentSize = value("indent_size").filter(raw =>
+      raw == "tab" || raw.toIntOption.exists(_ > 0)
+    )
+    val size = indentSize match
       case Some("tab") => tabWidth.getOrElse(base.tabWidth)
       case Some(_)     => positive("indent_size").getOrElse(base.indentSize)
-      case None        => tabWidth.getOrElse(base.indentSize)
+      case None        => base.indentSize
     val width = tabWidth.getOrElse(
-      if value("indent_size").nonEmpty then size else base.tabWidth
+      if indentSize.nonEmpty then size else base.tabWidth
     )
     val maximum = value("bend_max_line_length") match
       case None | Some("unset") => Some(100)
@@ -57,8 +56,7 @@ object BendLayoutPolicy:
     def indent(columns: Int): Option[String] =
       if !valid || columns < 0 then None
       else if !useTabs then Some(" " * columns)
-      else if columns % tabWidth == 0 then Some("\t" * (columns / tabWidth))
-      else None
+      else Some("\t" * (columns / tabWidth) + " " * (columns % tabWidth))
 
   enum Outcome:
     case Formatted(text: String)
@@ -98,6 +96,49 @@ object BendLayoutPolicy:
     val structure = recognize(source, significant) match
       case Left(reason) => return Left(reason)
       case Right(value) => value
+    val effectiveBodyIndent = scala.collection.mutable.Map.empty[Int, Int]
+    // The existing formatter only adjusts one simple definition/law body.
+    // Avoid changing indentation in nested or multiline syntax whose layout
+    // cannot yet be proven from the tolerant surface parser.
+    val lines = source.split("\n", -1).toIndexedSeq
+    var unrepresentable = false
+    if lines.length >= 2 then
+      var offset = 0
+      for index <- lines.indices do
+        val header = lines(index).stripSuffix("\r")
+        if header.matches("(?:def|law)\\s+[^\\n]*:\\s*") then
+          val next = index + 1
+          if next < lines.length then
+            val body = lines(next).stripSuffix("\r")
+            val leading = body.takeWhile(c => c == ' ' || c == '\t')
+            val following = lines.drop(next + 1).takeWhile { line =>
+              line.trim.nonEmpty && line.headOption
+                .exists(c => c == ' ' || c == '\t')
+            }
+            if body.trim.nonEmpty && !body.trim.startsWith(
+                "#"
+              ) && following.isEmpty
+            then
+              val columns = settings.columns(leading)
+              if leading.contains(' ') && leading.contains('\t') &&
+                !settings.indent(columns).contains(leading)
+              then unrepresentable = true
+              else if Set(2, 4, settings.indentSize).contains(columns) then
+                effectiveBodyIndent(offset + lines(index).length + 1) =
+                  settings.indentSize
+                settings.indent(settings.indentSize) match
+                  case Some(target) if leading != target =>
+                    replacements += Edit(
+                      offset + lines(index).length + 1,
+                      offset + lines(index).length + 1 + leading.length,
+                      target
+                    )
+                  case None => unrepresentable = true
+                  case _    => ()
+              else if leading.contains('\t') then unrepresentable = true
+        offset += lines(index).length + 1
+    if unrepresentable then
+      return Left("Indentation cannot be safely represented")
     val gaps = scala.collection.mutable.Map.empty[Int, String]
     significant.indices.drop(1).foreach { index =>
       val left = significant(index - 1)
@@ -124,8 +165,11 @@ object BendLayoutPolicy:
     val newline = if source.contains("\r\n") then "\r\n" else "\n"
     def indentation(at: Int): Int =
       val beginning = source.lastIndexOf('\n', at - 1) + 1
-      settings.columns(
-        source.substring(beginning, at).takeWhile(c => c == ' ' || c == '\t')
+      effectiveBodyIndent.getOrElse(
+        beginning,
+        settings.columns(
+          source.substring(beginning, at).takeWhile(c => c == ' ' || c == '\t')
+        )
       )
     var unsafe = Option.empty[String]
     def indent(columns: Int): String = settings.indent(columns) match
@@ -192,8 +236,11 @@ object BendLayoutPolicy:
         ).text == ":"
       then list.close + 1
       else list.close
-      val region =
-        source.substring(start, significant(from).start) + spelling(from, until)
+      val prefix = effectiveBodyIndent
+        .get(start)
+        .flatMap(settings.indent)
+        .getOrElse(source.substring(start, significant(from).start))
+      val region = prefix + spelling(from, until)
       if list.items.nonEmpty && overlong(region, 0) then
         if significant
             .slice(list.open, list.close + 1)
@@ -247,46 +294,7 @@ object BendLayoutPolicy:
         replacements += Edit(left.end, right.start, replacement)
     }
 
-    // The existing formatter only adjusts one simple definition/law body.
-    // Avoid changing indentation in nested or multiline syntax whose layout
-    // cannot yet be proven from the tolerant surface parser.
-    val lines = source.split("\n", -1).toIndexedSeq
-    var unrepresentable = false
-    if lines.length >= 2 then
-      var offset = 0
-      for index <- lines.indices do
-        val header = lines(index).stripSuffix("\r")
-        if header.matches("(?:def|law)\\s+[^\\n]*:\\s*") then
-          val next = index + 1
-          if next < lines.length then
-            val body = lines(next).stripSuffix("\r")
-            val leading = body.takeWhile(c => c == ' ' || c == '\t')
-            val following = lines.drop(next + 1).takeWhile { line =>
-              line.trim.nonEmpty && line.headOption
-                .exists(c => c == ' ' || c == '\t')
-            }
-            if body.trim.nonEmpty && !body.trim.startsWith(
-                "#"
-              ) && following.isEmpty
-            then
-              if leading.contains('\t') then
-                if !settings.useTabs || leading.contains(' ') ||
-                  settings.columns(leading) != settings.indentSize
-                then unrepresentable = true
-              else if Set(2, 4, settings.indentSize).contains(leading.length)
-              then
-                settings.indent(settings.indentSize) match
-                  case Some(target) if leading != target =>
-                    replacements += Edit(
-                      offset + lines(index).length + 1,
-                      offset + lines(index).length + 1 + leading.length,
-                      target
-                    )
-                  case None => unrepresentable = true
-                  case _    => ()
-        offset += lines(index).length + 1
-    if unrepresentable then Left("Indentation cannot be safely represented")
-    else Right(replacements.toList)
+    Right(replacements.toList)
 
   private final case class LayoutList(
       open: Int,

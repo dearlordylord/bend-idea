@@ -1,5 +1,6 @@
 package com.dearlordylord.bend.idea.features.editing
 
+import com.dearlordylord.bend.idea.features.formatting.BendWrappingFixtures
 import com.intellij.application.options.CodeStyle
 import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -255,3 +256,147 @@ final class BendIndentTest extends BasePlatformTestCase:
       "def f():\n  \n  value",
       myFixture.getEditor.getDocument.getText
     )
+
+  def testTabWidthDoesNotSetSpaceIndentAndTabRemaindersWork(): Unit =
+    val root = Files.createTempDirectory(
+      Files.createDirectories(Path.of(getProject.getBasePath)),
+      "indent-width-remainder-"
+    )
+    for ((properties, indent, continuation), index) <-
+        BendWrappingFixtures.editorConfigIndentCases.zipWithIndex
+    do
+      val dir = Files.createDirectories(root.resolve("case" + index))
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\n" + properties + "bend_max_line_length = 20\n"
+      )
+      def open(name: String, source: String): Unit =
+        val path = dir.resolve(name + ".bend")
+        Files.writeString(path, source)
+        myFixture.configureFromExistingVirtualFile(
+          LocalFileSystem.getInstance.refreshAndFindFileByNioFile(path)
+        )
+      open("typing", "def f():")
+      myFixture.getEditor.getCaretModel.moveToOffset(
+        myFixture.getEditor.getDocument.getTextLength
+      )
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_ENTER)
+      assertEquals(
+        "def f():\n" + indent,
+        myFixture.getEditor.getDocument.getText
+      )
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_BACKSPACE)
+      assertEquals("def f():\n", myFixture.getEditor.getDocument.getText)
+      open("format", "def f():\n  1\n")
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(
+        "def f():\n" + indent + "1\n",
+        myFixture.getEditor.getDocument.getText
+      )
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(
+        "def f():\n" + indent + "1\n",
+        myFixture.getEditor.getDocument.getText
+      )
+      open("wrap", "def main():\n" + indent + "combine(alpha,beta,gamma)\n")
+      val expected =
+        "def main():\n" + indent + "combine(\n" + continuation + "alpha,\n" + continuation + "beta,\n" + continuation + "gamma\n" + indent + ")\n"
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(expected, myFixture.getEditor.getDocument.getText)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(expected, myFixture.getEditor.getDocument.getText)
+
+  def testDisabledEditorConfigUsesIdeDefaultsAndCanBeEnabledAgain(): Unit =
+    val settings = CodeStyle
+      .getSettings(getProject)
+      .getCustomSettings(classOf[EditorConfigSettings])
+    val previousEnabled = settings.ENABLED
+    val root = Files.createTempDirectory(
+      Files.createDirectories(Path.of(getProject.getBasePath)),
+      "editorconfig-toggle-"
+    )
+    Files.writeString(
+      root.resolve(".editorconfig"),
+      "root = true\n[*.bend]\nindent_style = space\nindent_size = 4\nbend_max_line_length = 20\n"
+    )
+    def open(name: String, source: String): Unit =
+      val path = root.resolve(name + ".bend")
+      Files.writeString(path, source)
+      myFixture.configureFromExistingVirtualFile(
+        LocalFileSystem.getInstance.refreshAndFindFileByNioFile(path)
+      )
+    try
+      for enabled <- List(false, true) do
+        settings.ENABLED = enabled
+        CodeStyleSettingsManager
+          .getInstance(getProject)
+          .notifyCodeStyleSettingsChanged()
+        val indent = if enabled then "    " else "  "
+        open("typing" + enabled, "def f():")
+        myFixture.getEditor.getCaretModel.moveToOffset(
+          myFixture.getEditor.getDocument.getTextLength
+        )
+        myFixture.performEditorAction(IdeActions.ACTION_EDITOR_ENTER)
+        assertEquals(
+          "def f():\n" + indent,
+          myFixture.getEditor.getDocument.getText
+        )
+        myFixture.performEditorAction(IdeActions.ACTION_EDITOR_BACKSPACE)
+        assertEquals("def f():\n", myFixture.getEditor.getDocument.getText)
+        open("format" + enabled, "def f():\n    1\n")
+        myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+        assertEquals(
+          "def f():\n" + indent + "1\n",
+          myFixture.getEditor.getDocument.getText
+        )
+        open(
+          "wrap" + enabled,
+          "def main():\n" + indent + "combine(alpha,beta,gamma)\n"
+        )
+        myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+        val expected = if enabled then
+          "def main():\n    combine(\n        alpha,\n        beta,\n        gamma\n    )\n"
+        else "def main():\n  combine(alpha, beta, gamma)\n"
+        assertEquals(expected, myFixture.getEditor.getDocument.getText)
+    finally settings.ENABLED = previousEnabled
+
+  def testEnterDoesNotCanonicalizeAcrossUnsafePhysicalTabBoundary(): Unit =
+    val root = Files.createTempDirectory(
+      Files.createDirectories(Path.of(getProject.getBasePath)),
+      "physical-tab-boundary-"
+    )
+    Files.writeString(
+      root.resolve(".editorconfig"),
+      "root = true\n[*.bend]\nindent_style = tab\nindent_size = 2\ntab_width = 8\n"
+    )
+    for (name, source) <- List(
+        (
+          "nested",
+          "def main():\n  match value:\n    case value:\n      match value:"
+        ),
+        (
+          "same-level",
+          "def main():\n  match value:\n    case value:\n      match value:\n        value"
+        )
+      )
+    do
+      val path = root.resolve(name + ".bend")
+      Files.writeString(path, source)
+      myFixture.configureFromExistingVirtualFile(
+        LocalFileSystem.getInstance.refreshAndFindFileByNioFile(path)
+      )
+      myFixture.getEditor.getCaretModel.moveToOffset(
+        myFixture.getEditor.getDocument.getTextLength
+      )
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_ENTER)
+      val result = myFixture.getEditor.getDocument.getText
+      assertTrue(result.startsWith(source + "\n"))
+      val continuation = result.substring(source.length + 1)
+      assertFalse(
+        "Unsafe visual tab normalization must not change physical ownership",
+        continuation.contains('\t')
+      )
+      assertTrue(
+        "Fallback indentation remains whitespace only",
+        continuation.forall(_ == ' ')
+      )

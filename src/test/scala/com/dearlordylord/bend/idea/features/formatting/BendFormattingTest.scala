@@ -402,3 +402,79 @@ final class BendFormattingTest extends BasePlatformTestCase:
       assertEquals("def f():\n    ", myFixture.getEditor.getDocument.getText)
       myFixture.performEditorAction(IdeActions.ACTION_EDITOR_BACKSPACE)
       assertEquals("def f():\n", myFixture.getEditor.getDocument.getText)
+
+  def testFullActorSelectionIncludingFinalNewlineWraps(): Unit =
+    val source = BendWrappingFixtures.actorBefore
+    myFixture.configureByText("actor-selection-all.bend", source)
+    myFixture.getEditor.getSelectionModel.setSelection(0, source.length)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(
+      BendWrappingFixtures.actorAfter,
+      myFixture.getEditor.getDocument.getText
+    )
+
+  def testFullActorSelectionExcludingFinalNewlineWraps(): Unit =
+    val source = BendWrappingFixtures.actorBefore
+    myFixture.configureByText("actor-selection-content.bend", source)
+    myFixture.getEditor.getSelectionModel
+      .setSelection(0, source.stripSuffix("\n").length)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(
+      BendWrappingFixtures.actorAfter,
+      myFixture.getEditor.getDocument.getText
+    )
+
+    myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+    assertEquals(source, myFixture.getEditor.getDocument.getText)
+
+  def testPhysicalActorWithoutSelectionAtWidth100Wraps(): Unit =
+    val root = Files.createTempDirectory(
+      Files.createDirectories(java.nio.file.Path.of(getProject.getBasePath)),
+      "actor-manual-"
+    )
+    Files.writeString(
+      root.resolve(".editorconfig"),
+      "root = true\n[*.bend]\nbend_max_line_length = 100\n"
+    )
+    val path = root.resolve("actor.bend")
+    Files.writeString(path, BendWrappingFixtures.actorBefore)
+    myFixture.configureFromExistingVirtualFile(
+      com.intellij.openapi.vfs.LocalFileSystem.getInstance
+        .refreshAndFindFileByNioFile(path)
+    )
+    assertFalse(myFixture.getEditor.getSelectionModel.hasSelection)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(
+      BendWrappingFixtures.actorAfter,
+      myFixture.getEditor.getDocument.getText
+    )
+
+  def testWholeLogicalActorSelectionPreservesUnselectedBoundaryWhitespace()
+      : Unit =
+    val prefix = "\n\n"
+    val suffix = "\n\n"
+    val source = prefix + BendWrappingFixtures.actorBefore + suffix
+    myFixture.configureByText("actor-whitespace-boundary.bend", source)
+    myFixture.getEditor.getSelectionModel.setSelection(
+      prefix.length,
+      prefix.length + BendWrappingFixtures.actorBefore.stripSuffix("\n").length
+    )
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(
+      prefix + BendWrappingFixtures.actorAfter + suffix,
+      myFixture.getEditor.getDocument.getText
+    )
+    myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+    assertEquals(source, myFixture.getEditor.getDocument.getText)
+
+  def testActorSelectionWithUnselectedCommentRemainsPartial(): Unit =
+    val prefix = "# outside the selected source\n"
+    val source = prefix + BendWrappingFixtures.actorBefore
+    myFixture.configureByText("actor-partial-comment.bend", source)
+    myFixture.getEditor.getSelectionModel
+      .setSelection(prefix.length, source.length)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    val result = myFixture.getEditor.getDocument.getText
+    assertTrue(result.startsWith(prefix))
+    assertEquals(source.count(_ == '\n'), result.count(_ == '\n'))
+    assertTrue(result.contains("case T.Cr{T.Alive{"))

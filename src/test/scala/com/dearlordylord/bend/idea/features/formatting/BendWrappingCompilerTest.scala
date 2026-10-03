@@ -3,13 +3,16 @@ package com.dearlordylord.bend.idea.features.formatting
 import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
 import com.dearlordylord.bend.idea.syntax.lexer.BendLexer
-import com.dearlordylord.bend.idea.syntax.parser.BendLayoutPolicy
+import com.dearlordylord.bend.idea.syntax.parser.{
+  BendIndentPolicy,
+  BendLayoutPolicy
+}
 import com.dearlordylord.bend.idea.syntax.psi.BendReferenceElement
 import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.psi.{PsiFile, TokenType}
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import scala.jdk.CollectionConverters.*
 import org.junit.Assert.*
@@ -157,6 +160,24 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
       }
     (declarations, bindings, references)
 
+  private def checkPinnedFile(root: Path): Unit =
+    val compiler = RealBendCompilerFixture.inputs
+    val output =
+      root.resolveSibling(root.getFileName.toString + ".compiler.log")
+    val process = new ProcessBuilder(
+      compiler.bunExecutable.toString,
+      compiler.main.toString,
+      root.toString,
+      "--check-only"
+    ).redirectErrorStream(true).redirectOutput(output.toFile).start()
+    if !process.waitFor(30, TimeUnit.SECONDS) then
+      val _ = process.destroyForcibly()
+      val _ = process.waitFor(5, TimeUnit.SECONDS)
+      fail("Pinned compiler timed out checking wrapping fixture")
+    val result = Files.readString(output)
+    assertEquals(result, 0, process.exitValue())
+    assertTrue(result, result.contains("All terms check."))
+
   def testCompleteImportedProofBearingProgramsPreserveCompilerAndSourceIdentities()
       : Unit =
     val compiler = RealBendCompilerFixture.inputs
@@ -281,6 +302,91 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
         assertTrue(BendLayoutPolicy.edits(text, settings).isLeft)
         assertEquals(text, Files.readString(root))
         check()
+    finally
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => { val _ = Files.deleteIfExists(p) })
+      finally paths.close()
+
+  def testNondivisibleTabWidthsPreserveCompleteCompilerAndSourceIdentities()
+      : Unit =
+    val text =
+      "import Base\ndef combine_three_arguments(a: U32,b: U32,c: U32) -> U32:\n  a\ndef main() -> U32:\n  combine_three_arguments(1,2,3)\n"
+    val directory = Files.createTempDirectory("bend-wrapping-tab-remainders-")
+    try
+      val original = directory.resolve("original.bend")
+      val _ = Files.writeString(original, text)
+      checkPinnedFile(original)
+      for tabWidth <- List(3, 8) do
+        val settings = BendLayoutPolicy.Settings(4, true, tabWidth, Some(20))
+        val formatted = BendLayoutPolicy.format(text, settings) match
+          case BendLayoutPolicy.Outcome.Formatted(value) => value
+          case other                                     =>
+            fail(s"Complete tab-remainder fixture should format: $other")
+            text
+        assertEquals(
+          BendLayoutPolicy.Outcome.Unchanged,
+          BendLayoutPolicy.format(formatted, settings)
+        )
+        val before = myFixture.configureByText("tab-remainders.bend", text)
+        val beforeTokens = tokens(before).map(t => (t._1, t._2))
+        val beforeShape = shape(before)
+        assertTrue(beforeShape._2.exists(_._1 == "a"))
+        assertTrue(
+          beforeShape._3.exists(r =>
+            r._1 == "combine_three_arguments" && r._4.nonEmpty
+          )
+        )
+        val after = myFixture.configureByText("tab-remainders.bend", formatted)
+        assertEquals(beforeTokens, tokens(after).map(t => (t._1, t._2)))
+        assertEquals(beforeShape, shape(after))
+        assertTrue(
+          formatted.contains(
+            settings.indent(4).get + "combine_three_arguments(\n"
+          )
+        )
+        assertTrue(formatted.contains(settings.indent(8).get + "1,\n"))
+        val snapshot = directory.resolve(s"tabs-$tabWidth.bend")
+        val _ = Files.writeString(snapshot, formatted)
+        checkPinnedFile(snapshot)
+      assertEquals(text, Files.readString(original))
+    finally
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => { val _ = Files.deleteIfExists(p) })
+      finally paths.close()
+
+  def testTypingRefusesTabStopIndentThatWouldMoveCompilerCaseOwnership(): Unit =
+    val text =
+      "import Base\ndef choose(a: Bool, b: Bool) -> Bool:\n  match a:\n    case True{}:\n      match b:\n        case True{}: True{}\n        case False{}: False{}\n    case False{}: False{}\n"
+    val directory = Files.createTempDirectory("bend-typing-physical-tab-order-")
+    try
+      val original = directory.resolve("original.bend")
+      val _ = Files.writeString(original, text)
+      checkPinnedFile(original)
+      val settings = BendLayoutPolicy.Settings(2, true, 8)
+      val matchLine = "      match b:\n"
+      val caret = text.indexOf(matchLine) + matchLine.length
+      assertEquals(Some("\t"), settings.indent(8))
+      assertEquals(None, BendIndentPolicy.afterEnter(text, caret, settings))
+      val siblingLine = "        case True{}: True{}\n"
+      val siblingCaret = text.indexOf(siblingLine) + siblingLine.length
+      assertEquals(
+        None,
+        BendIndentPolicy.afterEnter(text, siblingCaret, settings)
+      )
+      val tabbedBlank =
+        text.substring(0, caret) + "\t\n" + text.substring(caret)
+      assertEquals(
+        None,
+        BendIndentPolicy.backspace(tabbedBlank, caret + 1, settings)
+      )
+      assertEquals(text, Files.readString(original))
+      checkPinnedFile(original)
     finally
       val paths = Files.walk(directory)
       try

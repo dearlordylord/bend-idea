@@ -13,6 +13,15 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Respect IntelliJ’s EditorConfig enable setting for Bend typing and formatting.
+  Keep space indentation independent of tab width, support tab indentation with
+  remaining spaces, and ignore invalid standard indentation properties while
+  retaining other valid settings. Keep typing conservative when tab normalization
+  would change Bend’s physical body ownership.
+
+- Apply wrapping when Reformat Code selects all file content but omits the final
+  newline or surrounding whitespace. Partial selections retain safe spacing.
+
 - Wrap long constructor patterns, constructor expressions, calls and dependent
   definition signatures in Reformat Code and the offline formatter. Reflow
   recognized overlong multiline lists while preserving fitting grouping.

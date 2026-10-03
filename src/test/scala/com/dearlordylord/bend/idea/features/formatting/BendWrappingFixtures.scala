@@ -123,3 +123,15 @@ object BendWrappingFixtures:
       "def main():\n  pair(\n    a, b\n  ) + combine(\n    alpha,\n    beta,\n    gamma\n  )\n"
     )
   )
+
+  val editorConfigIndentCases = List(
+    ("tab_width = 8\n", "  ", "    "),
+    (
+      "indent_style = invalid\nindent_size = invalid\ntab_width = invalid\n",
+      "  ",
+      "    "
+    ),
+    ("indent_style = space\ntab_width = 8\n", "  ", "    "),
+    ("indent_style = tab\nindent_size = 4\ntab_width = 3\n", "\t ", "\t\t  "),
+    ("indent_style = tab\nindent_size = 4\ntab_width = 8\n", "    ", "\t")
+  )

@@ -19,12 +19,17 @@ final class BendFormattingProcessor extends PreFormatProcessor:
     val document = manager.getDocument(file)
     if document == null then return range
     val source = file.getText
+    // Reformat Selection may omit the final newline or surrounding whitespace.
+    // It still selects the whole logical file when no source tokens lie outside.
+    val wholeFile =
+      source.substring(0, range.getStartOffset).forall(_.isWhitespace) &&
+        source.substring(range.getEndOffset).forall(_.isWhitespace)
     val edits = BendLayoutPolicy
       .edits(source, BendEffectiveIndent.forFormattingFile(file))
       .getOrElse(Nil)
-      .filter(edit => range.containsRange(edit.start, edit.end))
+      .filter(edit => wholeFile || range.containsRange(edit.start, edit.end))
       .filter(edit =>
-        range.containsRange(0, source.length) ||
+        wholeFile ||
           (!edit.replacement.exists(c => c == '\n' || c == '\r') &&
             !source
               .substring(edit.start, edit.end)
@@ -37,6 +42,7 @@ final class BendFormattingProcessor extends PreFormatProcessor:
         document.replaceString(edit.start, edit.end, edit.replacement)
       )
     manager.commitDocument(document)
+    if wholeFile then return new TextRange(0, document.getTextLength)
     new TextRange(
       range.getStartOffset,
       range.getEndOffset + edits

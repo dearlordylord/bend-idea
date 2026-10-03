@@ -20,22 +20,22 @@ object BendIndentPolicy:
       source.substring(previousStart, previousEnd).stripSuffix("\r")
     if previous.trim.isEmpty then return None
     val prefix = leading(previous)
-    if prefix.contains(' ') && prefix.contains('\t') then return None
+    if !safePrefix(prefix, settings) then return None
     val base = settings.columns(prefix)
     if inLiteral(source, previousEnd) then return settings.indent(0)
     if previous.drop(prefix.length).startsWith("#") then
-      return settings.indent(base)
+      return sustainedIndent(prefix, base, settings)
     val suffix = previous.trim
-    if suffix.endsWith(":") then settings.indent(base + settings.indentSize)
+    if suffix.endsWith(":") then increasedIndent(prefix, base, settings)
     else
       val open = unmatchedOpening(source, previousEnd)
       open match
         case Some(position) =>
           val lineStart = source.lastIndexOf('\n', position - 1) + 1
           val context = leading(source.substring(lineStart, position))
-          if context.contains(' ') && context.contains('\t') then None
-          else settings.indent(settings.columns(context) + settings.indentSize)
-        case None => settings.indent(base)
+          if !safePrefix(context, settings) then None
+          else increasedIndent(context, settings.columns(context), settings)
+        case None => sustainedIndent(prefix, base, settings)
 
   def backspace(
       source: String,
@@ -48,13 +48,41 @@ object BendIndentPolicy:
     val before = source.substring(lineStart, caret)
     if before.isEmpty || !before.forall(c => c == ' ' || c == '\t') then
       return None
-    if before.contains(' ') && before.contains('\t') then return None
+    if !safePrefix(before, settings) then return None
     val current = settings.columns(before)
     if current == 0 then None
     else
-      settings.indent(
-        math.max(0, ((current - 1) / settings.indentSize) * settings.indentSize)
-      )
+      settings
+        .indent(
+          math
+            .max(0, ((current - 1) / settings.indentSize) * settings.indentSize)
+        )
+        .filter(_.length < before.length)
+
+  // Bend's parser measures physical characters, while EditorConfig measures
+  // visual columns. Do not suggest a logical level that reverses parser order.
+  private def sustainedIndent(
+      prefix: String,
+      columns: Int,
+      settings: BendLayoutPolicy.Settings
+  ): Option[String] =
+    settings.indent(columns).filter(_.length == prefix.length)
+
+  private def increasedIndent(
+      prefix: String,
+      columns: Int,
+      settings: BendLayoutPolicy.Settings
+  ): Option[String] =
+    settings
+      .indent(columns + settings.indentSize)
+      .filter(_.length > prefix.length)
+
+  private def safePrefix(
+      prefix: String,
+      settings: BendLayoutPolicy.Settings
+  ): Boolean =
+    !prefix.contains(' ') || !prefix.contains('\t') ||
+      settings.indent(settings.columns(prefix)).contains(prefix)
 
   private def leading(line: String): String =
     line.takeWhile(c => c == ' ' || c == '\t')

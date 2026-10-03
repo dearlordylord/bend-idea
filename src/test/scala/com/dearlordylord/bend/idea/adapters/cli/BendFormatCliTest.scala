@@ -296,3 +296,30 @@ final class BendFormatCliTest:
         assertEquals(expected, Files.readString(file))
         assertEquals(0, tool(dir, "check", file.toString)._1)
     }
+
+  @Test def tabWidthOnlyAndTabRemainderIndentationMatchEditor(): Unit =
+    temporary { root =>
+      for ((properties, indent, continuation), index) <-
+          BendWrappingFixtures.editorConfigIndentCases.zipWithIndex
+      do
+        val dir = Files.createDirectory(root.resolve("case" + index))
+        Files.writeString(
+          dir.resolve(".editorconfig"),
+          "root = true\n[*.bend]\n" + properties + "bend_max_line_length = 20\n"
+        )
+        val file = dir.resolve("main.bend")
+        Files.writeString(file, "def f():\n  1\n")
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals("def f():\n" + indent + "1\n", Files.readString(file))
+        assertEquals(0, tool(dir, "check", file.toString)._1)
+        Files.writeString(
+          file,
+          "def main():\n" + indent + "combine(alpha,beta,gamma)\n"
+        )
+        val expected =
+          "def main():\n" + indent + "combine(\n" + continuation + "alpha,\n" + continuation + "beta,\n" + continuation + "gamma\n" + indent + ")\n"
+        assertEquals(1, tool(dir, "check", file.toString)._1)
+        assertEquals(0, tool(dir, "fix", file.toString)._1)
+        assertEquals(expected, Files.readString(file))
+        assertEquals(0, tool(dir, "check", file.toString)._1)
+    }
