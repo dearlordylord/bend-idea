@@ -94,7 +94,7 @@ All five runtime packaging/smoke jobs and asset publication passed in [run 37146
 
 Homebrew tap commit `cca665eabd7542a4df3517d9cf6a98a8de9abcdd` advances all four macOS/Linux archives to 0.1.13. [Install and test run 37146422995](https://github.com/dearlordylord/homebrew-tap/actions/runs/37146422995) passed style/audit, actual installation, version and formatting regression tests, and removal on all four native targets. Local Homebrew was unavailable; the native tap CI supplies installation evidence.
 
-The custom repository metadata targets 0.1.13 and matches the signed plugin. Its deployment is checked after this feed commit is pushed. The signed ZIP is prepared for IntelliJ distribution; Marketplace submission and approval remain separate. The combined maintainer workflow is documented in [docs/releasing.md](docs/releasing.md).
+On 2026-10-03, both the primary custom repository and its Cloudflare Pages fallback served 0.1.13 with metadata matching the signed plugin. The signed ZIP was publicly downloaded and its checksum verified. An interactive IDE installation/update was not exercised. GitHub Release v0.1.13 is published as the stable latest release. The signed ZIP is prepared for IntelliJ distribution; Marketplace submission and approval remain separate. The combined maintainer workflow is documented in [docs/releasing.md](docs/releasing.md).
 
 ## Homebrew distribution
 
