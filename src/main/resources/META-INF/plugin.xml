@@ -20,11 +20,11 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.13:</p>
+<p>Version 0.1.14:</p>
 <ul>
-  <li>Format tuples and list literals, including calls containing multiline lists.</li>
-  <li>Recognize definition result arrows continued on an indented line.</li>
-  <li>The IDE and standalone formatter retain shared conservative checks and idempotent wrapping.</li>
+  <li>The standalone CLI identifies itself as bend-format and provides --help/-h, including subcommand help.</li>
+  <li>Report actionable argument and file errors; support -- for dash-prefixed filenames.</li>
+  <li>Check all tracked Bend files from repository subdirectories; provide safe hook arguments and pinned installed-tool CI examples.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

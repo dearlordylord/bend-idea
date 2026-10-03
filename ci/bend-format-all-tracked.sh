@@ -19,5 +19,5 @@ while IFS= read -r -d '' path; do
     result=$?
     if ((result > status)); then status=$result; fi
   fi
-done < <(git ls-files -z -- '*.bend')
+done < <(git -C "$repo_root" ls-files -z -- '*.bend')
 exit "$status"

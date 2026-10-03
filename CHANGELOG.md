@@ -13,6 +13,14 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.14
+
+- Use the installed `bend-format` name in CLI version and help output; add
+  `--help`/`-h` (including subcommand help), actionable argument and file errors,
+  and `--` for dash-prefixed filenames.
+- Check all tracked Bend files from any repository subdirectory; document
+  installed-tool project checks, safe hook arguments and pinned consumer CI.
+
 ## 0.1.13
 
 - Format tuples and list literals, including calls containing multiline lists,

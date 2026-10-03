@@ -72,6 +72,9 @@ Clone `dearlordylord/homebrew-tap` and update `Formula/bend-format.rb`. Change a
 four macOS/Linux URLs to the new release version. Replace each `sha256` with the
 matching archive hash from the downloaded `BEND-FORMAT-SHA256SUMS.txt`, rather
 than the JAR hash. Windows remains a manual archive installation.
+Keep formula tests aligned with the command's public output and arguments:
+`--version` now prints `bend-format VERSION`; test `--help` and argument errors
+as well as formatting. Do not update the tap to an unreleased build.
 
 Commit and push the formula. Its `Install and test` workflow runs `brew style`,
 `brew audit --strict`, actual installation, command/version and formula tests,

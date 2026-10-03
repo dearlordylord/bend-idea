@@ -1,0 +1,38 @@
+name: Bend format (installed command)
+
+on:
+  pull_request:
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install pinned formatter
+        shell: bash
+        env:
+          FORMATTER_VERSION: '0.1.13'
+          FORMATTER_SHA256: '387371a917f2b2a300a7455a3ead6ae9ff1c2268644c48c7915511b51d7c69f1'
+        run: |
+          set -euo pipefail
+          archive="bend-format-${FORMATTER_VERSION}-linux-x64.tar.gz"
+          install_dir="$RUNNER_TEMP/bend-format-install"
+          mkdir -p "$install_dir"
+          cd "$install_dir"
+          curl --fail --location --retry 3 --output "$archive" \
+            "https://github.com/dearlordylord/bend-idea/releases/download/v${FORMATTER_VERSION}/$archive"
+          printf '%s  %s\n' "$FORMATTER_SHA256" "$archive" | sha256sum --check
+          tar -xzf "$archive"
+          echo "$install_dir/bend-format-${FORMATTER_VERSION}-linux-x64/bin" >> "$GITHUB_PATH"
+      - name: Check tracked Bend files
+        shell: bash
+        run: |
+          set -euo pipefail
+          bend-format --version
+          files=()
+          while IFS= read -r -d '' path; do
+            files+=("$PWD/$path")
+          done < <(git ls-files -z -- '*.bend')
+          if ((${#files[@]})); then
+            bend-format check "${files[@]}"
+          fi

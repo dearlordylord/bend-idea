@@ -28,6 +28,37 @@ final class BendFormatVersionTest:
       new String(process.getErrorStream.readAllBytes(), StandardCharsets.UTF_8)
     )
 
+  @Test def helpAndArgumentErrorsUseInstalledCommandName(): Unit =
+    for args <- List(
+        Seq("--help"),
+        Seq("-h"),
+        Seq("check", "--help"),
+        Seq("fix", "-h")
+      )
+    do
+      val result = run(jar, args*)
+      assertEquals(0, result._1)
+      assertEquals("", result._3)
+      assertTrue(result._2.contains("bend-format check FILE ..."))
+      assertTrue(result._2.contains("Exit codes:"))
+      assertFalse(result._2.contains("bend-format-tool"))
+    for args <- List(
+        Seq.empty[String],
+        Seq("check"),
+        Seq("fix"),
+        Seq("unknown"),
+        Seq("check", "--unknown"),
+        Seq("check", "--stdin-path"),
+        Seq("fix", "--stdin-path", "main.bend"),
+        Seq("check", "--stdin-path", "main.bend", "other.bend"),
+        Seq("fix", "--")
+      )
+    do
+      val result = run(jar, args*)
+      assertEquals(args.toString, 2, result._1)
+      assertEquals("", result._2)
+      assertTrue(result._3.contains("Run bend-format --help"))
+
   @Test def unpackagedClassesCannotClaimARelease(): Unit =
     val classpath = System.getProperty("bend.format.tool.classes") +
       java.io.File.pathSeparator + jar.toString
@@ -51,7 +82,7 @@ final class BendFormatVersionTest:
         archive.getManifest.getMainAttributes.getValue("Implementation-Version")
       )
     finally archive.close()
-    assertEquals((0, s"bend-format-tool $version\n", ""), run(jar, "--version"))
+    assertEquals((0, s"bend-format $version\n", ""), run(jar, "--version"))
     val renamed = Files.createTempFile("renamed-formatter-", ".jar")
     try
       val _ = Files.copy(
@@ -60,7 +91,7 @@ final class BendFormatVersionTest:
         java.nio.file.StandardCopyOption.REPLACE_EXISTING
       )
       assertEquals(
-        (0, s"bend-format-tool $version\n", ""),
+        (0, s"bend-format $version\n", ""),
         run(renamed, "--version")
       )
     finally

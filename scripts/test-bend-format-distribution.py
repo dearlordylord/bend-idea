@@ -90,7 +90,15 @@ def smoke(archive, jar=None):
             assert result.returncode == code, (arguments, result.returncode, result.stdout, result.stderr)
             return result.stdout.decode("utf-8")
 
-        assert invoke(["--version"], 0).strip() == f'bend-format-tool {metadata["version"]}'
+        assert invoke(["--version"], 0).strip() == f'bend-format {metadata["version"]}'
+        for flag in ("--help", "-h"):
+            help_text = invoke([flag], 0)
+            assert "bend-format check FILE ..." in help_text
+            assert "bend-format-tool" not in help_text
+        invoke(["check", "--unknown"], 2)
+        dash_path = work / "-dash file.bend"
+        dash_path.write_bytes(b"def main():\n  1\n")
+        invoke(["check", "--", dash_path.name], 0)
         java = bundle / "runtime" / "bin" / ("java.exe" if os.name == "nt" else "java")
         modules = subprocess.run([str(java), "--list-modules"], capture_output=True, env=environment, timeout=30, check=True)
         runtime_modules = {line.split("@", 1)[0] for line in modules.stdout.decode("utf-8").splitlines()}
@@ -149,7 +157,7 @@ def smoke(archive, jar=None):
         if os.name != "nt":
             alias = work / "symlink launcher"
             alias.symlink_to(os.path.relpath(launcher, work))
-            assert invoke(["--version"], 0, entry=alias).strip() == f'bend-format-tool {metadata["version"]}'
+            assert invoke(["--version"], 0, entry=alias).strip() == f'bend-format {metadata["version"]}'
         print(f'Distribution smoke passed: {archive.name} (bundled runtime, hostile JAVA_HOME, empty PATH, cwd/stdin/args, 0/1/2, no-write, EditorConfig, bytes and idempotence)')
 
 

@@ -42,6 +42,37 @@ final class BendFormatCliTest:
           })
       finally paths.close()
 
+  @Test def fileErrorsExplainHowInputsAreUnavailable(): Unit = temporary {
+    dir =>
+      val missing = tool(dir, "check", "missing.bend")
+      assertEquals(2, missing._1)
+      assertTrue(missing._2.contains("missing.bend: file not found"))
+      val file = dir.resolve("invalid.bend")
+      val bytes = Array[Byte](0xff.toByte)
+      val _ = Files.write(file, bytes)
+      val invalid = tool(dir, "fix", file.toString)
+      assertEquals(2, invalid._1)
+      assertTrue(invalid._2.contains("expected valid UTF-8 source"))
+      assertArrayEquals(bytes, Files.readAllBytes(file))
+  }
+
+  @Test def dashPrefixedAndSpacedPathsAreExplicitFiles(): Unit = temporary {
+    dir =>
+      val file = dir.resolve("-my file.bend")
+      val source = "def main(x: U32,y: U32):\n  x\n"
+      val _ = Files.writeString(file, source)
+      assertEquals(2, tool(dir, "fix", "-my file.bend")._1)
+      assertEquals(source, Files.readString(file))
+      assertEquals(1, tool(dir, "check", "--", "-my file.bend")._1)
+      assertEquals(0, tool(dir, "fix", "--", "-my file.bend")._1)
+      assertEquals(0, tool(dir, "check", "--", "-my file.bend")._1)
+      val _ = Files.writeString(dir.resolve("plain.bend"), "def main():\n  1\n")
+      assertEquals(
+        0,
+        tool(dir, "check", "plain.bend", "--", "-my file.bend")._1
+      )
+  }
+
   @Test def checkFixAndNestedEditorConfigAreRepeatable(): Unit = temporary {
     dir =>
       Files.writeString(
@@ -157,6 +188,10 @@ final class BendFormatCliTest:
       assertEquals(1, allTracked._1)
       assertTrue(allTracked._2.contains("nested/tracked.bend"))
       assertFalse(allTracked._2.contains("untracked.bend"))
+      val fromNested = run(nested, "bash", all)
+      assertEquals(1, fromNested._1)
+      assertTrue(fromNested._2.contains("nested/tracked.bend"))
+      assertFalse(fromNested._2.contains("untracked.bend"))
       val ambiguous = toolDirectory.resolve("bend-format-tool-other.jar")
       val _ = Files.copy(jar, ambiguous)
       assertEquals(2, run(dir, "bash", hook)._1)

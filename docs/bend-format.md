@@ -33,9 +33,14 @@ To try it before changing PATH, open a terminal in the extracted directory and r
 
 ## Format a project
 
+The help, `--` separator and `bend-format VERSION` output require 0.1.14 or
+newer. Older 0.1.13 supports explicit-file check/fix and stdin check, but prints
+`bend-format-tool VERSION` and does not support help or the separator.
+
 Run these commands from your project directory:
 
 ```sh
+bend-format --help
 bend-format --version
 bend-format check src/main.bend src/types.bend
 bend-format fix src/main.bend src/types.bend
@@ -43,13 +48,34 @@ bend-format fix src/main.bend src/types.bend
 
 The tool works offline after installation. `check` reports files that need formatting; `fix` applies safe formatting changes.
 
-Pass one or more explicit `.bend` paths. `check` never writes files or the Git index. `fix` changes only safe working-tree files and leaves unavailable files intact. Files in a batch are processed independently, even if another file is unavailable.
+Pass one or more explicit `.bend` paths; directories are not scanned recursively. Quote paths containing spaces. Use `bend-format check -- -example.bend` for filenames beginning with a dash. `--help` (or `-h`) prints usage and exit codes; `--version` prints `bend-format VERSION`. To check UTF-8 standard input without writing it, use `bend-format check --stdin-path src/main.bend`; the path supplies the file identity and EditorConfig lookup location.
+
+`check` never writes files or the Git index. `fix` changes only safe working-tree files and leaves unavailable files intact. Files in a batch are processed independently, even if another file is unavailable.
 
 | Exit | `check` | `fix` |
 |---|---|---|
 | `0` | All files conform. | All files conform or were safely formatted. |
 | `1` | At least one file would change. | — |
 | `2` | A file is unavailable or the command cannot run. | A file is unavailable or the command cannot run; safe files may already have been formatted. |
+
+### Check all tracked files with the installed command
+
+In Bash (macOS/Linux), this checks working-tree content for all Git-tracked Bend
+files, including paths containing spaces or beginning with a dash. Untracked
+files are excluded; no build of the plugin repository is required:
+
+```bash
+cd "$(git rev-parse --show-toplevel)" || exit 2
+files=()
+while IFS= read -r -d '' path; do
+  files+=("$PWD/$path")
+done < <(git ls-files -z -- '*.bend')
+if ((${#files[@]})); then
+  bend-format check "${files[@]}"
+fi
+```
+
+To apply formatting, replace `check` with `fix`, then review `git diff`.
 
 ## EditorConfig and wrapping
 
@@ -94,11 +120,14 @@ repos:
     hooks:
       - id: bend-format
         name: Format Bend
-        entry: bend-format fix
+        entry: bend-format fix --
         language: unsupported
         files: '\.bend$'
         require_serial: true
 ```
+
+The `--` entries require 0.1.14 or newer. With 0.1.13, use
+`entry: bend-format fix` (or `bend-format check`) without the separator.
 
 Enable the hook for your checkout and check existing files:
 
@@ -107,7 +136,7 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-On each commit, pre-commit passes the staged `.bend` filenames to the formatter and temporarily hides tracked unstaged changes. If formatting changes a file, the commit stops: review the changes, stage the intended edits with `git add`, and retry. For a read-only gate, change `entry` to `bend-format check`. Each developer enables the hook after cloning. See [pre-commit documentation](https://pre-commit.com/) for installation on other platforms.
+On each commit, pre-commit passes the staged `.bend` filenames to the formatter and temporarily hides tracked unstaged changes. If formatting changes a file, the commit stops: review the changes, stage the intended edits with `git add`, and retry. For a read-only gate, change `entry` to `bend-format check --`. Each developer enables the hook after cloning. See [pre-commit documentation](https://pre-commit.com/) for installation on other platforms.
 
 `language: unsupported` runs the installed command from PATH; it does not install or pin `bend-format`. This name requires pre-commit 4.4.0 or newer. Keep formatting configuration tracked: untracked or ignored EditorConfig files can still affect lookup.
 
@@ -117,15 +146,17 @@ Add this mapping to your existing lint-staged configuration:
 
 ```json
 {
-  "*.bend": "bend-format fix"
+  "*.bend": "bend-format fix --"
 }
 ```
 
-The formatter must be installed on PATH. lint-staged normally stages formatter changes automatically and hides unstaged portions of partially staged files. Its default does not hide all unrelated unstaged configuration changes. See [lint-staged](https://github.com/lint-staged/lint-staged) for options; retain the project's locked dependency versions.
+The `--` mapping requires 0.1.14 or newer; with 0.1.13 use `bend-format fix`. The formatter must be installed on PATH. lint-staged normally stages formatter changes automatically and hides unstaged portions of partially staged files. Its default does not hide all unrelated unstaged configuration changes. See [lint-staged](https://github.com/lint-staged/lint-staged) for options; retain the project's locked dependency versions.
 
 ## Continuous integration
 
-Install a fixed formatter version in CI, then run `pre-commit run --all-files` with the configuration above. Pin the release archive and verify its SHA-256 against the release checksum manifest; the local hook's configuration alone does not pin the formatter version. For a CI gate that never edits source, use `entry: bend-format check`.
+The [installed-tool CI example](examples/bend-format-user-ci.yml) downloads a fixed Linux x64 release, verifies its archive SHA-256, and checks all tracked Bend files without Java or a plugin build. Update the version and checksum together when upgrading.
+
+Install a fixed formatter version in CI, then run `pre-commit run --all-files` with the configuration above. Pin the release archive and verify its SHA-256 against the release checksum manifest; the local hook's configuration alone does not pin the formatter version. For a CI gate that never edits source, use `entry: bend-format check --`.
 
 For contributors building this repository, the [all-tracked-files script](../ci/bend-format-all-tracked.sh) checks working-tree content using the built JAR; the [CI example](examples/bend-format-ci.yml) builds the tool and runs that script.
 

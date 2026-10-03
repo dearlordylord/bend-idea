@@ -4,41 +4,85 @@ import com.dearlordylord.bend.idea.syntax.parser.BendLayoutPolicy
 import org.editorconfig.core.EditorConfig
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
-import java.nio.charset.CodingErrorAction
-import java.nio.file.{Files, Path}
+import java.nio.charset.{CodingErrorAction, CharacterCodingException}
+import java.nio.file.{Files, Path, NoSuchFileException, AccessDeniedException}
 import scala.jdk.CollectionConverters.*
 import scala.util.control.NonFatal
 
 /** Optional offline style command. It never invokes the Bend compiler or IDE.
   */
 object BendFormatCli:
+  private val help = """Usage:
+    |  bend-format check FILE ...
+    |  bend-format check --stdin-path PATH
+    |  bend-format fix FILE ...
+    |  bend-format --help (or -h)
+    |  bend-format --version
+    |
+    |check reports formatting changes without writing files.
+    |fix applies safe formatting changes to files.
+    |--stdin-path checks UTF-8 stdin using PATH for EditorConfig lookup.
+    |Pass explicit .bend files; directories are not scanned recursively.
+    |Quote paths containing spaces.
+    |Use -- before filenames beginning with a dash.
+    |
+    |Examples:
+    |  bend-format check src/main.bend src/types.bend
+    |  bend-format fix "src/my file.bend"
+    |  bend-format check -- -example.bend
+    |
+    |Exit codes: 0 = conforming/formatted; 1 = check would change;
+    |            2 = invalid arguments or unavailable file.
+    |Files in a batch are processed independently; fix may modify safe files
+    |even when another file is unavailable. Reads local EditorConfig; runs offline.
+    |""".stripMargin
+
   def main(args: Array[String]): Unit =
     System.exit(run(args.toList))
 
   def run(args: List[String]): Int =
+    val wantsHelp = args match
+      case List("--help" | "-h")                  => true
+      case List("check" | "fix", "--help" | "-h") => true
+      case _                                      => false
+    if wantsHelp then
+      print(help)
+      return 0
     if args == List("--version") then
       Option(getClass.getPackage.getImplementationVersion)
         .filter(_.trim.nonEmpty) match
         case Some(version) =>
-          println(s"bend-format-tool $version")
+          println(s"bend-format $version")
           return 0
         case None =>
           System.err.println(
             "Bend format tool build version metadata is unavailable"
           )
           return 2
+    def invalid(reason: String): Int =
+      System.err.println(s"$reason. Run bend-format --help for usage.")
+      System.err.print(help)
+      2
+
     val (fix, stdinPath, paths) = args match
-      case "check" :: "--stdin-path" :: path :: Nil =>
+      case "check" :: "--stdin-path" :: path :: Nil if path.nonEmpty =>
         (false, Some(path), List(path))
-      case "check" :: files if files.nonEmpty =>
-        (false, None, files)
-      case "fix" :: files if files.nonEmpty =>
-        (true, None, files)
-      case _ =>
-        System.err.println(
-          "usage: bend-format-tool check [--stdin-path PATH | FILE ...] | fix FILE ... | --version"
-        )
-        return 2
+      case (mode @ ("check" | "fix")) :: rest =>
+        val separator = rest.indexOf("--")
+        val (before, after) =
+          if separator < 0 then (rest, Nil)
+          else (rest.take(separator), rest.drop(separator + 1))
+        before.find(_.startsWith("-")) match
+          case Some("--stdin-path") =>
+            return invalid("--stdin-path requires check --stdin-path PATH only")
+          case Some(option) => return invalid(s"Unknown option: $option")
+          case None         => ()
+        val files = before ++ after
+        if files.isEmpty || files.exists(_.isEmpty) then
+          return invalid(s"$mode requires at least one .bend file")
+        (mode == "fix", None, files)
+      case Nil          => return invalid("Expected a command")
+      case command :: _ => return invalid(s"Unknown command: $command")
 
     var exit = 0
     val editorConfig = new EditorConfig()
@@ -80,6 +124,15 @@ object BendFormatCli:
                 println(s"would-change: $spelling")
                 if exit == 0 then exit = 1
       catch
+        case _: NoSuchFileException =>
+          println(s"unavailable: $spelling: file not found")
+          exit = 2
+        case _: AccessDeniedException =>
+          println(s"unavailable: $spelling: permission denied")
+          exit = 2
+        case _: CharacterCodingException =>
+          println(s"unavailable: $spelling: expected valid UTF-8 source")
+          exit = 2
         case NonFatal(error) =>
           println(
             s"unavailable: $spelling: ${Option(error.getMessage).getOrElse(error.getClass.getSimpleName)}"
