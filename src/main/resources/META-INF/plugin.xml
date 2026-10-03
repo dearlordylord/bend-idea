@@ -20,11 +20,11 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.14:</p>
+<p>Version 0.1.15:</p>
 <ul>
-  <li>The standalone CLI identifies itself as bend-format and provides --help/-h, including subcommand help.</li>
-  <li>Report actionable argument and file errors; support -- for dash-prefixed filenames.</li>
-  <li>Check all tracked Bend files from repository subdirectories; provide safe hook arguments and pinned installed-tool CI examples.</li>
+  <li>Wrap long equality and inequality propositions in laws, binders and result types.</li>
+  <li>Wrap nested calls, constructors and parenthesized conjunctions with the shared IDE and offline formatter policy.</li>
+  <li>Preserve reflexivity witnesses, comments, significant call/index boundaries and fitting multiline layouts.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

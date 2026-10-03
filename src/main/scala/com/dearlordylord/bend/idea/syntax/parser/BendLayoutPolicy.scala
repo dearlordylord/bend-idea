@@ -193,7 +193,7 @@ object BendLayoutPolicy:
           // opener. Erasing that boundary can turn two arguments into an
           // application or index even when the token sequence is unchanged.
           if Set("(", "[").contains(right) &&
-            !Set(",", "(", "{", "[").contains(left)
+            !Set(",", "(", "{", "[", "==", "!=", ":").contains(left)
           then unsafe = Some("Significant newline before call or index opener")
           gaps(index) =
             if Set("(", "{", "[").contains(left) || Set(")", "}", "]", ",")
@@ -208,12 +208,21 @@ object BendLayoutPolicy:
                             else "") + line.stripSuffix("\r")) > width
         }
       }
+    def atomic(list: LayoutList): Boolean =
+      !list.eligible && Set("{", "<", "[").contains(significant(list.open).text)
+    // Parentheses without comma boundaries are transparent groups. In particular,
+    // a parenthesized conjunction can contain equality terms worth wrapping.
+    def candidates(list: LayoutList): Vector[LayoutList] =
+      if list.eligible then Vector(list)
+      else if atomic(list) then Vector.empty
+      else list.children.flatMap(candidates)
     def expand(list: LayoutList, base: Int): Unit =
       if list.items.nonEmpty then
         compact(list.open, list.close)
         list.items.foreach { (from, until) =>
           gaps(from) = newline + indent(base + settings.indentSize)
           list.children
+            .flatMap(candidates)
             .filter(child => child.open >= from && child.close <= until)
             .foreach { child =>
               val whole = spelling(
@@ -255,16 +264,30 @@ object BendLayoutPolicy:
         else if significant
             .slice(list.open + 1, list.close)
             .exists(token =>
-              Set("do", "match", "case", "return", "=", ";", "%", "\\")
+              Set(
+                "do",
+                "match",
+                "case",
+                "return",
+                "for",
+                "exs",
+                "=>",
+                "=",
+                ";",
+                "%",
+                "\\"
+              )
                 .contains(token.text)
             )
         then unsafe = Some("Unsupported block expression in list")
-        else if structure.exists(atomic =>
-            !atomic.eligible && atomic.open > list.open && atomic.close < list.close &&
+        else if structure.exists(group =>
+            atomic(
+              group
+            ) && group.open > list.open && group.close < list.close &&
               source
                 .substring(
-                  significant(atomic.open).start,
-                  significant(atomic.close).end
+                  significant(group.open).start,
+                  significant(group.close).end
                 )
                 .exists(c => c == '\n' || c == '\r')
           )
@@ -277,7 +300,7 @@ object BendLayoutPolicy:
           val separated = list.items.forall((from, _) =>
             originalGap(from).contains('\n')
           ) && originalGap(list.close).contains('\n')
-          if separated then list.children.filter(_.eligible).foreach(select)
+          if separated then list.children.flatMap(candidates).foreach(select)
           else expand(list, indentation(significant(list.open).start))
     if settings.maxLineLength.nonEmpty then
       structure
@@ -285,8 +308,7 @@ object BendLayoutPolicy:
         .filter { list =>
           !structure.exists(parent =>
             parent.open < list.open && parent.close > list.close &&
-              (parent.eligible || Set("{", "<")
-                .contains(significant(parent.open).text))
+              (parent.eligible || atomic(parent))
           )
         }
         .foreach(select)
@@ -315,9 +337,10 @@ object BendLayoutPolicy:
       declarationBodies: Map[Int, Int]
   )
 
-  /** Delimiter trees retain atomic proofs, annotations and type applications.
-    * Argument/constructor lists, tuples and list literals expose sibling comma
-    * boundaries.
+  /** Delimiter trees retain atomic witnesses, annotations and type
+    * applications. Lists expose sibling comma boundaries; equality terms expose
+    * their operands and type, keeping the equality operator and colon with the
+    * following term.
     */
   private def recognize(
       source: String,
@@ -467,6 +490,8 @@ object BendLayoutPolicy:
         (namedHead || tokens(open).text == "(" && closedHead) &&
         (attached || tokens(open).text == "(" && sameLine) && !proofBrace
       val commas = Vector.newBuilder[Int]
+      val equalities = Vector.newBuilder[Int]
+      val colons = Vector.newBuilder[Int]
       val children = Vector.newBuilder[LayoutList]
       var index = open + 1
       var topLevelColon = false
@@ -478,9 +503,24 @@ object BendLayoutPolicy:
           index = pairs(index) + 1
         else
           if tokens(index).text == "," then commas += index
-          if tokens(index).text == ":" then topLevelColon = true
+          if Set("==", "!=").contains(tokens(index).text) then
+            equalities += index
+          if tokens(index).text == ":" then
+            topLevelColon = true
+            colons += index
           index += 1
       val separators = commas.result()
+      val operators = equalities.result()
+      val annotations = colons.result()
+      val equality = tokens(open).text == "{" && !namedList &&
+        !proofBrace && operators.nonEmpty
+      if equality && (operators.size != 1 || annotations.size != 1 ||
+          operators.head <= open + 1 || annotations.head <= operators.head + 1 ||
+          annotations.head >= close - 1 || separators.nonEmpty)
+      then
+        scala.util.boundary.break(
+          Left("Incomplete or unsupported equality term")
+        )
       // A bare parenthesized comma list is a tuple, not an application.
       // Square brackets in term position are list literals; an adjacent
       // expression head makes them indexes, which remain atomic. Colon forms
@@ -491,13 +531,19 @@ object BendLayoutPolicy:
         !(expressionHead && sameLine) && !topLevelColon
       if tuple && separators.lastOption.contains(close - 1) then
         scala.util.boundary.break(Left("Incomplete tuple item"))
-      val eligible = namedList || tuple || listLiteral
+      val eligible = namedList || tuple || listLiteral || equality
       if separators.nonEmpty && !eligible && tokens(open).text != "<" && tokens(
           open
         ).text != "["
       then scala.util.boundary.break(Left("Unsupported comma-separated syntax"))
       val bounds = Vector(open) ++ separators ++ Vector(close)
-      val rawItems = if close == open + 1 then Vector.empty
+      val rawItems = if equality then
+        Vector(
+          (open + 1, operators.head - 1),
+          (operators.head, annotations.head - 1),
+          (annotations.head, close - 1)
+        )
+      else if close == open + 1 then Vector.empty
       else bounds.sliding(2).map(pair => (pair(0) + 1, pair(1) - 1)).toVector
       val items = if separators.lastOption.contains(close - 1) then
         rawItems.dropRight(1)

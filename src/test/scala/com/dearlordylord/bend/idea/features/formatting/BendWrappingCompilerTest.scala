@@ -520,3 +520,39 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
             val _ = Files.deleteIfExists(p)
           })
       finally paths.close()
+
+  def testEqualityTelescopesResultsConstructorsAndConjunctionsPreserveProofsAndBindings()
+      : Unit =
+    val directory = Files.createTempDirectory("bend-format-equality-")
+    try
+      val root = directory.resolve("main.bend")
+      val source = BendWrappingFixtures.equalityCoverageBefore
+      val _ = Files.writeString(root, source)
+      checkPinnedFile(root)
+      val file = myFixture.configureByText("equalities.bend", source)
+      val beforeTokens = tokens(file).map(t => (t._1, t._2))
+      val beforeShape = shape(file)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      val formatted = myFixture.getEditor.getDocument.getText
+      assertNotEquals(source, formatted)
+      assertTrue(formatted.contains("for evidence: {\n"))
+      assertTrue(formatted.contains("    == ("))
+      assertTrue(formatted.contains("    != ("))
+      assertTrue(formatted.contains("    : Nat\n"))
+      assertTrue(formatted.contains("  {==}\n"))
+      assertTrue(formatted.split("\n").forall(_.length <= 100))
+      assertEquals(beforeTokens, tokens(file).map(t => (t._1, t._2)))
+      assertEquals(beforeShape, shape(file))
+      val _ = Files.writeString(root, formatted)
+      checkPinnedFile(root)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(formatted, myFixture.getEditor.getDocument.getText)
+      myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+      assertEquals(source, myFixture.getEditor.getDocument.getText)
+    finally
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => { val _ = Files.deleteIfExists(p) })
+      finally paths.close()

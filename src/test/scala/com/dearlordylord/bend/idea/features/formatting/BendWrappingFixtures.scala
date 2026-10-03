@@ -83,10 +83,84 @@ object BendWrappingFixtures:
   val tabAfter =
     "def main() -> U32:\n\tcombine(\n\t\talpha,\n\t\tbeta,\n\t\tgamma\n\t)"
 
+  // Excerpt from bendnd PR #82: both the proposition and its nested calls
+  // exceed the default width. No game-rule implementation is copied here.
+  val equalityBefore =
+    """law eligible_static_attack_replacement_frontier:
+      |  for +checkpoint: T.Battle
+      |  for +target: Nat
+      |  for +distance: Nat
+      |  for +definition: AD.AttackDefinition
+      |  for +d20: T.D20
+      |  for +total: Nat
+      |  {Replay.resolve(checkpoint, M.AttackRoot{}, Agreement.attack_complete_fills(target, distance, definition, d20, total, [])) == M.Requested{checkpoint, M.AttackRoot{}, Agreement.attack_complete_fills(target, distance, definition, d20, total, []), M.ReplacementPending{T.battle_active(checkpoint), T.battle_round(checkpoint), target}} : M.ReplayOutcome}
+      |""".stripMargin
+  val equalityAfter =
+    """law eligible_static_attack_replacement_frontier:
+      |  for +checkpoint: T.Battle
+      |  for +target: Nat
+      |  for +distance: Nat
+      |  for +definition: AD.AttackDefinition
+      |  for +d20: T.D20
+      |  for +total: Nat
+      |  {
+      |    Replay.resolve(
+      |      checkpoint,
+      |      M.AttackRoot{},
+      |      Agreement.attack_complete_fills(target, distance, definition, d20, total, [])
+      |    )
+      |    == M.Requested{
+      |      checkpoint,
+      |      M.AttackRoot{},
+      |      Agreement.attack_complete_fills(target, distance, definition, d20, total, []),
+      |      M.ReplacementPending{T.battle_active(checkpoint), T.battle_round(checkpoint), target}
+      |    }
+      |    : M.ReplayOutcome
+      |  }
+      |""".stripMargin
+
+  val equalityIdentityName =
+    "complete_attack_damage_with_preserved_checkpoint_and_target_coordinates"
+  val equalityCoverageBefore =
+    s"""import Base
+       |def $equalityIdentityName(checkpoint: Nat, target: Nat, distance: Nat, definition: Nat, total: Nat) -> Nat:
+       |  checkpoint
+       |law exact_assembly:
+       |  for +checkpoint: Nat
+       |  for +target: Nat
+       |  for +distance: Nat
+       |  for +definition: Nat
+       |  for +total: Nat
+       |  for evidence: {$equalityIdentityName(checkpoint, target, distance, definition, total) == ($equalityIdentityName(checkpoint, target, distance, definition, total)) : Nat}
+       |  {$equalityIdentityName(checkpoint, target, distance, definition, total) == ($equalityIdentityName(checkpoint, target, distance, definition, total)) : Nat}
+       |def exact_assembly(checkpoint, target, distance, definition, total, evidence):
+       |  evidence
+       |def result_proof(checkpoint: Nat, target: Nat, distance: Nat, definition: Nat, total: Nat) -> {$equalityIdentityName(checkpoint, target, distance, definition, total) ==
+       |    (checkpoint) :
+       |    (Nat)}:
+       |  {==}
+       |type Witness is Data:
+       |  Witness{value: Nat, evidence: {$equalityIdentityName(value, 0n, 0n, 0n, 0n) == value : Nat}}
+       |def witness(value: Nat) -> Witness:
+       |  Witness{value, {==}}
+       |law conjunction:
+       |  for +checkpoint: Nat
+       |  {$equalityIdentityName(checkpoint, 0n, 0n, 0n, 0n) == checkpoint : Nat} & ({$equalityIdentityName(checkpoint, 0n, 0n, 0n, 0n) == (checkpoint) : Nat} & {checkpoint == checkpoint : Nat})
+       |def conjunction(checkpoint):
+       |  ({==}, ({==}, {==}))
+       |law inequality_preserved:
+       |  for +checkpoint: Nat
+       |  for evidence: {$equalityIdentityName(checkpoint, 0n, 0n, 0n, 0n) != (checkpoint) : Nat}
+       |  {$equalityIdentityName(checkpoint, 0n, 0n, 0n, 0n) != (checkpoint) : Nat}
+       |def inequality_preserved(checkpoint, evidence):
+       |  evidence
+       |""".stripMargin
+
   val exactCases = List(
     actorBefore -> actorAfter,
     healBefore -> healAfter,
-    signatureBefore -> signatureAfter
+    signatureBefore -> signatureAfter,
+    equalityBefore -> equalityAfter
   )
   val multilineSignatureBefore =
     "def dependent(\n  first: U32, second: U32,\n  third: U32\n) -> U32:\n  first\n"

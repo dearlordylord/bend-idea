@@ -6,6 +6,78 @@ import org.junit.Test
 final class BendLayoutPolicyTest:
   private val twoSpaces = BendLayoutPolicy.Settings(2, false, 8)
 
+  @Test def equalityOperandsTypeAndNestedCallsWrapIdempotently(): Unit =
+    val before =
+      "law identity:\n  for evidence: {combine(alpha,beta,gamma) == (combine(alpha,beta,gamma)) : Nat}\n  {combine(alpha,beta,gamma) != (other(alpha,beta,gamma)) : Nat}\n"
+    val after =
+      "law identity:\n  for evidence: {\n    combine(\n      alpha,\n      beta,\n      gamma\n    )\n    == (combine(\n      alpha,\n      beta,\n      gamma\n    ))\n    : Nat\n  }\n  {\n    combine(\n      alpha,\n      beta,\n      gamma\n    )\n    != (other(\n      alpha,\n      beta,\n      gamma\n    ))\n    : Nat\n  }\n"
+    val settings = twoSpaces.copy(maxLineLength = Some(25))
+    for source <- List(
+        before,
+        before.replace("== (", "==\n    (").replace("!= (", "!=\n    (")
+      )
+    do
+      assertEquals(
+        BendLayoutPolicy.Outcome.Formatted(after),
+        BendLayoutPolicy.format(source, settings)
+      )
+    assertEquals(
+      BendLayoutPolicy.Outcome.Unchanged,
+      BendLayoutPolicy.format(after, settings)
+    )
+
+  @Test def fittingOrDisabledEqualityWrappingKeepsIntentionalBreaks(): Unit =
+    val sources = List(
+      "law same:\n  {alpha == beta : Nat}\n",
+      "law same:\n  {\n    alpha == beta : Nat\n  }\n",
+      "law same:\n  {\n    alpha\n    == (beta)\n    : Nat\n  }\n"
+    )
+    for source <- sources do
+      assertEquals(
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(source, twoSpaces)
+      )
+      assertEquals(
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(source, twoSpaces.copy(maxLineLength = None))
+      )
+
+  @Test def unsafeOrIncompleteEqualityTermsRefuseTheWholeEdit(): Unit =
+    val settings = twoSpaces.copy(maxLineLength = Some(10))
+    for source <- List(
+        "law same:\n  {alpha == : Nat}\n",
+        "law same:\n  {alpha == beta :}\n",
+        "law same:\n  {alpha == beta}\n",
+        "law same:\n  {alpha == beta == gamma : Nat}\n",
+        "law same:\n  {alpha == beta : Nat : Nat}\n",
+        "law same:\n  {alpha == beta, gamma : Nat}\n",
+        "law same:\n  {alpha == beta + : Nat}\n",
+        "law same:\n  {alpha == beta : # attachment\n    Nat}\n",
+        "law same:\n  {combine(alpha\n    (beta),gamma) == beta : Nat}\n",
+        "law same:\n  {combine(alpha\n    [beta],gamma) == beta : Nat}\n",
+        "law same:\n  {alpha == beta => beta : Nat}\n",
+        "law same:\n  {alpha == [beta\n    : Nat*4] : Nat}\n",
+        "law same:\r\n  {alpha == beta : Nat}\n"
+      )
+    do assertTrue(source, BendLayoutPolicy.edits(source, settings).isLeft)
+
+  @Test def reflexivityAnnotationsAndTypeApplicationsRemainAtomic(): Unit =
+    val settings = twoSpaces.copy(maxLineLength = Some(1))
+    for source <- List(
+        "def witness():\n  {==}\n",
+        "def witness():\n  {value : TypeName}\n",
+        "def witness():\n  {combine(alpha, beta) : Nat}\n",
+        "def witness():\n  Family<{alpha == beta : Nat}>\n",
+        "def witness():\n  [{alpha == beta : Nat} : Nat*4]\n",
+        "def witness():\n  array[{alpha == beta : Nat}]\n"
+      )
+    do
+      assertEquals(
+        source,
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(source, settings)
+      )
+
   @Test def formattingReportsChangesAndIsIdempotent(): Unit =
     val source = "def main(x: U32,y: U32) -> U32:\n    U32.add(x,y)\n"
     val expected = "def main(x: U32, y: U32) -> U32:\n  U32.add(x, y)\n"

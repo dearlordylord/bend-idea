@@ -149,15 +149,33 @@ final class BendFormattingTest extends BasePlatformTestCase:
       finally paths.close()
 
   def testApprovedNestedWrappingAndSelectiveMultilineReflow(): Unit =
-    for (before, after) <- List(
-        BendWrappingFixtures.actorBefore -> BendWrappingFixtures.actorAfter,
-        BendWrappingFixtures.healBefore -> BendWrappingFixtures.healAfter,
-        BendWrappingFixtures.signatureBefore -> BendWrappingFixtures.signatureAfter
-      )
+    for (before, after) <- BendWrappingFixtures.exactCases
     do
       assertEquals(after, reformat(before))
       myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
       assertEquals(after, myFixture.getEditor.getDocument.getText)
+
+  def testEqualityWrappingUsesWholeFileSelectionAndUndo(): Unit =
+    val source = BendWrappingFixtures.equalityBefore
+    myFixture.configureByText("equality-selection.bend", source)
+    myFixture.getEditor.getSelectionModel
+      .setSelection(0, source.stripSuffix("\n").length)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(
+      BendWrappingFixtures.equalityAfter,
+      myFixture.getEditor.getDocument.getText
+    )
+    myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+    assertEquals(source, myFixture.getEditor.getDocument.getText)
+
+  def testPartialEqualitySelectionDoesNotInsertLineBreaks(): Unit =
+    val prefix = "# Outside the selection.\n"
+    val source = prefix + BendWrappingFixtures.equalityBefore
+    myFixture.configureByText("equality-partial.bend", source)
+    myFixture.getEditor.getSelectionModel
+      .setSelection(prefix.length, source.length)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(source, myFixture.getEditor.getDocument.getText)
 
   def testWrappingUsesNormalEditorUndo(): Unit =
     val source = BendWrappingFixtures.actorBefore

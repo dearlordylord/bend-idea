@@ -203,11 +203,7 @@ final class BendFormatCliTest:
 
   @Test def approvedLayoutsAreIdenticalInTheActualStandaloneJar(): Unit =
     temporary { dir =>
-      for (before, after) <- List(
-          BendWrappingFixtures.actorBefore -> BendWrappingFixtures.actorAfter,
-          BendWrappingFixtures.healBefore -> BendWrappingFixtures.healAfter,
-          BendWrappingFixtures.signatureBefore -> BendWrappingFixtures.signatureAfter
-        )
+      for (before, after) <- BendWrappingFixtures.exactCases
       do
         val file = dir.resolve("example.bend")
         Files.writeString(file, before)

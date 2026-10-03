@@ -95,7 +95,22 @@ bend_max_line_length = 100
 - `indent_style`, `indent_size` (including `tab`) and `tab_width` follow shared indentation decoding. Tab width controls visual tab stops independently of space indentation; tab indentation uses tabs plus any remaining spaces. Unsupported standard-property values are ignored individually, preserving other valid settings.
 - Nested and inherited overrides work, including sections that set only the line width. When IntelliJ’s EditorConfig support is disabled in Code Style settings, Bend typing and formatting use IDE defaults. The console tool always reads local EditorConfig files. If the optional IDE EditorConfig plugin is absent, Bend retains local property lookup. Generic save properties remain owned by IntelliJ.
 
-Wrapping applies to complete constructor patterns, constructor expressions, calls, definition parameter lists, tuples and list literals. An indented result arrow on the line after a definition’s parameter list is recognized and preserved. Arrays and indexes remain atomic. Recognized overlong multiline lists reflow; fitting multiline grouping remains intact. Names, literals, operators, dependent annotations and arbitrary proof terms stay intact, even when they exceed the soft limit. Comments, line endings and the presence or absence of a final newline are preserved. Header-looking text inside multiline literals remains literal text.
+Wrapping applies to complete constructor patterns, constructor expressions, calls, definition parameter lists, tuples, list literals and equality/inequality terms (`{lhs == rhs : Type}` and `{lhs != rhs : Type}`). Long equality terms put the left operand, the operator with the right operand, and the colon with the type on separate lines; nested calls and constructors wrap as needed. This also applies inside law binders, result types and parenthesized conjunctions. Reflexivity witnesses (`{==}`), other brace annotations, type applications, arrays and indexes remain atomic. An indented result arrow on the line after a definition’s parameter list is recognized and preserved. Recognized overlong multiline groups reflow; fitting multiline grouping remains intact. Names, literals and arbitrary proof terms stay intact, even when they exceed the soft limit. Comments, line endings and the presence or absence of a final newline are preserved. Header-looking text inside multiline literals remains literal text.
+
+For example, an overlong proposition can become:
+
+```bend
+law exact_assembly:
+  for +checkpoint: Battle
+  {
+    assemble_attack_with_preserved_checkpoint(checkpoint)
+    == expected_attack_with_preserved_checkpoint(checkpoint)
+    : Battle
+  }
+```
+
+The width is a soft layout limit: `check` reports available formatting changes,
+not every line longer than the configured width.
 
 Incomplete source, unsupported layout, unsafe comment attachment, significant newlines that could change call/index parsing, and mixed line endings requiring inserted breaks yield `unavailable` without edits to that file. The formatter does not reflow arbitrary expressions, imports or comments.
 
@@ -190,4 +205,3 @@ tool="${tools[0]}"
 java -jar "$tool" --version
 java -jar "$tool" check path/to/main.bend
 ```
-

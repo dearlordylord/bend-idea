@@ -142,6 +142,22 @@ def smoke(archive, jar=None):
         invoke(["fix", wrapped.name], 0)
         assert wrapped.read_bytes() == b"def main():\n    combine_three_arguments(\n        1,\n        2,\n        3\n    )\n", wrapped.read_bytes()
         invoke(["check", wrapped.name], 0)
+        equality = work / "equality file.bend"
+        equality_source = b"law preserved:\n  {combine_three_arguments(1,2,3) == (combine_three_arguments(1,2,3)) : U32}\n"
+        equality_expected = (
+            b"law preserved:\n    {\n"
+            b"        combine_three_arguments(\n            1,\n            2,\n            3\n        )\n"
+            b"        == (combine_three_arguments(\n            1,\n            2,\n            3\n        ))\n"
+            b"        : U32\n    }\n"
+        )
+        equality.write_bytes(equality_source)
+        invoke(["check", equality.name], 1)
+        assert equality.read_bytes() == equality_source, "Equality check wrote source"
+        invoke(["fix", equality.name], 0)
+        assert equality.read_bytes() == equality_expected, equality.read_bytes()
+        invoke(["check", equality.name], 0)
+        invoke(["fix", equality.name], 0)
+        assert equality.read_bytes() == equality_expected, "Equality fix is not idempotent"
         overridden = work / "overridden settings"
         overridden.mkdir()
         (overridden / ".editorconfig").write_text("[*.bend]\nbend_max_line_length = off\n", encoding="utf-8")

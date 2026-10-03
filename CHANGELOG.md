@@ -13,6 +13,12 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.15
+
+- Wrap long equality and inequality propositions in laws, binders and result
+  types, including nested calls, constructors and parenthesized conjunctions.
+  Reformat Code and the offline formatter share the same conservative policy.
+
 ## 0.1.14
 
 - Use the installed `bend-format` name in CLI version and help output; add

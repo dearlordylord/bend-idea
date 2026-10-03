@@ -1,0 +1,156 @@
+{
+  "compilerCommit": "a3f1782a11ad5ee8778d26438f254bf3873bf0f1",
+  "beforeCommit": "a3f1782a11ad5ee8778d26438f254bf3873bf0f1",
+  "afterCommit": "977651f919e311366db5ac3527fe86924188ba1d",
+  "bunRevision": "1.4.2+744846f84",
+  "results": [
+    {
+      "name": "inline_match",
+      "unchangedAfter": true,
+      "stages": {
+        "original": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n"
+        },
+        "before": {
+          "checkExit": 1,
+          "checkOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'c'\nLocation:\n3 |   match n: case True{}: 0\n4>|     case False{}: 1\n  |     ^\n5 | \n"
+        },
+        "after": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n"
+        }
+      }
+    },
+    {
+      "name": "inline_do",
+      "unchangedAfter": true,
+      "stages": {
+        "original": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        },
+        "before": {
+          "checkExit": 1,
+          "checkOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'I'\nLocation:\n3 |   do IO<Unit>: IO.print(\"a\")\n4>|     IO.print(\"b\")\n  |     ^\n5 | \n",
+          "runExit": 1,
+          "runOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'I'\nLocation:\n3 |   do IO<Unit>: IO.print(\"a\")\n4>|     IO.print(\"b\")\n  |     ^\n5 | \n"
+        },
+        "after": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        }
+      }
+    },
+    {
+      "name": "split_do",
+      "unchangedAfter": true,
+      "stages": {
+        "original": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        },
+        "before": {
+          "checkExit": 1,
+          "checkOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'I'\nLocation:\n4 |     IO<Unit>: IO.print(\"a\")\n5>|       IO.print(\"b\")\n  |       ^\n6 | \n",
+          "runExit": 1,
+          "runOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'I'\nLocation:\n4 |     IO<Unit>: IO.print(\"a\")\n5>|       IO.print(\"b\")\n  |       ^\n6 | \n"
+        },
+        "after": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        }
+      }
+    },
+    {
+      "name": "split_type_argument",
+      "unchangedAfter": true,
+      "stages": {
+        "original": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        },
+        "before": {
+          "checkExit": 1,
+          "checkOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'I'\nLocation:\n4 |     Unit>: IO.print(\"a\")\n5>|       IO.print(\"b\")\n  |       ^\n6 | \n",
+          "runExit": 1,
+          "runOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'I'\nLocation:\n4 |     Unit>: IO.print(\"a\")\n5>|       IO.print(\"b\")\n  |       ^\n6 | \n"
+        },
+        "after": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        }
+      }
+    },
+    {
+      "name": "split_colon",
+      "unchangedAfter": true,
+      "stages": {
+        "original": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        },
+        "before": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        },
+        "after": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n",
+          "runExit": 0,
+          "runOutput": "a\nb\n"
+        }
+      }
+    },
+    {
+      "name": "split_dependent_type",
+      "unchangedAfter": true,
+      "stages": {
+        "original": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n"
+        },
+        "before": {
+          "checkExit": 1,
+          "checkOutput": "SOME PROOFS FAIL\nError:\n- expected : 'def', 'type' or 'law'\n- observed : 'r'\nLocation:\n4 |     Unit -> Unit>: IO.print(\"a\")\n5>|       return x => x\n  |       ^\n6 | \n"
+        },
+        "after": {
+          "checkExit": 0,
+          "checkOutput": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n"
+        }
+      }
+    }
+  ],
+  "testSuite": {
+    "before": {
+      "passed": 14,
+      "failed": 3,
+      "skipped": 0,
+      "exit": 1
+    },
+    "after": {
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "exit": 0
+    },
+    "beforeLog": "/tmp/bend-formatter-before-after/old-suite.log",
+    "note": "Identical current compiled test and LSP server files, replacing only the formatter engine with the compiled base revision for the before run."
+  }
+}
