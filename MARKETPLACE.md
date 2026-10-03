@@ -78,9 +78,27 @@ The clean JDK 21 release gate passed on 2026-10-03: 527 tests passed, zero failu
 
 Both primary and fallback custom feed URLs were verified publicly on 2026-10-03 to advertise 0.1.12, with metadata matching the signed plugin, after public asset verification. This release uses GitHub and the custom repository and was not submitted to JetBrains Marketplace.
 
+## 0.1.13 formatter coverage and custom repository release
+
+[GitHub Release v0.1.13](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.13) is tagged at tested source commit `97cc8f006fdf8ec0c371b610a98cf7f02f1f677d`. It contains the signed IntelliJ plugin, portable formatter JAR and all five bundled-runtime archives. The formatter now recognizes tuples, list literals, calls containing multiline lists and indented result-arrow continuations. The shared IDE/CLI policy retains its conservative checks and wrapping intent.
+
+- Signed ZIP SHA-256: `64d1dace02b99f88e8798c6c2a6b6855a9096f3ae9845ca26fa25160a90e64d4`.
+- Portable JAR SHA-256: `6d2aa3391e49669b57ec29d5867705a9073b9552e847bb87a84daa46de95dbf3`.
+- Runtime archive checksums: [BEND-FORMAT-SHA256SUMS.txt](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.13/BEND-FORMAT-SHA256SUMS.txt).
+
+The clean JDK 21 release gate passed on 2026-10-03: 530 tests passed, zero failures/errors, one optional installed-compiler smoke skipped; architecture and quality gates, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing and signature verification passed. Existing verifier API notices remain. Implementation self-review followed `REVIEWER.md`; no independent review is claimed.
+
+The released JAR safely formatted all 87 tracked Bend files at D&D commit `889f46839c16560b21ec3abf10e9f2a6d79c9eb4`, with zero unavailable files and repeat-fix idempotence. With Bend 2.0.34, the original and formatted copies both reported `ALL PROOFS CHECK`, battle/app/relentless-endurance demo stdout matched, and the benchmark check passed. This bounded sample does not advance the plugin's approved compiler pin. Production D&D sources and formatter pins were not changed by this release.
+
+All five runtime packaging/smoke jobs and asset publication passed in [run 37146121527](https://github.com/dearlordylord/bend-idea/actions/runs/37146121527). Anonymous downloads of every payload matched both manifests and the locally verified signed ZIP/JAR/certificate. The existing signing identity is reused. The published Linux ARM64 archive also passed the new tuple/list/continued-header CLI fixture locally without system Java.
+
+Homebrew tap commit `cca665eabd7542a4df3517d9cf6a98a8de9abcdd` advances all four macOS/Linux archives to 0.1.13. [Install and test run 37146422995](https://github.com/dearlordylord/homebrew-tap/actions/runs/37146422995) passed style/audit, actual installation, version and formatting regression tests, and removal on all four native targets. Local Homebrew was unavailable; the native tap CI supplies installation evidence.
+
+The custom repository metadata targets 0.1.13 and matches the signed plugin. Its deployment is checked after this feed commit is pushed. The signed ZIP is prepared for IntelliJ distribution; Marketplace submission and approval remain separate. The combined maintainer workflow is documented in [docs/releasing.md](docs/releasing.md).
+
 ## Homebrew distribution
 
-The public [Homebrew tap](https://github.com/dearlordylord/homebrew-tap) installs the existing 0.1.12 formatter archives with `brew install dearlordylord/tap/bend-format`. The formula retains the complete bundled runtime and notices. [Native installation run 37138435794](https://github.com/dearlordylord/homebrew-tap/actions/runs/37138435794) passed on all four targets on 2026-10-03, covering formula style/audit, installation, the installed command's version and EditorConfig check/fix behavior, exit statuses and removal on macOS Intel/Apple Silicon and Linux x64/ARM64. This distribution adds no plugin or formatter code changes.
+The initial public [Homebrew tap](https://github.com/dearlordylord/homebrew-tap) installed the 0.1.12 formatter archives with `brew install dearlordylord/tap/bend-format`. The formula retains the complete bundled runtime and notices. [Native installation run 37138435794](https://github.com/dearlordylord/homebrew-tap/actions/runs/37138435794) passed on all four targets on 2026-10-03, covering formula style/audit, installation, the installed command's version and EditorConfig check/fix behavior, exit statuses and removal on macOS Intel/Apple Silicon and Linux x64/ARM64. This distribution adds no plugin or formatter code changes.
 
 ## Future updates
 
