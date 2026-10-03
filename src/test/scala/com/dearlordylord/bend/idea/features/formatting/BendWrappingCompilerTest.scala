@@ -3,6 +3,7 @@ package com.dearlordylord.bend.idea.features.formatting
 import com.dearlordylord.bend.idea.adapters.cli.RealBendCompilerFixture
 import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
 import com.dearlordylord.bend.idea.syntax.lexer.BendLexer
+import com.dearlordylord.bend.idea.syntax.parser.BendLayoutPolicy
 import com.dearlordylord.bend.idea.syntax.psi.BendReferenceElement
 import com.intellij.openapi.actionSystem.IdeActions
 import com.intellij.psi.{PsiFile, TokenType}
@@ -230,6 +231,56 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
       assertEquals(source, myFixture.getEditor.getDocument.getText)
       assertEquals(source, Files.readString(original))
       assertEquals(types, Files.readString(directory.resolve("types.bend")))
+    finally
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => { val _ = Files.deleteIfExists(p) })
+      finally paths.close()
+
+  def testCompilerValidOmittedCommaBeforeGroupedAndBracketArgumentsIsRefused()
+      : Unit =
+    val compiler = RealBendCompilerFixture.inputs
+    val directory = Files.createTempDirectory("bend-wrapping-omitted-comma-")
+    try
+      val examples = List(
+        BendWrappingFixtures.separatedApplicationCases.head,
+        "import Base\ndef combine_mixed_arguments(a: U32,b: List<&2, U32>,c: U32) -> U32:\n  a\ndef main() -> U32:\n  combine_mixed_arguments(1\n    [2], 3)\n"
+      )
+      for (text, index) <- examples.zipWithIndex do
+        val root = directory.resolve(s"omitted-$index.bend")
+        val _ = Files.writeString(root, text)
+        def check(): Unit =
+          val output = directory.resolve(s"compiler-$index.log")
+          val process = new ProcessBuilder(
+            compiler.bunExecutable.toString,
+            compiler.main.toString,
+            root.toString,
+            "--check-only"
+          )
+            .redirectErrorStream(true)
+            .redirectOutput(output.toFile)
+            .start()
+          if !process.waitFor(30, TimeUnit.SECONDS) then
+            val _ = process.destroyForcibly()
+            val _ = process.waitFor(5, TimeUnit.SECONDS)
+            fail("Pinned compiler timed out checking omitted-comma fixture")
+          val result = Files.readString(output)
+          assertEquals(result, 0, process.exitValue())
+          assertTrue(result, result.contains("All terms check."))
+        check()
+        val settings =
+          BendLayoutPolicy.defaultSettings.copy(maxLineLength = Some(20))
+        BendLayoutPolicy.format(text, settings) match
+          case BendLayoutPolicy.Outcome.Unavailable(_) => ()
+          case other                                   =>
+            fail(
+              s"Unsafe omitted-comma argument boundary must be refused: $other"
+            )
+        assertTrue(BendLayoutPolicy.edits(text, settings).isLeft)
+        assertEquals(text, Files.readString(root))
+        check()
     finally
       val paths = Files.walk(directory)
       try

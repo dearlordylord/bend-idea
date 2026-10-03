@@ -139,6 +139,12 @@ object BendLayoutPolicy:
         if gap.exists(c => c == '\n' || c == '\r') then
           val left = significant(index - 1).text
           val right = significant(index).text
+          // parse_term_ops ends a term at a newline before a call/index
+          // opener. Erasing that boundary can turn two arguments into an
+          // application or index even when the token sequence is unchanged.
+          if Set("(", "[").contains(right) &&
+            !Set(",", "(", "{", "[").contains(left)
+          then unsafe = Some("Significant newline before call or index opener")
           gaps(index) =
             if Set("(", "{", "[").contains(left) || Set(")", "}", "]", ",")
                 .contains(right)

@@ -94,6 +94,12 @@ object BendWrappingFixtures:
     "def main():\n  Pair{Inner{alpha,beta},Inner{gamma,delta}}\n"
   val siblingsAfter =
     "def main():\n  Pair{\n    Inner{alpha, beta},\n    Inner{gamma, delta}\n  }\n"
+  // Newlines before grouping/index openers are significant in Bend application
+  // parsing. Reflow must refuse the whole file rather than joining these terms.
+  val separatedApplicationCases = List(
+    "import Base\ndef combine_three_arguments(a: U32,b: U32,c: U32) -> U32:\n  a\ndef main() -> U32:\n  combine_three_arguments(1\n    (2), 3)\n",
+    "def main():\n  combine_three_arguments(first\n    [second],third)\n"
+  )
   val unsafeCases = List(
     "def unfinished(alpha,beta\n",
     "def main():\n  combine(alpha *,beta,gamma)\n",
@@ -103,7 +109,7 @@ object BendWrappingFixtures:
     "def main():\n  (alpha,beta)\n",
     "def main():\n  combine(alpha,beta, # keep attachment\n    gamma)\n",
     "def main():\n  combine(\"unterminated,beta)\n"
-  )
+  ) ++ separatedApplicationCases
 
   val boundedCases = List(
     (
