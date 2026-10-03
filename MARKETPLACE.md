@@ -64,7 +64,7 @@ JetBrains Marketplace accepted the same signed ZIP through the authenticated ven
 
 The clean JDK 21.0.12.1 release gate passed on 2026-10-03: 526 tests passed, zero failures or errors, and one optional current-compiler smoke test skipped. Architecture, packaging, structure, project configuration, Plugin Verifier for Community 2025.1 and Ultimate 2026.1, signing and signature verification passed. Verifier classified both IDE targets as compatible with existing API usage notices. Independent Astra Standards and Spec reviews found no outstanding actionable findings; the user confirmed reformatting and configured constructor highlighting in IDEA.
 
-The custom feed metadata is derived from the signed archive's packaged plugin.xml and is published only after public asset verification. This release uses GitHub and the custom repository by maintainer choice; 0.1.11 was not submitted to JetBrains Marketplace.
+Both the primary and fallback custom feed URLs were verified publicly on 2026-10-03 to advertise 0.1.11. Their metadata matches the signed archive's packaged plugin.xml; the feed was published after public asset verification. This release uses GitHub and the custom repository by maintainer choice; 0.1.11 was not submitted to JetBrains Marketplace.
 
 ## Future updates
 
