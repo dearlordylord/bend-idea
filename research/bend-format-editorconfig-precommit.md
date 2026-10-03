@@ -6,7 +6,7 @@ Researched 2026-10-03 against official documentation and the current repository.
 
 EditorConfig defines shared style properties consumed by editors and tools. It does not define a command runner; invoking a formatter belongs to an editor integration, hook manager or CI. Properties are inherited from parent directories until `root = true`. [EditorConfig](https://editorconfig.org/)
 
-The current Bend formatter already reads local EditorConfig, shares indentation decoding with the IDE and recognizes its own `bend_max_line_length` extension. It conservatively preserves line endings and final-newline presence; adding generic newline properties does not make this CLI enforce them. See [README](../README.md#editorconfig-and-wrapping).
+The current Bend formatter already reads local EditorConfig, shares indentation decoding with the IDE and recognizes its own `bend_max_line_length` extension. It conservatively preserves line endings and final-newline presence; adding generic newline properties does not make this CLI enforce them. See [formatter guide](../docs/bend-format.md#editorconfig-and-wrapping).
 
 Commit this configuration in the consuming project:
 
