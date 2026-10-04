@@ -51,4 +51,12 @@ BEND_TEST_BUN=/tmp/bend-idea-bun-1.4.2/bun-darwin-aarch64/bun \
   --tests '*BendRecoveryRegressionTest' --tests '*BendLexerTest' --max-workers=1
 ```
 
-The focused command passed **20 tests, zero failures/skips** (8 adjacency, 3 recovery, 9 lexer) after the native reference assertions. The two new RF7/RF8 methods passed their focused run separately, and RF7 passed again after strengthening its distinct-publication wait. `spotlessApply` formatted only the three changed test files. Self-review under `REVIEWER.md` found no behavior/ownership/evidence findings; an independent review of the test additions and coverage map also reported no actionable findings. The integrated `./gradlew check` result is recorded in the final implementation report. No production API, architecture boundary or plugin behavior is changed by this test-only slice; it needs no plugin changelog entry. Packaging is required separately for the concurrently implemented production hover slice.
+The focused command passed **20 tests, zero failures/skips** (8 adjacency, 3 recovery, 9 lexer) after the native reference assertions. The two new RF7/RF8 methods passed their focused run separately, and RF7 passed again after strengthening its distinct-publication wait. `spotlessApply` formatted only the three changed test files.
+
+Integrated validation on 2026-10-04:
+
+- Full `./gradlew check` passed in isolated trees for both the committed Bend 2.0.25 pin (563 executed tests) and the pending working-tree Bend 2.0.35 migration (564 executed tests), with full JDK 21 and exact Bun inputs. Each also passed two architecture tests. Each skipped one optional current-release smoke test because its separate release inputs were not configured; all pinned-compiler tests ran, with no failures or errors.
+- `./gradlew buildPlugin verifyPlugin` passed for the integrated hover production change against IDEA Community 2025.1 and IDEA Ultimate 2026.1. No distribution was published.
+- Implementer self-review and independent review followed `REVIEWER.md`. The bounded review loops corrected provenance wording and required a distinct RF7 publication after closing the leaf. Final independent integration review found no remaining actionable findings.
+
+No production API, architecture boundary or plugin behavior is changed by this test-only slice; it needs no plugin changelog entry. The hover change stays within the existing documentation owner and has its own Unreleased entry. The preexisting compiler migration remains uncommitted and separate from these implementation commits.
