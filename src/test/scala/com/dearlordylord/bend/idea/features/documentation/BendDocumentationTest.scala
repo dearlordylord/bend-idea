@@ -5,6 +5,7 @@ import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainSettings
 }
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.codeInsight.documentation.DocumentationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.psi.{PsiDocumentManager, PsiManager}
@@ -71,6 +72,49 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     assertTrue(html.contains("Explain &amp; map"))
     assertTrue(html.contains("bend-doc:"))
 
+  def testNativeDocumentationLinkDispatchForLocalDeclaration(): Unit =
+    val html = docs("def value():\n  0\ndef main():\n  <caret>value()\n")
+    val url = "href='([^']+)'".r.findFirstMatchIn(html).get.group(1)
+    val context = myFixture.getFile.findElementAt(myFixture.getCaretOffset)
+    val target = DocumentationManager
+      .getInstance(getProject)
+      .getTargetElement(context, url)
+    assertNotNull(
+      "Declaration link must stay in IDEA's PSI link dispatcher",
+      target
+    )
+    assertEquals("value", target.getText)
+    assertEquals(myFixture.getFile, target.getContainingFile)
+
+  def testNativeDocumentationLinkDispatchForImportedLawAndImplementation()
+      : Unit =
+    val laws = myFixture.addFileToProject(
+      "LAWS.bend",
+      "law claim:\n  for -n: Nat\n  {n == n : Nat}\n"
+    )
+    val html = docs(
+      "import ./LAWS.bend as Laws\ndef Laws.claim(value):\n  value\ndef main():\n  Laws.<caret>claim(1)\n"
+    )
+    val context = myFixture.getFile.findElementAt(myFixture.getCaretOffset)
+    val links = "href='([^']+)'>([^<]+)</a>".r
+      .findAllMatchIn(html)
+      .map(m => m.group(2) -> m.group(1))
+      .toMap
+    val manager = DocumentationManager.getInstance(getProject)
+    val declaration = manager.getTargetElement(context, links("Declaration"))
+    val implementation =
+      manager.getTargetElement(context, links("Implementation"))
+    assertNotNull("Imported law link must use native PSI dispatch", declaration)
+    assertNotNull(
+      "Implementation link must use native PSI dispatch",
+      implementation
+    )
+    assertEquals(
+      laws.getVirtualFile,
+      declaration.getContainingFile.getVirtualFile
+    )
+    assertEquals(myFixture.getFile, implementation.getContainingFile)
+
   def testImportedAndUnsavedSource(): Unit =
     val lib = myFixture.addFileToProject(
       "lib.bend",
@@ -91,7 +135,8 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     assertTrue(html.contains("New"))
     assertTrue(html.contains("+x: U32"))
     assertFalse(html.contains("Old"))
-    val url = "href='([^']+)'".r.findFirstMatchIn(html).get.group(1)
+    val url =
+      "href='psi_element://([^']+)'".r.findFirstMatchIn(html).get.group(1)
     val target = new BendDocumentationProvider().getDocumentationElementForLink(
       PsiManager.getInstance(getProject),
       url,
@@ -144,7 +189,7 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     val context = myFixture.getFile.findElementAt(
       myFixture.getEditor.getCaretModel.getOffset
     )
-    val links = "href='([^']+)'>([^<]+)</a>".r
+    val links = "href='psi_element://([^']+)'>([^<]+)</a>".r
       .findAllMatchIn(html)
       .map(m => m.group(2) -> m.group(1))
       .toMap
@@ -186,7 +231,7 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     assertTrue(html.contains("Implementation note"))
     assertTrue(html.contains("LAWS.bend"))
     assertTrue(html.contains("main.bend"))
-    val links = "href='([^']+)'>([^<]+)</a>".r
+    val links = "href='psi_element://([^']+)'>([^<]+)</a>".r
       .findAllMatchIn(html)
       .map(m => m.group(2) -> m.group(1))
       .toMap
@@ -222,7 +267,8 @@ final class BendDocumentationTest extends BasePlatformTestCase:
 
   def testStaleDocumentationLinkDoesNotNavigateSameOffsetRename(): Unit =
     val html = docs("def foo():\n  0\ndef main():\n  <caret>foo()\n")
-    val url = "href='([^']+)'".r.findFirstMatchIn(html).get.group(1)
+    val url =
+      "href='psi_element://([^']+)'".r.findFirstMatchIn(html).get.group(1)
     val provider = new BendDocumentationProvider
     WriteCommandAction.runWriteCommandAction(
       getProject,
@@ -259,7 +305,7 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     assertTrue(html.contains("Imported fill"))
     assertTrue(html.contains("def claim(value)"))
     assertTrue(html.contains("for x: Nat"))
-    val links = "href='([^']+)'>([^<]+)</a>".r
+    val links = "href='psi_element://([^']+)'>([^<]+)</a>".r
       .findAllMatchIn(html)
       .map(m => m.group(2) -> m.group(1))
       .toMap
@@ -335,7 +381,7 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     assertTrue(html.contains("Second law"))
     assertFalse(html.contains("First law"))
     assertTrue(html.contains("def L.claim(value)"))
-    val url = "href='([^']+)'>([^<]+)</a>".r
+    val url = "href='psi_element://([^']+)'>([^<]+)</a>".r
       .findAllMatchIn(html)
       .find(_.group(2) == "Declaration")
       .get

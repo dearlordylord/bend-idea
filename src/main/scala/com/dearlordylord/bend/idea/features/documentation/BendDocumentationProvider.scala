@@ -8,6 +8,7 @@ import com.dearlordylord.bend.idea.analysis.model.BendExpressionType
 import com.dearlordylord.bend.idea.symbols.api.*
 import com.dearlordylord.bend.idea.syntax.psi.BendDeclaration
 import com.intellij.lang.documentation.AbstractDocumentationProvider
+import com.intellij.codeInsight.documentation.DocumentationManagerProtocol
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiFile, PsiManager}
 import com.intellij.psi.util.PsiTreeUtil
@@ -240,7 +241,8 @@ class BendDocumentationProvider extends AbstractDocumentationProvider:
     val path =
       URLEncoder.encode(symbol.handle.file.value, StandardCharsets.UTF_8)
     val name = URLEncoder.encode(symbol.name, StandardCharsets.UTF_8)
-    s"<a href='bend-doc:$path:${symbol.category}:${symbol.handle.nameOffset}:$name'>$label</a>"
+    val protocol = DocumentationManagerProtocol.PSI_ELEMENT_PROTOCOL
+    s"<a href='${protocol}bend-doc:$path:${symbol.category}:${symbol.handle.nameOffset}:$name'>$label</a>"
 
   private def sourceName(symbol: BendSourceSymbol): String =
     symbol.handle.file.value

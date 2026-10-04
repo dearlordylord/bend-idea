@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Keep Quick Documentation Declaration and Implementation links inside IntelliJ's native PSI documentation navigation instead of opening them as external URLs.
+
 ## 0.1.18
 
 - Resolve repeated imports and symlink aliases by canonical source identity, with namespaces relative to each check root, matching the tested Bend 2.0.35 loader behavior. Navigation and checks retain unsaved imported source.
