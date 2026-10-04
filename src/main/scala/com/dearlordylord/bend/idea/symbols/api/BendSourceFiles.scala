@@ -4,10 +4,14 @@ import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
 import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.project.{DumbService, IndexNotReadyException}
+import com.intellij.openapi.fileTypes.FileTypeManager
+import com.intellij.util.Processor
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.{LocalFileSystem, VirtualFile}
 import com.intellij.psi.{PsiFile, PsiManager}
 import com.intellij.psi.search.{
+  FileTypeIndex,
   GlobalSearchScope,
   LocalSearchScope,
   SearchScope
@@ -21,7 +25,7 @@ final case class BendSourceFileScan(files: List[PsiFile], complete: Boolean)
 
 object BendSourceFiles:
   private val MaxVisited = 4096
-  private val MaxFiles = 512
+  private val MaxFiles = 4096
   private val MaxText = 1024 * 1024
 
   def files(origin: PsiFile, scope: SearchScope): List[PsiFile] =
@@ -61,7 +65,10 @@ object BendSourceFiles:
     var visited = 0
     var complete = true
     def enqueue(file: VirtualFile): Unit =
-      if file != null && !queued.contains(file) then
+      if file != null && (file.isDirectory || file.getName.endsWith(
+          ".bend"
+        )) && !queued.contains(file)
+      then
         if visited + queue.size >= MaxVisited then complete = false
         else if queued.add(file) then queue.enqueue(file)
     Option(origin.getVirtualFile).foreach(enqueue)
@@ -71,7 +78,29 @@ object BendSourceFiles:
       .iterator
       .filter(_.getName.endsWith(".bend"))
       .foreach(enqueue)
-    ProjectRootManager.getInstance(project).getContentRoots.foreach(enqueue)
+    val indexed = scope match
+      case global: GlobalSearchScope
+          if !DumbService.getInstance(project).isDumb =>
+        try
+          val exhausted = FileTypeIndex.processFiles(
+            FileTypeManager.getInstance().getFileTypeByExtension("bend"),
+            new Processor[VirtualFile]:
+              override def process(file: VirtualFile): Boolean =
+                ProgressManager.checkCanceled()
+                enqueue(file)
+                complete
+            ,
+            global
+          )
+          if !exhausted then complete = false
+          true
+        catch
+          case _: IndexNotReadyException =>
+            complete = false
+            false
+      case _ => false
+    if !indexed then
+      ProjectRootManager.getInstance(project).getContentRoots.foreach(enqueue)
     val (base, cache) =
       project.getService(classOf[BendLoadingConfiguration]).paths
     val local = LocalFileSystem.getInstance()

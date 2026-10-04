@@ -16,12 +16,13 @@ import com.dearlordylord.bend.idea.workspace.api.{
   BendLoadingConfiguration
 }
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.rename.RenamePsiElementProcessor
-import com.intellij.util.IncorrectOperationException
+import com.intellij.refactoring.util.CommonRefactoringUtil
 import com.intellij.util.containers.MultiMap
 import scala.jdk.CollectionConverters.*
 
@@ -74,11 +75,17 @@ final class BendDeclarationRenameProcessor extends RenamePsiElementProcessor:
               importedFillSpelling
             )
             if !scan.complete then
-              throw new IncorrectOperationException(
-                "Rename needs a complete bounded Bend source inventory"
+              CommonRefactoringUtil.showErrorMessage(
+                "Rename",
+                "Rename needs a complete Bend source inventory. Exclude generated or unrelated source directories from the project and try again.",
+                null,
+                file.getProject
               )
-            if selected.category == BendSymbolCategory.Law || localFill ||
-              selected.category == BendSymbolCategory.Definition && importedFillSpelling
+              throw new ProcessCanceledException()
+            if (
+                selected.category == BendSymbolCategory.Law || localFill ||
+                selected.category == BendSymbolCategory.Definition && importedFillSpelling
+              )
             then
               val (base, cache) = file.getProject
                 .getService(classOf[BendLoadingConfiguration])
@@ -90,9 +97,13 @@ final class BendDeclarationRenameProcessor extends RenamePsiElementProcessor:
                 cache
               )
               if related.exists(symbol => !symbol.declaration.isWritable) then
-                throw new IncorrectOperationException(
-                  "A related Bend law or fill is read-only"
+                CommonRefactoringUtil.showErrorMessage(
+                  "Rename",
+                  "A related Bend law or fill is read-only",
+                  null,
+                  file.getProject
                 )
+                throw new ProcessCanceledException()
               val oldLawName =
                 related.headOption.map(_.name).getOrElse(selected.name)
               val simpleNewName =

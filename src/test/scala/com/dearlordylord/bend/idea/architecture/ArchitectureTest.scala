@@ -303,6 +303,12 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "The shared usage and rename source inventory must be inspected",
+      classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendSourceFiles$"
+      )
+    )
+    assertTrue(
       "The shared scope policy must be inspected",
       classes.contain("com.dearlordylord.bend.idea.symbols.scope.BendScope$")
     )

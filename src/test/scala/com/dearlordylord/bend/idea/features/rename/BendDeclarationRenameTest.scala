@@ -24,6 +24,8 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.openapi.ui.{TestDialog, TestDialogManager}
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.psi.search.GlobalSearchScope
 import org.junit.Assert.*
@@ -40,6 +42,60 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
       "def item() -> U32:\n  1\ndef main() -> U32:\n  item()\n",
       myFixture.getEditor.getDocument.getText
     )
+
+  def testRenameFromLawLetWithLargeMixedProject(): Unit =
+    val library = myFixture.addFileToProject(
+      "laws/attack_frame.bend",
+      "def spent_actor(creature: U32) -> U32:\n  creature\nlaw frame:\n  for actor: U32\n  (\n    after_action = List.set(&2, U32, roster, active, spent_actor(actor))\n    {after_action == actor: U32}\n  )\n"
+    )
+    val proof = myFixture.addFileToProject(
+      "proofs/attack_frame.bend",
+      "import ../laws/attack_frame.bend as L\ndef use(actor: U32) -> U32:\n  L.spent_actor(actor)\n"
+    )
+    val directory = myFixture.getTempDirFixture.findOrCreateDir("generated")
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          for index <- 0 until 600 do
+            val file = directory.createChildData(this, s"source$index.bend")
+            VfsUtil.saveText(file, s"def generated$index():\n  0\n")
+          for index <- 0 until 4200 do
+            val _ = directory.createChildData(this, s"asset$index.txt")
+    )
+    myFixture.openFileInEditor(library.getVirtualFile)
+    myFixture.getEditor.getCaretModel.moveToOffset(
+      library.getText.indexOf("spent_actor(actor)")
+    )
+    myFixture.renameElementAtCaret("spent_action_actor")
+    assertEquals(
+      "def spent_action_actor(creature: U32) -> U32:\n  creature\nlaw frame:\n  for actor: U32\n  (\n    after_action = List.set(&2, U32, roster, active, spent_action_actor(actor))\n    {after_action == actor: U32}\n  )\n",
+      library.getText
+    )
+    assertEquals(
+      "import ../laws/attack_frame.bend as L\ndef use(actor: U32) -> U32:\n  L.spent_action_actor(actor)\n",
+      proof.getText
+    )
+
+  def testIncompleteInventoryReportsVisibleErrorBeforeEditing(): Unit =
+    myFixture.addFileToProject("too-large.bend", "#" + ("x" * (1024 * 1024)))
+    val source = "def spent_actor():\n  0\ndef use():\n  spent_actor()\n"
+    myFixture.configureByText(
+      "main.bend",
+      source.replace("  spent_actor()", "  <caret>spent_actor()")
+    )
+    var message = ""
+    try myFixture.renameElementAtCaret("spent_action_actor")
+    catch
+      case error: RuntimeException =>
+        assertEquals(
+          "com.intellij.refactoring.util.CommonRefactoringUtil",
+          error.getStackTrace.head.getClassName
+        )
+        assertEquals("showErrorMessage", error.getStackTrace.head.getMethodName)
+        message = error.getMessage
+    assertTrue(message, message.contains("complete Bend source inventory"))
+    assertEquals(source, myFixture.getEditor.getDocument.getText)
 
   def testImportedMemberRenameKeepsAlias(): Unit =
     val library =

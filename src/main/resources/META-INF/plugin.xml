@@ -20,11 +20,11 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.15:</p>
+<p>Version 0.1.16:</p>
 <ul>
-  <li>Wrap long equality and inequality propositions in laws, binders and result types.</li>
-  <li>Wrap nested calls, constructors and parenthesized conjunctions with the shared IDE and offline formatter policy.</li>
-  <li>Preserve reflexivity witnesses, comments, significant call/index boundaries and fitting multiline layouts.</li>
+  <li>Fix declaration rename silently stalling in larger projects by discovering Bend sources through the file index.</li>
+  <li>Show a refactoring error when a complete source inventory is unavailable or a related law is read-only.</li>
+  <li>Restore the file structure view on IntelliJ IDEA 2026.2.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

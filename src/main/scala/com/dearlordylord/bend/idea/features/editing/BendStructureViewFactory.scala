@@ -14,13 +14,14 @@ import com.intellij.ide.structureView.{
   StructureViewTreeElement,
   TreeBasedStructureViewBuilder
 }
-import com.intellij.ide.structureView.impl.common.PsiTreeElementBase
+import com.intellij.ide.util.treeView.smartTree.TreeElement
+import com.intellij.navigation.ItemPresentation
 import com.intellij.lang.PsiStructureViewFactory
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
-import com.intellij.psi.{PsiElement, PsiFile}
+import com.intellij.psi.{PsiElement, PsiFile, SmartPointerManager}
 import com.intellij.psi.util.PsiTreeUtil
-import java.util.Collection
+import javax.swing.Icon
 import scala.jdk.CollectionConverters.*
 
 final class BendStructureViewFactory extends PsiStructureViewFactory:
@@ -33,8 +34,20 @@ final class BendStructureViewFactory extends PsiStructureViewFactory:
           .withSuitableClasses(classOf[BendDeclaration])
 
 private[editing] final class BendStructureElement(element: PsiElement)
-    extends PsiTreeElementBase[PsiElement](element):
-  override def getPresentableText: String =
+    extends StructureViewTreeElement:
+  private val pointer = SmartPointerManager
+    .getInstance(element.getProject)
+    .createSmartPsiElementPointer(element)
+  private def getElement: PsiElement = pointer.getElement
+
+  override def getValue: PsiElement = getElement
+  override def getPresentation: ItemPresentation = new ItemPresentation:
+    override def getPresentableText: String = presentableText
+    override def getLocationString: String = null
+    override def getIcon(unused: Boolean): Icon =
+      Option(getElement).filter(_.isValid).map(_.getIcon(0)).orNull
+
+  private def presentableText: String =
     getElement match
       case declaration: BendDeclaration =>
         val full =
@@ -49,7 +62,7 @@ private[editing] final class BendStructureElement(element: PsiElement)
       case file: PsiFile => file.getName
       case _             => ""
 
-  override def getChildrenBase: Collection[StructureViewTreeElement] =
+  override def getChildren: Array[TreeElement] =
     val children = getElement match
       case file: PsiFile =>
         PsiTreeUtil
@@ -64,8 +77,8 @@ private[editing] final class BendStructureElement(element: PsiElement)
       case _ => Nil
     children
       .filter(_.getNameIdentifier != null)
-      .map(item => new BendStructureElement(item): StructureViewTreeElement)
-      .asJava
+      .map(item => new BendStructureElement(item): TreeElement)
+      .toArray
 
   override def navigate(requestFocus: Boolean): Unit =
     getElement match
@@ -77,4 +90,18 @@ private[editing] final class BendStructureElement(element: PsiElement)
           declaration.getContainingFile.getVirtualFile,
           declaration.getNameIdentifier.getTextRange.getStartOffset
         ).navigate(requestFocus)
-      case _ => super.navigate(requestFocus)
+      case current if current != null && canNavigate =>
+        new OpenFileDescriptor(
+          current.getProject,
+          current.getContainingFile.getVirtualFile,
+          current.getTextOffset
+        ).navigate(requestFocus)
+      case _ => ()
+
+  override def canNavigate: Boolean =
+    Option(getElement).exists(current =>
+      current.isValid && current.getContainingFile != null &&
+        current.getContainingFile.getVirtualFile != null
+    )
+
+  override def canNavigateToSource: Boolean = canNavigate

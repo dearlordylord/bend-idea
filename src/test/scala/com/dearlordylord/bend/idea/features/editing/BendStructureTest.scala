@@ -51,6 +51,9 @@ final class BendStructureTest extends BasePlatformTestCase:
           .getTextRange
           .getStartOffset
       )
+      assertTrue(constructor.canNavigate)
+      assertTrue(constructor.canNavigateToSource)
+      assertEquals(file, model.getRoot.getValue)
       constructor.navigate(false)
       assertEquals(
         file.getText.indexOf("Pair{left"),

@@ -13,6 +13,15 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.16
+
+- Fix declaration rename silently stalling in larger projects. Discover Bend
+  sources through the file index, preserve current editor text, and show a
+  refactoring error when a complete source inventory is unavailable or a related
+  law is read-only.
+- Restore the file structure view on IntelliJ IDEA 2026.2 using the supported
+  tree-element interface.
+
 ## 0.1.15
 
 - Wrap long equality and inequality propositions in laws, binders and result
