@@ -187,3 +187,19 @@ Marketplace submission of 0.1.17 is confirmed as Stable update [1187413](https:/
 Cloudflare Pages deployed feed commit `1f4a4e2`. Both the primary custom feed and its Pages fallback publicly served 0.1.17 with ID, since-build, description and change notes matching the signed plugin. Anonymous downloads from both feed links matched the recorded ZIP hash. Local macOS ARM64 `brew update`, upgrade from 0.1.16 to 0.1.17 and `brew test bend-format` passed.
 
 All four native Homebrew style/audit, installation, formula test and uninstall jobs passed in [run 37216403455](https://github.com/dearlordylord/homebrew-tap/actions/runs/37216403455). After archive, feed and installation verification, GitHub Release v0.1.17 was marked stable/latest. Marketplace approval remains pending.
+
+
+## 0.1.18 release
+
+[GitHub Release v0.1.18](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.18) is tagged at verified source commit `b0af3e4eb8b020046c70ecf0551a9a0718b703d2`. Canonical imports/root namespaces, offline named Hub cache mappings and Go to Type Declaration are recorded in the versioned changelog and signed plugin notes. Release preparation changes shared version/distribution metadata and corrects a stale architecture introduction; it introduces no new runtime contract or formatter policy. Implementer self-review under `REVIEWER.md` checked source/version/feed ownership, packaged metadata, distribution notices and evidence; no actionable findings remain. This is not an independent review.
+
+Clean JDK 21.0.10 release gates passed: 597 main-suite cases, 596 executed successfully, one optional current-release compiler smoke skipped, zero failures/errors, plus two architecture tests passed. Quality checks, plugin packaging, structure/configuration, signing/signature verification and formatter JAR build passed. Real subprocess fixtures used pinned Bend 2.0.35 `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2. Plugin Verifier accepted IC 2025.1 and IU 2026.1 with existing API notices. The signed metadata uses ID `com.dearlordylord.bend.idea`, version 0.1.18 and since-build 251 without an upper bound.
+
+- Signed ZIP SHA-256: `56e079c23a15c6eb650ccd3aec0c648dc2f9f49bd2a6cee2449649875fe4a9bc`.
+- Portable JAR SHA-256: `d6fc0f5ac2fc75452f1e8b942e3ad5b2c4f28f2973d6430c4029786aa69575c4`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; signing identity unchanged.
+- Runtime hashes: [BEND-FORMAT-SHA256SUMS.txt](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.18/BEND-FORMAT-SHA256SUMS.txt).
+
+All five native runtime packaging/smoke jobs and publication passed in [run 37221953059](https://github.com/dearlordylord/bend-idea/actions/runs/37221953059). Anonymous downloads of all eight payloads matched both manifests; the signed ZIP/JAR/public certificate also matched local verified artifacts. Homebrew tap commit `bc1e7db42cad4d0133c9a548b0fbcd21d3640dff` updates all four macOS/Linux archive URLs and hashes. Live feed and installation checks are recorded after confirmation.
+
+The maintainer completed Marketplace upload; authenticated UI displayed Upload Successful and Stable update [1187430](https://plugins.jetbrains.com/plugin/34452-bend2/edit/versions/stable/1187430) for 0.1.18, status Under review on 2026-10-04. Submission is not approval or public Marketplace availability. An interactive new-version IDE installation/update has not been exercised.
