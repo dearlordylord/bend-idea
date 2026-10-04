@@ -252,7 +252,7 @@ final class BendFileMoveTest extends BasePlatformTestCase:
           "def main() -> U32:\n  Dep.value()\n"
       )
       assertEquals(
-        0,
+        1,
         check(
           compiler.writeLauncher(temporary.resolve("bend")),
           root,
@@ -271,7 +271,7 @@ final class BendFileMoveTest extends BasePlatformTestCase:
           "  import \"../vendor/native.js\"\n" +
           "def main() -> U32:\n  Dep.value()\n"
       )
-      assertEquals(0, check(temporary.resolve("bend"), root, temporary))
+      assertEquals(1, check(temporary.resolve("bend"), root, temporary))
     finally
       val files = Files.walk(temporary)
       try
@@ -302,5 +302,11 @@ final class BendFileMoveTest extends BasePlatformTestCase:
     )
     val output =
       new String(process.getInputStream.readAllBytes(), StandardCharsets.UTF_8)
-    assertTrue("Pinned compiler failed: " + output, process.exitValue() == 0)
+    assertEquals(output, 1, process.exitValue())
+    assertTrue(output, output.startsWith("SOME PROOFS FAIL\n"))
+    assertTrue(
+      output,
+      output.contains("1 def relies on unsafe or foreign code:")
+    )
+    assertTrue(output, output.contains("- external"))
     process.exitValue()

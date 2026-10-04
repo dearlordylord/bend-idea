@@ -12,7 +12,7 @@ This checklist covers only this PR's new compiler protocol and broader compatibi
 
 **Only the first compiler error is reported.** A later mistake can have no red highlight while an earlier error remains, including an error in an imported file. **No red highlight does not mean the code passes.** Look at the Bend status, fix the reported error, then run **Check Current Bend File** again to reveal the next one. After editing, the previous result may be stale until you recheck.
 
-Use the pinned Bend 2.0.25 structured helper as your configured compiler, with matching Base. Setup is described in the plugin repository README under **Compiler checking**. Skip this section if that helper is not configured; a plain compiler does not exercise the new protocol.
+Use the pinned Bend 2.0.35 structured helper as your configured compiler, with matching Base. Setup is described in the plugin repository README under **Compiler checking**. Skip this section if that helper is not configured; a plain compiler does not exercise the new protocol.
 
 All fixture paths below are inside `manual/`.
 

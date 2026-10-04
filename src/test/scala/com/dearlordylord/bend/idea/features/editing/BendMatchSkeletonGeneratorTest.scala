@@ -72,11 +72,11 @@ final class BendMatchSkeletonGeneratorTest extends BasePlatformTestCase:
   def testImportedDatatypeUsesAliasPreservesCasesAndChecksAsIncomplete(): Unit =
     val _ = myFixture.addFileToProject(
       "types/Maybe.bend",
-      "import Base\ntype Maybe is Data:\n  None{}\n  Some{value: Nat}\n"
+      "import Base\ntype SampleMaybe is Data:\n  SampleNone{}\n  SampleSome{value: Nat}\n"
     )
     myFixture.configureByText(
       "main.bend",
-      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.Maybe) -> Nat:\n  match value:\n    case Option.None{}:\n      0n\n"
+      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.SampleMaybe) -> Nat:\n  match value:\n    case Option.SampleNone{}:\n      0n\n"
     )
     val file = myFixture.getFile
     val matchOffset = file.getText.indexOf("match value")
@@ -90,7 +90,7 @@ final class BendMatchSkeletonGeneratorTest extends BasePlatformTestCase:
       .fold(reason => throw new AssertionError(reason), identity)
     PsiDocumentManager.getInstance(getProject).commitAllDocuments()
     assertEquals(
-      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.Maybe) -> Nat:\n  match value:\n    case Option.None{}:\n      0n\n    case Option.Some{value2}:\n      ?TODO\n",
+      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.SampleMaybe) -> Nat:\n  match value:\n    case Option.SampleNone{}:\n      0n\n    case Option.SampleSome{value2}:\n      ?TODO\n",
       file.getText
     )
     assertEquals(
@@ -120,7 +120,7 @@ final class BendMatchSkeletonGeneratorTest extends BasePlatformTestCase:
     myFixture.performEditorAction(IdeActions.ACTION_UNDO)
     PsiDocumentManager.getInstance(getProject).commitAllDocuments()
     assertEquals(
-      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.Maybe) -> Nat:\n  match value:\n    case Option.None{}:\n      0n\n",
+      "import Base\nimport ./types/Maybe.bend as Option\ndef inspect(value: Option.SampleMaybe) -> Nat:\n  match value:\n    case Option.SampleNone{}:\n      0n\n",
       myFixture.getEditor.getDocument.getText
     )
 

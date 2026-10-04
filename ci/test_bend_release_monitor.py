@@ -25,24 +25,24 @@ def release(number, release_id, digest="a" * 64, assets=True):
 
 class CandidateTests(unittest.TestCase):
     def test_all_unseen_releases_are_kept_even_when_published_on_one_day(self):
-        found = candidates([release(32, 32), release(31, 31), release(30, 30), release(25, 25)], {})
-        self.assertEqual(["v2.0.30", "v2.0.31", "v2.0.32"], [item["tag"] for item in found])
+        found = candidates([release(38, 38), release(37, 37), release(36, 36), release(35, 35)], {})
+        self.assertEqual(["v2.0.36", "v2.0.37", "v2.0.38"], [item["tag"] for item in found])
 
     def test_recorded_result_is_skipped_but_changed_digest_is_retested(self):
-        recorded = {"32": {"tag": "v2.0.32", "digest": "a" * 64, "status": "failed", "suite": COMPATIBILITY_SUITE}}
-        self.assertEqual([], candidates([release(32, 32)], recorded))
-        self.assertEqual(1, len(candidates([release(32, 32, "b" * 64)], recorded)))
-        self.assertEqual(1, len(candidates([release(32, 32)], recorded, "v2.0.32")))
+        recorded = {"38": {"tag": "v2.0.38", "digest": "a" * 64, "status": "failed", "suite": COMPATIBILITY_SUITE}}
+        self.assertEqual([], candidates([release(38, 38)], recorded))
+        self.assertEqual(1, len(candidates([release(38, 38, "b" * 64)], recorded)))
+        self.assertEqual(1, len(candidates([release(38, 38)], recorded, "v2.0.38")))
 
     def test_unfinished_asset_is_left_for_the_next_poll(self):
-        self.assertEqual([], candidates([release(32, 32, assets=False)], {}))
-        self.assertEqual(["v2.0.32"], pending_assets([release(32, 32, assets=False)]))
+        self.assertEqual([], candidates([release(38, 38, assets=False)], {}))
+        self.assertEqual(["v2.0.38"], pending_assets([release(38, 38, assets=False)]))
         with self.assertRaises(ValueError):
-            candidates([release(32, 32, assets=False)], {}, "v2.0.32")
+            candidates([release(38, 38, assets=False)], {}, "v2.0.38")
 
     def test_duplicate_tag_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Duplicate published Bend tag"):
-            candidates([release(32, 32), release(32, 33)], {})
+            candidates([release(38, 38), release(38, 39)], {})
 
 
 class ArchiveTests(unittest.TestCase):

@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Protocol 1 exposes the first error from the pinned Bend 2.0.25 sources.
+// Protocol 1 exposes the first error from the pinned Bend 2.0.35 sources.
 // Check protocol 1 is independent of the optional semantic protocol.
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
@@ -7,9 +7,9 @@ import * as path from "node:path";
 import * as url from "node:url";
 
 const hashes: Record<string, string> = {
-  "bend.ts": "93c2a43deeb82c15683e4e25bbc5dec5ac3edff9f54e09acc0975e290fcaeb85",
-  "comp.ts": "c19b9be5be69930be218e68880ae5a1aa13e51cda0d2a0547bcb7259fdf96bc3",
-  "main.ts": "92dcdb49e82fd59443e3aea10784f7dcf03a93f5a21920666543098b657b6b1e",
+  "bend.ts": "7deae3693eb896f33c73867081b99d2c6f3ed3b57e77e55eb5f6260840dd0e63",
+  "comp.ts": "32fb66e09f608ce9e4b173384bcfeec453db8c5bc96650e26ad861bef815a8d9",
+  "main.ts": "d1a3e026f5014f8daec3614df8e39cf261e3fbc47769eb0916fd891bc18703c9",
 };
 
 function emit(value: unknown): void {
@@ -39,25 +39,23 @@ async function main(): Promise<void> {
     return;
   }
   if (operation === "check-capabilities") {
-    emit({ checkProtocol: 1, compiler: "bend-2.0.25-pinned", checkOnly: true,
+    emit({ checkProtocol: 1, compiler: "bend-2.0.35-pinned", checkOnly: true,
       locations: "compiler-source-utf16", operations: ["check"] });
     return;
   }
   if (operation === "capabilities") {
-    emit({ protocol: 1, compiler: "bend-2.0.25-pinned", operations: ["diagnostic", "goal-first-named-hole", "expression-types-checked", "goal-binder-comparison", "normalize-closed-expression"] });
+    emit({ protocol: 1, compiler: "bend-2.0.35-pinned", operations: ["diagnostic", "goal-first-named-hole", "expression-types-checked", "goal-binder-comparison", "normalize-closed-expression"] });
     return;
   }
   const Bend = await import(url.pathToFileURL(path.join(dir, "bend.ts")).href);
-  const Comp = await import(url.pathToFileURL(path.join(dir, "comp.ts")).href);
   if (operation === "check") {
-    await check(Bend, Comp, root);
+    await check(Bend, root);
     return;
   }
   try {
     const book = Bend.book_nil();
     await Bend.book_load(book, root, "", new Map());
     Bend.book_valid(book);
-    Comp.book_owned(book, Comp.SYNTH);
     if (operation === "normalize") {
       const start = Number(requestedStart);
       const end = Number(requestedEnd);
@@ -72,8 +70,8 @@ async function main(): Promise<void> {
         if (term.$ === "Ann") {
           const node = term.x;
           const span = node?.s;
-          const key = span && typeof span.src === "string"
-            ? `${crypto.createHash("sha256").update(span.src).digest("hex")}:${span.beg}:${span.end}`
+          const key = span && typeof span.file.str === "string"
+            ? `${crypto.createHash("sha256").update(span.file.str).digest("hex")}:${span.beg}:${span.end}`
             : "";
           if (key && key !== ancestor && key === `${requestedDigest}:${start}:${end}`) matches.push(node);
           find(node, depth + 1, key || ancestor);
@@ -125,16 +123,16 @@ async function main(): Promise<void> {
           const node = term.x;
           const span = node?.s;
           if (node?.$ !== "Lam" && node?.$ !== "All" && span &&
-              typeof span.src === "string" && Number.isInteger(span.beg) &&
+              typeof span.file.str === "string" && Number.isInteger(span.beg) &&
               Number.isInteger(span.end) && span.beg >= 0 &&
-              span.end > span.beg && span.end <= span.src.length &&
+              span.end > span.beg && span.end <= span.file.str.length &&
               span.end - span.beg <= 16384 && term.T?.$ === "Var" && term.T.v) {
-            let sourceIndex = sourceIndexes.get(span.src);
-            if (sourceIndex === undefined && sourceBytes + Buffer.byteLength(span.src, "utf8") <= 131072) {
+            let sourceIndex = sourceIndexes.get(span.file.str);
+            if (sourceIndex === undefined && sourceBytes + Buffer.byteLength(span.file.str, "utf8") <= 131072) {
               sourceIndex = sources.length;
-              sources.push(span.src);
-              sourceIndexes.set(span.src, sourceIndex);
-              sourceBytes += Buffer.byteLength(span.src, "utf8");
+              sources.push(span.file.str);
+              sourceIndexes.set(span.file.str, sourceIndex);
+              sourceBytes += Buffer.byteLength(span.file.str, "utf8");
             }
             const key = `${sourceIndex}\u0000${span.beg}\u0000${span.end}`;
             // A nested partial application can inherit its parent's full span.
@@ -150,8 +148,8 @@ async function main(): Promise<void> {
             }
           }
           const nodeSpan = node?.s;
-          const currentSpan = nodeSpan && sourceIndexes.has(nodeSpan.src)
-            ? `${sourceIndexes.get(nodeSpan.src)}\u0000${nodeSpan.beg}\u0000${nodeSpan.end}`
+          const currentSpan = nodeSpan && sourceIndexes.has(nodeSpan.file.str)
+            ? `${sourceIndexes.get(nodeSpan.file.str)}\u0000${nodeSpan.beg}\u0000${nodeSpan.end}`
             : ancestorSpan;
           visit(node, names, depth + 1, currentSpan);
         } else if (term.$ === "Lam") {
@@ -181,12 +179,12 @@ async function main(): Promise<void> {
     if (error && typeof error === "object" && "$" in error && error.$ === "Err") {
       const err = error as {
         bok: unknown; ctx: unknown; exp: unknown; obs?: { $?: string; k?: string };
-        spn?: { src: string; beg: number; end: number };
+        spn?: { file: { str: string }; beg: number; end: number };
       };
       const span = err.spn && Number.isInteger(err.spn.beg) &&
         Number.isInteger(err.spn.end) && err.spn.beg >= 0 &&
-        err.spn.end >= err.spn.beg && err.spn.end <= err.spn.src.length
-        ? { source: err.spn.src, start: err.spn.beg, end: err.spn.end }
+        err.spn.end >= err.spn.beg && err.spn.end <= err.spn.file.str.length
+        ? { source: err.spn.file.str, start: err.spn.beg, end: err.spn.end }
         : null;
       if (operation === "compare") {
         if (err.obs?.$ !== "Hol" || err.obs.k === "TODO" || !span ||
@@ -244,14 +242,14 @@ async function main(): Promise<void> {
 
 // Mirrors the pinned CLI book_read and reliance walk. Hash negotiation above
 // prevents using these private-version assumptions with a different compiler.
-async function check(Bend: any, Comp: any, root: string): Promise<void> {
+async function check(Bend: any, root: string): Promise<void> {
   const report = (outcome: string, completeness: string, reliance: string,
     details: string, diagnostics: unknown[] = [], incompleteKind?: string) =>
     emit({ checkProtocol: 1, outcome, completeness, reliance, details, diagnostics, incompleteKind });
   try {
     const book = Bend.book_nil();
     const seen = new Map<string, string | null>();
-    const n0 = await Bend.book_load(book, root, "", seen);
+    await Bend.book_load(book, root, "", seen);
     const laws = path.join(path.dirname(root), "LAWS.bend");
     if (path.basename(root) === "PROOF.bend" && fs.existsSync(laws) && !seen.has(fs.realpathSync(laws))) {
       const message = "PROOF.bend must import ./LAWS.bend";
@@ -259,13 +257,12 @@ async function check(Bend: any, Comp: any, root: string): Promise<void> {
       return;
     }
     Bend.book_valid(book);
-    Comp.book_owned(book, Comp.SYNTH);
-    if (book.hols + book.open > 0) {
-      const message = `${book.hols + book.open} TODOs found. The code is incomplete.`;
+    if (book.hols > 0) {
+      const message = `${book.hols} TODOs found. The code is incomplete.`;
       report("failed", "incomplete", "unknown", message, [{ message }], "todo");
       return;
     }
-    const own = [...new Set<string>(book.order.slice(n0))];
+    const own = [...new Set<string>(book.order)].filter(k => book.tlds[k].b !== true);
     const bad = new Set<string>(Object.keys(book.tlds).filter(k => {
       const t = book.tlds[k];
       return t.u === true || (t.i !== undefined && t.b !== true);
@@ -296,10 +293,10 @@ async function check(Bend: any, Comp: any, root: string): Promise<void> {
     const structured = error && typeof error === "object" && "$" in error && error.$ === "Err";
     const message = structured ? Bend.err_show(error) : String(error);
     const err = error as any;
-    const span = structured && err.spn && typeof err.spn.src === "string" &&
+    const span = structured && err.spn && typeof err.spn.file.str === "string" &&
       Number.isInteger(err.spn.beg) && Number.isInteger(err.spn.end) && err.spn.beg >= 0 &&
-      err.spn.end > err.spn.beg && err.spn.end <= err.spn.src.length
-      ? { source: err.spn.src, start: err.spn.beg, end: err.spn.end } : undefined;
+      err.spn.end > err.spn.beg && err.spn.end <= err.spn.file.str.length
+      ? { source: err.spn.file.str, start: err.spn.beg, end: err.spn.end } : undefined;
     const named = structured && err.obs?.$ === "Hol" && err.obs.k !== "TODO";
     report("failed", named ? "incomplete" : "unknown", "unknown", message, [{ message, span }], named ? "named-hole" : undefined);
   }

@@ -5,6 +5,35 @@ import org.junit.Assert.*
 import org.junit.Test
 
 final class BendStructuredDiagnosticTest:
+  @Test def verdictBannerDoesNotWeakenDiagnosticAgreement(): Unit =
+    assertTrue(
+      BendStructuredProtocol.matchesDiagnostic(
+        Some("Error: expected A"),
+        "SOME PROOFS FAIL\nError: expected A"
+      )
+    )
+    assertTrue(
+      BendStructuredProtocol.matchesDiagnostic(
+        Some("Error: expected A"),
+        "Error: expected A"
+      )
+    )
+    assertFalse(
+      BendStructuredProtocol.matchesDiagnostic(
+        Some("Error: expected B"),
+        "SOME PROOFS FAIL\nError: expected A"
+      )
+    )
+    assertFalse(
+      BendStructuredProtocol.matchesDiagnostic(
+        Some("Warning: extra output\nError: expected A"),
+        "SOME PROOFS FAIL\nError: expected A"
+      )
+    )
+    assertFalse(
+      BendStructuredProtocol.matchesDiagnostic(None, "Error: expected A")
+    )
+
   @Test def malformedSpanFallsBackWithoutThrowing(): Unit =
     val directory = Files.createTempDirectory("bend-structured-json-")
     try
@@ -13,7 +42,7 @@ final class BendStructuredDiagnosticTest:
         executable,
         """#!/bin/sh
           |if [ "${1:-}" = "--idea-structured-capabilities" ]; then
-          |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.25-pinned","operations":["diagnostic"]}'
+          |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.35-pinned","operations":["diagnostic"]}'
           |else
           |  printf '%s\n' '{"protocol":1,"kind":"first-error","message":"Error: example","span":"invalid"}'
           |fi
