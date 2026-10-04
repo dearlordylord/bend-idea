@@ -27,6 +27,8 @@ object BendGraphSnapshot:
           edge.target.fold("missing")(_.value)
       ) ++
       graph.problems.map(_.toString) ++
+      graph.cachedPackages.map(_.toString) ++
+      List("package-cache:" + graph.packageCacheIdentity) ++
       List(
         siblingLaws.fold("no-sibling-laws")(law =>
           s"sibling-laws:${law.id.value}:${law.revision}:" + BendAnalysisKey

@@ -23,7 +23,7 @@ final class BendGraphLoaderTest:
       BendImportLines.parse(text)
     )
 
-  @Test def diamondDeduplicatesByCanonicalIdentityAndReportsNamespaceConflict()
+  @Test def diamondDeduplicatesByCanonicalIdentityAndUsesCanonicalNamespace()
       : Unit =
     val root =
       record("/p/main.bend", "import ./a.bend as A\nimport ./b.bend as B\n")
@@ -39,8 +39,10 @@ final class BendGraphLoaderTest:
       catalog
     )
     assertEquals(1, graph.files.count(_.source.id == shared.id))
-    assertTrue(
-      graph.problems.exists(_.isInstanceOf[BendGraphProblem.NamespaceConflict])
+    assertTrue(graph.problems.toString, graph.problems.isEmpty)
+    assertEquals(
+      List("shared", "shared"),
+      graph.edges.filter(_.target.contains(shared.id)).map(_.namespace)
     )
     assertTrue(graph.edges.exists(_.importLine.spelling == "./link.bend"))
 
@@ -79,6 +81,31 @@ final class BendGraphLoaderTest:
       List("0xabc/lib.bend", "/abs/lib.bend"),
       graph.edges.map(_.importLine.spelling)
     )
+
+  @Test def namedPackageLookupsAreBoundedAndMissingNamesAreCaptured(): Unit =
+    val imports = (0 until 10)
+      .map(index => s"import package-$index@1.0.0.0/item.bend as M$index\n")
+      .mkString
+    val root = record("/p/main.bend", imports)
+    val lookups = scala.collection.mutable.ListBuffer.empty[String]
+    val catalog = new BendSourceCatalog:
+      override def source(path: String) = None
+      override def cachedPackageHash(cache: String, name: String) =
+        lookups += name
+        None
+    val graph = BendGraphLoader.load(
+      root,
+      BendGraphLoader.Config("", "/cache"),
+      catalog,
+      maxFiles = 3
+    )
+    assertEquals(3, lookups.size)
+    assertEquals(lookups.toList, graph.cachedPackages.map(_.name))
+    assertTrue(graph.cachedPackages.forall(_.hash.isEmpty))
+    assertTrue(
+      graph.sourceInventoryLimits.contains(BendGraphLimit.SourceLookups)
+    )
+    assertEquals(10, graph.problems.size)
 
   @Test def malformedLeadingImportIsRetainedAsProblem(): Unit =
     val root =
@@ -190,7 +217,7 @@ final class BendGraphLoaderTest:
     )
     assertEquals(Set(BendGraphLimit.GraphFiles), graph.sourceInventoryLimits)
 
-  @Test def realSymlinkDeduplicatesAndRejectsTwoNamespaces(): Unit =
+  @Test def realSymlinkDeduplicatesAndAcceptsBothAliases(): Unit =
     val dir = Files.createTempDirectory("bend-graph-link")
     try
       val target = dir.resolve("shared.bend")
@@ -219,9 +246,12 @@ final class BendGraphLoaderTest:
         catalog
       )
       assertEquals(2, graph.files.size)
-      assertTrue(
-        graph.problems.exists(
-          _.isInstanceOf[BendGraphProblem.NamespaceConflict]
+      assertTrue(graph.problems.toString, graph.problems.isEmpty)
+      assertEquals(List("shared", "shared"), graph.edges.map(_.namespace))
+      root.imports.foreach(imp =>
+        assertEquals(
+          Some(graph.edges.head.target.get),
+          graph.importTarget(root.id, imp.offset)
         )
       )
       assertEquals(graph.edges.head.target, graph.edges(1).target)

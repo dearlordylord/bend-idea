@@ -7,3 +7,12 @@ import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
   */
 trait BendSourceCatalog:
   def source(path: String): Option[BendSourceRecord]
+
+  /** Canonical directory identity; implementations keep filesystem access here.
+    */
+  def canonicalPath(path: String): String = path
+
+  /** Offline name-to-hash lookup only; absent or malformed entries stay absent.
+    */
+  def cachedPackageHash(packageCache: String, name: String): Option[String] =
+    None

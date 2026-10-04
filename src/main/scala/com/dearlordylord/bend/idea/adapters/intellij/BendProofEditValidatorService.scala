@@ -179,7 +179,21 @@ final class BendProofEditValidatorService(project: Project)
       )
     val records = ((frozen ++ prepared.snapshot.siblingLaws.toList)
       .map(record => record.path -> record) ++ requested).toMap
+    val capturedGraph = prepared.snapshot.graph
     val overlay = new BendSourceCatalog:
+      override def canonicalPath(path: String): String =
+        capturedGraph
+          .filter(_ => path == prepared.selection.packageCache)
+          .map(_.packageCacheIdentity)
+          .getOrElse(path)
+      override def cachedPackageHash(
+          packageCache: String,
+          name: String
+      ): Option[String] =
+        capturedGraph.toList
+          .flatMap(_.cachedPackages)
+          .find(_.name == name)
+          .flatMap(_.hash)
       override def source(path: String): Option[BendSourceRecord] =
         records
           .get(path)

@@ -29,6 +29,7 @@ These are research sources, not dependencies newly distributed by this work:
 
 - [don2e4/bend2-lsp](https://github.com/don2e4/bend2-lsp/tree/d85e556febcd3e787c48f4558b5f89a34729626d): [Apache-2.0 license](https://github.com/don2e4/bend2-lsp/blob/d85e556febcd3e787c48f4558b5f89a34729626d/LICENSE).
 - [Soulthym/tree-sitter-bend2](https://github.com/Soulthym/tree-sitter-bend2/tree/55e699af7e136f54a88939c9a3b7cd2eaad500bf): [MIT license, copyright Thybault Alabarbe](https://github.com/Soulthym/tree-sitter-bend2/blob/55e699af7e136f54a88939c9a3b7cd2eaad500bf/LICENSE).
+- [IlyaGulya/bend2-lsp-rs](https://github.com/IlyaGulya/bend2-lsp-rs/tree/1e75117a8d5be38d648f65f25d854c894cffbafd): [Apache-2.0 license](https://github.com/IlyaGulya/bend2-lsp-rs/blob/1e75117a8d5be38d648f65f25d854c894cffbafd/LICENSE).
 - [Official Bend research pin](https://github.com/bendlang/bend/tree/565d7fdec289b1f2f5f5037bb58b5afb6738ff1d): [Apache-2.0 license](https://github.com/bendlang/bend/blob/565d7fdec289b1f2f5f5037bb58b5afb6738ff1d/LICENSE). This research pin does not override `ci/bend-test-toolchain.properties` for compiler judgments.
 
 For exact terms consult [Apache-2.0 section 4](https://www.apache.org/licenses/LICENSE-2.0) and the [MIT license](https://opensource.org/license/mit).

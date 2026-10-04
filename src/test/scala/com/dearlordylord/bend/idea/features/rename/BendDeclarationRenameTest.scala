@@ -7,6 +7,7 @@ import com.dearlordylord.bend.idea.analysis.model.{
   BendCheckSnapshot
 }
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSelection
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
@@ -318,6 +319,7 @@ final class BendDeclarationRenameTest extends BasePlatformTestCase:
         override def run(): Unit = virtual.setWritable(previous))
 
   def testReadonlyCachedLawBlocksFillRename(): Unit =
+    VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable)
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )

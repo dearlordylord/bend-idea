@@ -8,6 +8,7 @@ import com.dearlordylord.bend.idea.features.execution.api.{
   BendNativeRunRequest
 }
 import com.dearlordylord.bend.idea.syntax.psi.BendForeignPaths
+import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
   BendToolchainSettings
@@ -37,6 +38,7 @@ final class BendBuildConfigurationTest extends BasePlatformTestCase:
   override def setUp(): Unit =
     super.setUp()
     directory = Files.createTempDirectory("bend-build-configuration-")
+    VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable, directory)
     val settings = ApplicationManager.getApplication.getService(
       classOf[BendToolchainSettings]
     )

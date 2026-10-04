@@ -143,11 +143,19 @@ final class BendFileMoveTest extends BasePlatformTestCase:
   def testLoaderNamespacePolicyIsSharedWithRefactoring(): Unit =
     assertEquals(
       "../lib/dep",
-      BendImportPaths.namespace("", "../lib/dep.bend")
+      BendImportPaths.canonicalNamespace(
+        "/p/app/main.bend",
+        "/p/lib/dep.bend",
+        "/cache"
+      )
     )
     assertEquals(
-      "app/lib/dep",
-      BendImportPaths.namespace("app/main", "./lib/dep.bend")
+      "lib/dep",
+      BendImportPaths.canonicalNamespace(
+        "/p/app/main.bend",
+        "/p/app/lib/dep.bend",
+        "/cache"
+      )
     )
 
   def testOpenExternalLibrarySourceIsExcludedFromProjectMoveInventory(): Unit =

@@ -55,7 +55,9 @@ final class BendMoveFileHandler extends MoveFileHandler:
         case path: BendSourcePathReference
             if path.getElement.getContainingFile == file &&
               path.pathKind == BendSourcePathKind.Module &&
-              (path.spelling == "Base" || path.spelling.startsWith("0x")) =>
+              (path.spelling == "Base" || BendImportPaths.isPackageImport(
+                path.spelling
+              )) =>
           true
         case _ => false
       }
@@ -91,26 +93,16 @@ final class BendMoveFileHandler extends MoveFileHandler:
               case path if path.pathKind == BendSourcePathKind.Foreign =>
                 BendSourcePathEdits
                   .relativeSpelling(sourcePath, target)
-                  .map(value => (value, None))
             }
             replacement match
-              case Some((value, namespace)) if value != original =>
-                List(new BendMoveReferenceUsage(reference, value, namespace))
+              case Some(value) if value != original =>
+                List(new BendMoveReferenceUsage(reference, value))
               case Some(_) => Nil
               case None    =>
                 throw new IncorrectOperationException(
                   "Cannot safely rewrite a Bend path for this move."
                 )
     }
-    val namespaceConflicts = planned
-      .flatMap(usage => usage.namespace.map((key, name) => (key, name)))
-      .groupMap(_._1)(_._2)
-      .values
-      .exists(_.distinct.size > 1)
-    if namespaceConflicts then
-      throw new IncorrectOperationException(
-        "This move would load one Bend source under conflicting namespaces."
-      )
     planned.asJava
 
   override def detectConflicts(
@@ -212,9 +204,8 @@ final class BendMoveFileHandler extends MoveFileHandler:
                   .resolve(sourcePath, path.spelling)
                   .map(_.toString)
               case BendSourcePathKind.Module
-                  if path.spelling != "Base" && !path.spelling.startsWith(
-                    "0x"
-                  ) =>
+                  if path.spelling != "Base" && !BendImportPaths
+                    .isPackageImport(path.spelling) =>
                 val (_, cache) = reference.getElement.getProject
                   .getService(classOf[BendLoadingConfiguration])
                   .paths
@@ -228,8 +219,8 @@ final class BendMoveFileHandler extends MoveFileHandler:
       sourcePath: String,
       targetPath: String,
       original: String
-  ): Option[(String, Option[((String, String), String)])] =
-    if original == "Base" || original.startsWith("0x") then None
+  ): Option[String] =
+    if original == "Base" || BendImportPaths.isPackageImport(original) then None
     else
       BendSourcePathEdits.relativeSpelling(sourcePath, targetPath).flatMap {
         spelling =>
@@ -253,33 +244,11 @@ final class BendMoveFileHandler extends MoveFileHandler:
             edge.from == graph.root &&
               importLine.exists(_.offset == edge.importLine.offset)
           )
-          val sourceNamespace = graph.files
-            .find(_.source.id == graph.root)
-            .map(_.namespace)
-            .getOrElse("")
-          val targetIdentity = Option(reference.resolve())
-            .flatMap(element => Option(element.getContainingFile))
-            .flatMap(file => Option(file.getVirtualFile))
-            .map(_.getCanonicalPath)
-            .getOrElse(targetPath)
-          val namespace = BendImportPaths.namespace(sourceNamespace, spelling)
-          edge.flatMap(_ =>
-            importLine
-              .flatMap(_.alias)
-              .map(_ =>
-                (
-                  spelling,
-                  Some(
-                    ((source.getVirtualFile.getPath, targetIdentity), namespace)
-                  )
-                )
-              )
-          )
+          edge.flatMap(_ => importLine.flatMap(_.alias).map(_ => spelling))
       }
 
 private[rename] final class BendMoveReferenceUsage(
     val reference: com.intellij.psi.PsiReference,
-    val spelling: String,
-    val namespace: Option[((String, String), String)]
+    val spelling: String
 ) extends UsageInfo(reference):
   override def getReference: com.intellij.psi.PsiReference = reference

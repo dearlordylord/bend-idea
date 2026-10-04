@@ -86,6 +86,21 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Source type navigation must retain its shared syntax and symbol owners",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.navigation.BendTypeDeclarationProvider"
+      ) &&
+        classes.contain(
+          "com.dearlordylord.bend.idea.symbols.api.BendSourceTypeTargets$"
+        ) &&
+        classes.contain(
+          "com.dearlordylord.bend.idea.syntax.psi.BendDeclaredTypeHeads$"
+        ) &&
+        classes.contain(
+          "com.dearlordylord.bend.idea.workspace.model.BendCachedPackage"
+        )
+    )
+    assertTrue(
       "Documentation provider must be inspected",
       classes.contain(
         "com.dearlordylord.bend.idea.features.documentation.BendDocumentationProvider"

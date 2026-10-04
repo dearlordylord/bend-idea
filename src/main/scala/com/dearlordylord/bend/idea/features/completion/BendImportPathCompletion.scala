@@ -4,7 +4,8 @@ import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
 import com.dearlordylord.bend.idea.workspace.api.{
   BendImportLines,
   BendImportPaths,
-  BendWorkspacePaths
+  BendWorkspacePaths,
+  BendSourceCatalog
 }
 import com.intellij.codeInsight.AutoPopupController
 import com.intellij.codeInsight.completion.{
@@ -38,10 +39,20 @@ private[completion] object BendImportPathCompletion:
         val catalog = parameters.getOriginalFile.getProject.getService(
           classOf[BendWorkspacePaths]
         )
+        val sourceCatalog = parameters.getOriginalFile.getProject.getService(
+          classOf[BendSourceCatalog]
+        )
+        val named = BendImportPaths.namedPackage(location.prefix)
+        val hash = named.flatMap(
+          sourceCatalog.cachedPackageHash(selected.packageCache, _)
+        )
+        val expanded = hash.fold(location.prefix)(
+          BendImportPaths.withPackageHash(location.prefix, _)
+        )
         val directory = BendImportPaths.directory(
           file.getPath,
           selected.packageCache,
-          location.prefix
+          expanded
         )
         val slash = location.prefix.lastIndexOf('/')
         val parent = if slash < 0 then "" else location.prefix.take(slash + 1)
@@ -55,7 +66,9 @@ private[completion] object BendImportPathCompletion:
         val hashRoot = location.prefix.nonEmpty &&
           location.prefix.lastIndexOf('/') < location.prefix.length - 1 &&
           BendImportPaths.isHashRootPrefix(location.prefix)
-        catalog.children(directory, 256).foreach { entry =>
+        val entries = if named.nonEmpty && hash.isEmpty then Nil
+        else catalog.children(directory, 256)
+        entries.foreach { entry =>
           val name = entry.name
           val valid =
             name.nonEmpty && !name.startsWith(".") && name != "node_modules" &&
@@ -69,6 +82,18 @@ private[completion] object BendImportPathCompletion:
             then names(parent + name + "/") = true
             else if name.endsWith(".bend") then names(parent + name) = false
         }
+        if !location.prefix.contains('/') then
+          catalog
+            .children(selected.packageCache.stripSuffix("/") + "/names", 256)
+            .foreach { entry =>
+              if !entry.directory && BendImportPaths.isNamedPackage(
+                  entry.name
+                ) &&
+                entry.name.startsWith(location.prefix) && sourceCatalog
+                  .cachedPackageHash(selected.packageCache, entry.name)
+                  .nonEmpty
+              then names(entry.name + "/") = true
+            }
         if hashRoot then
           catalog.children(selected.packageCache, 256).foreach { entry =>
             if entry.directory && entry.name.matches("0x[0-9a-f]+") then

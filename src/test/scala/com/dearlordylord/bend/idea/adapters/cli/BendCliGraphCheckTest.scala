@@ -1,5 +1,6 @@
 package com.dearlordylord.bend.idea.adapters.cli
 
+import com.dearlordylord.bend.idea.adapters.process.BendBoundedProcess
 import com.dearlordylord.bend.idea.analysis.api.BendGraphSnapshot
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
@@ -59,15 +60,27 @@ final class BendCliGraphCheckTest:
   ): BendCheckResult =
     val cache = directory.resolve("lib")
     val catalog = new BendSourceCatalog:
+      override def canonicalPath(path: String): String =
+        if Files.exists(Path.of(path)) then Path.of(path).toRealPath().toString
+        else path
+      override def cachedPackageHash(
+          packageCache: String,
+          name: String
+      ): Option[String] =
+        val path = Path.of(packageCache).resolve("names").resolve(name)
+        Option.when(Files.isRegularFile(path))(Files.readString(path).trim)
       override def source(path: String): Option[BendSourceRecord] =
-        overrides.get(path).orElse {
-          val file = Path.of(path)
-          Option
-            .when(Files.isRegularFile(file))(())
-            .map(_ =>
-              BendCliGraphCheckTest.this.source(file, Files.readString(file))
-            )
-        }
+        overrides
+          .get(path)
+          .orElse(overrides.values.find(_.id.value == path))
+          .orElse {
+            val file = Path.of(path)
+            Option
+              .when(Files.isRegularFile(file))(())
+              .map(_ =>
+                BendCliGraphCheckTest.this.source(file, Files.readString(file))
+              )
+          }
     val graph = BendWorkspaceGraph.load(
       root,
       configuredBase.toString,
@@ -585,21 +598,165 @@ final class BendCliGraphCheckTest:
     assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
   }
 
-  @Test def symlinkNamespaceConflictIsRejectedBeforeRewrite(): Unit = fixture {
-    (dir, bend) =>
+  @Test def repeatedSymlinkImportsAgreeWithPinnedCompilerAndUseUnsavedSource()
+      : Unit =
+    fixture { (dir, bend) =>
       val module = dir.resolve("math.bend")
       val alias = dir.resolve("alias.bend")
       Files.writeString(module, "def item() -> Type:\n  Type\n")
       Files.createSymbolicLink(alias, module.getFileName)
+      val text =
+        "import ./math.bend as M\nimport ./alias.bend as A\ndef main() -> Type:\n  A.item()\n"
+      val rootPath = dir.resolve("main.bend")
+      Files.writeString(rootPath, text)
+      val direct = BendCliVerdictDecoder.check(
+        BendBoundedProcess.run(
+          List(bend.toString, rootPath.toString, "--check-only"),
+          dir,
+          Map(
+            "BEND_LIB" -> dir.resolve("lib").toString,
+            "BEND_HUB" -> "file:///__bend_editor_offline__"
+          )
+        )
+      )
+      assertEquals(direct.details, BendCheckOutcome.Success, direct.outcome)
+      val root = source(rootPath, text)
+      val result = check(dir, bend, root)
+      assertEquals(result.details, direct.outcome, result.outcome)
+      assertEquals(1, result.sources.count(_.id == source(module, "").id))
+      assertEquals(
+        "math",
+        result.sources.find(_.id == source(module, "").id).get.namespace
+      )
+      val edited = source(module, "def item() -> Type:\n  ?need\n")
+      val changed = check(
+        dir,
+        bend,
+        root,
+        Map(
+          module.toString -> edited,
+          alias.toString -> edited.copy(path = alias.toString)
+        )
+      )
+      assertEquals(
+        changed.details,
+        BendCompleteness.Incomplete,
+        changed.completeness
+      )
+      assertEquals("def item() -> Type:\n  Type\n", Files.readString(module))
+      assertEquals(0L, snapshotCount(dir))
+    }
+
+  @Test def canonicalNamespacesFollowEachRootAndTheRealImportingDirectory()
+      : Unit =
+    fixture { (dir, bend) =>
+      val library = dir.resolve("library")
+      val aliases = dir.resolve("aliases")
+      val nested = dir.resolve("app")
+      List(library, aliases, nested).foreach(path => {
+        val _ = Files.createDirectories(path)
+      })
+      Files.writeString(
+        library.resolve("value.bend"),
+        "def value() -> Type:\n  Type\n"
+      )
+      Files.writeString(
+        library.resolve("math.bend"),
+        "import ./value.bend as V\ndef item() -> Type:\n  V.value()\n"
+      )
+      Files.createSymbolicLink(
+        aliases.resolve("math.bend"),
+        library.resolve("math.bend")
+      )
+      Files.writeString(aliases.resolve("value.bend"), "invalid alias neighbor")
+      for (path, spelling, namespace) <- List(
+          (dir.resolve("main.bend"), "./aliases/math.bend", "library/math"),
+          (
+            nested.resolve("main.bend"),
+            "../aliases/math.bend",
+            "../library/math"
+          )
+        )
+      do
+        val root = source(
+          path,
+          s"import $spelling as M\ndef main() -> Type:\n  M.item()\n"
+        )
+        Files.writeString(path, root.text)
+        val direct = BendCliVerdictDecoder.check(
+          BendBoundedProcess.run(
+            List(bend.toString, path.toString, "--check-only"),
+            dir,
+            Map(
+              "BEND_LIB" -> dir.resolve("lib").toString,
+              "BEND_HUB" -> "file:///__bend_editor_offline__"
+            )
+          )
+        )
+        assertEquals(direct.details, BendCheckOutcome.Success, direct.outcome)
+        val result = check(dir, bend, root)
+        assertEquals(result.details, direct.outcome, result.outcome)
+        assertEquals(
+          namespace,
+          result.sources
+            .find(
+              _.id.value == library.resolve("math.bend").toRealPath().toString
+            )
+            .get
+            .namespace
+        )
+        assertTrue(
+          result.sources.exists(
+            _.id.value == library.resolve("value.bend").toRealPath().toString
+          )
+        )
+    }
+
+  @Test def cachedNamedPackageAndHashAliasCheckTheSameOfflineUnsavedSource()
+      : Unit =
+    fixture { (dir, bend) =>
+      val hash = "0x" + "a" * 32
+      val cache = dir.resolve("lib")
+      val module = cache.resolve(hash).resolve("item.bend")
+      Files.createDirectories(module.getParent)
+      Files.createDirectories(cache.resolve("names"))
+      Files.writeString(cache.resolve("names/bend-sample@1.0.0.0"), hash + "\n")
+      Files.writeString(module, "def item() -> Type:\n  Type\n")
       val root = source(
         dir.resolve("main.bend"),
-        "import ./math.bend as M\nimport ./alias.bend as A\n"
+        s"import bend-sample@1.0.0.0/item.bend as Named\nimport $hash/item.bend as Hashed\ndef main() -> Type:\n  Named.item()\n"
       )
+      Files.writeString(Path.of(root.path), root.text)
+      val direct = BendCliVerdictDecoder.check(
+        BendBoundedProcess.run(
+          List(bend.toString, root.path, "--check-only"),
+          dir,
+          Map(
+            "BEND_LIB" -> cache.toString,
+            "BEND_HUB" -> "file:///__bend_editor_offline__"
+          )
+        )
+      )
+      assertEquals(direct.details, BendCheckOutcome.Success, direct.outcome)
       val result = check(dir, bend, root)
-      assertEquals(BendCheckOutcome.Failed, result.outcome)
-      assertTrue(result.details.contains("One namespace per file"))
-      assertEquals(0L, snapshotCount(dir))
-  }
+      assertEquals(result.details, direct.outcome, result.outcome)
+      assertEquals(
+        List(hash + "/item"),
+        result.sources.filter(_.id == source(module, "").id).map(_.namespace)
+      )
+      val edited = source(module, "def item() -> Type:\n  ?need\n")
+      val changed = check(dir, bend, root, Map(module.toString -> edited))
+      assertEquals(
+        changed.details,
+        BendCompleteness.Incomplete,
+        changed.completeness
+      )
+      assertEquals("def item() -> Type:\n  Type\n", Files.readString(module))
+      Files.delete(cache.resolve("names/bend-sample@1.0.0.0"))
+      val missing = check(dir, bend, root)
+      assertEquals(BendCheckOutcome.Failed, missing.outcome)
+      assertFalse(Files.exists(cache.resolve("names/bend-sample@1.0.0.0")))
+    }
 
   @Test def nestedDiamondKeepsOneCompilerNamespaceForSharedModule(): Unit =
     fixture { (dir, bend) =>

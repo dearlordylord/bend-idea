@@ -73,6 +73,39 @@ final class BendNavigationTest extends BasePlatformTestCase:
     assertNotNull("Go to Declaration target", result)
     result
 
+  def testCachedNamedPackageNavigationTracksChangedNameMapping(): Unit =
+    val cache = temporary.resolve("cache")
+    val firstHash = "0x" + "a" * 32
+    val secondHash = "0x" + "b" * 32
+    val name = "bend-sample@1.0.0.0"
+    for hash <- List(firstHash, secondHash) do
+      val module = cache.resolve(hash).resolve("item.bend")
+      Files.createDirectories(module.getParent)
+      Files.writeString(module, "def item() -> Type:\n  Type\n")
+    Files.createDirectories(cache.resolve("names"))
+    val mapping = cache.resolve("names").resolve(name)
+    Files.writeString(mapping, firstHash + "\n")
+    ApplicationManager.getApplication
+      .getService(classOf[BendToolchainSettings])
+      .update(
+        BendToolchainChoices(packageCache = cache.toString)
+      )
+    val spelling =
+      s"import $name/item.bend as Named\ndef main() -> Type:\n  Named.<caret>item()\n"
+    val first = target(reference(spelling))
+    assertEquals(
+      cache.resolve(firstHash).resolve("item.bend").toRealPath().toString,
+      first.getContainingFile.getVirtualFile.getPath
+    )
+    Files.writeString(mapping, secondHash + "\n")
+    val second = target(reference(spelling))
+    assertEquals(
+      cache.resolve(secondHash).resolve("item.bend").toRealPath().toString,
+      second.getContainingFile.getVirtualFile.getPath
+    )
+    Files.writeString(mapping, "../../escaped")
+    assertNull(reference(spelling).resolve())
+
   def testModulePathNavigatesToPhysicalFile(): Unit =
     val lib = myFixture.addFileToProject("lib.bend", "def value():\n  0\n")
     myFixture.configureByText(
@@ -234,8 +267,7 @@ final class BendNavigationTest extends BasePlatformTestCase:
       myFixture.getEditor.getCaretModel.moveToOffset(offset)
       assertEquals(expected, editorTarget())
 
-  def testSymlinkModulePathsRetainCanonicalIdentityAndRejectNamespaceConflicts()
-      : Unit =
+  def testSymlinkModulePathsRetainCanonicalIdentityThroughBothAliases(): Unit =
     val real =
       Files.writeString(temporary.resolve("real.bend"), "def value():\n  0\n")
     val link = Files.createSymbolicLink(temporary.resolve("link.bend"), real)
@@ -252,12 +284,9 @@ final class BendNavigationTest extends BasePlatformTestCase:
     myFixture.getEditor.getCaretModel.moveToOffset(
       myFixture.getFile.getText.indexOf(link.toString) + 1
     )
-    assertNull(
-      GotoDeclarationAction.findTargetElement(
-        getProject,
-        myFixture.getEditor,
-        myFixture.getCaretOffset
-      )
+    assertEquals(
+      real.toRealPath().toString,
+      editorTarget().getContainingFile.getVirtualFile.getPath
     )
 
   def testUnreadableModuleHasNoTarget(): Unit =

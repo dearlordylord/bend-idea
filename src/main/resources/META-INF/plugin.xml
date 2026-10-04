@@ -53,6 +53,7 @@ compiler-backed features. See the
                                externalIdPrefix="bend."/>
         <stubIndex implementation="com.dearlordylord.bend.idea.symbols.index.BendSymbolNameIndex"/>
         <stubIndex implementation="com.dearlordylord.bend.idea.symbols.index.BendDottedComponentIndex"/>
+        <typeDeclarationProvider implementation="com.dearlordylord.bend.idea.features.navigation.BendTypeDeclarationProvider"/>
         <gotoSymbolContributor implementation="com.dearlordylord.bend.idea.symbols.index.BendChooseByNameContributor"/>
         <additionalLibraryRootsProvider implementation="com.dearlordylord.bend.idea.symbols.index.BendSymbolLibraryRootsProvider"/>
         <preFormatProcessor implementation="com.dearlordylord.bend.idea.features.formatting.BendFormattingProcessor"/>

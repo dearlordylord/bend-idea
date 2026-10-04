@@ -11,6 +11,24 @@ object BendImportPaths:
   def isHashRootFragment(fragment: String): Boolean =
     normalize(fragment).matches("^0x[0-9a-f]+$")
 
+  def isNamedPackage(name: String): Boolean =
+    name.matches(
+      "[a-z][a-z0-9-]{0,63}@(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*)){3}"
+    )
+
+  def isPackageHash(hash: String): Boolean = hash.matches("0x[0-9a-f]{32}")
+
+  def isPackageImport(spelling: String): Boolean =
+    spelling.startsWith("0x") || namedPackage(spelling).nonEmpty
+
+  def namedPackage(spelling: String): Option[String] =
+    Option
+      .when(spelling.contains('/'))(spelling.takeWhile(_ != '/'))
+      .filter(isNamedPackage)
+
+  def withPackageHash(spelling: String, hash: String): String =
+    hash + spelling.substring(spelling.indexOf('/'))
+
   def target(
       sourcePath: String,
       packageCache: String,
@@ -21,16 +39,25 @@ object BendImportPaths:
     else if rel.startsWith("/") then rel
     else normalize(parent(sourcePath) + "/" + rel)
 
-  /** Namespace assigned by Bend's loader to one written import edge. */
-  def namespace(sourceNamespace: String, spelling: String): String =
-    if spelling == "Base" then ""
+  /** Namespace of a canonical target relative to the canonical root directory,
+    * or the package cache. Written import paths remain separate for editing.
+    */
+  def canonicalNamespace(
+      rootPath: String,
+      targetPath: String,
+      packageCache: String
+  ): String =
+    val target = normalize(targetPath)
+    val cache = normalize(packageCache).stripSuffix("/")
+    val namespace = if cache.nonEmpty && target.startsWith(cache + "/") then
+      target.substring(cache.length + 1)
     else
-      val rel = normalize(spelling)
-      val sub =
-        if rel.matches("^0x[0-9a-f]+/.*") || rel.startsWith("/") then rel
-        else if parent(sourceNamespace).isEmpty then normalize(rel)
-        else normalize(parent(sourceNamespace) + "/" + rel)
-      sub.stripSuffix(".bend")
+      val from =
+        parent(normalize(rootPath)).split('/').filter(_.nonEmpty).toList
+      val to = target.split('/').filter(_.nonEmpty).toList
+      val common = from.zip(to).takeWhile((a, b) => a == b).size
+      (List.fill(from.size - common)("..") ++ to.drop(common)).mkString("/")
+    namespace.stripSuffix(".bend")
 
   def directory(
       sourcePath: String,

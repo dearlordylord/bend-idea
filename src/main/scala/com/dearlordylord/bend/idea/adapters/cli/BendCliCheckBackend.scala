@@ -411,8 +411,6 @@ final class BendCliCheckBackend(
             )
           case BendGraphProblem.Cycle(file, line, _) =>
             (file, line, s"Import cycle through ${line.spelling}")
-          case BendGraphProblem.NamespaceConflict(file, line, _, first, next) =>
-            (file, line, s"One namespace per file: '$first' and '$next'")
         val source = graph.source(from)
         val number =
           source.fold(0)(s => s.text.take(imp.offset).count(_ == '\n'))

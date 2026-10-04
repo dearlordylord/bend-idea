@@ -47,6 +47,10 @@ val bendReleaseSmoke = providers.gradleProperty("bendReleaseSmoke")
     .map(String::toBooleanStrict)
     .getOrElse(false)
 
+val bendSourceProfile = providers.gradleProperty("bendSourceProfile")
+    .map(String::toBooleanStrict).getOrElse(false)
+require(!bendSourceProfile || !bendReleaseSmoke) { "Source profiling and release smoke are separate runs." }
+
 val verifyBendTestInputs by tasks.registering(Exec::class) {
     description = "Verifies the pinned real Bend compiler and Bun test inputs."
     group = "verification"
@@ -163,6 +167,21 @@ tasks.test {
     useJUnit()
     exclude("**/architecture/**")
     systemProperty("java.awt.headless", "true")
+    if (bendSourceProfile) {
+        outputs.upToDateWhen { false }
+        filter { includeTestsMatching("com.dearlordylord.bend.idea.performance.BendSourceQueryProfileTest") }
+        val report = layout.buildDirectory.file("reports/source-query-profile.csv")
+        systemProperty("bend.source.profile.output", report.get().asFile.absolutePath)
+        doFirst {
+            report.get().asFile.apply {
+                parentFile.mkdirs()
+                writeText("operation,phase,sample,nanoseconds,current_thread_allocated_bytes,result_count\n")
+            }
+        }
+    } else {
+        exclude("**/performance/**")
+    }
+
     if (bendReleaseSmoke) {
         outputs.upToDateWhen { false }
         filter {

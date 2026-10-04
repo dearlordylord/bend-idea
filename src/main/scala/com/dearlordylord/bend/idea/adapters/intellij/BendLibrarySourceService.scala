@@ -193,6 +193,45 @@ final class BendLibrarySourceService(project: Project)
             Left("Project file index is unavailable for safe refactoring.")
       )
 
+  override def canonicalPath(path: String): String =
+    if path.isEmpty then path
+    else
+      try
+        val requested = Path.of(path)
+        if Files.exists(requested) then requested.toRealPath().toString
+        else
+          val absolute = requested.toAbsolutePath.normalize()
+          val parent = absolute.getParent
+          if parent != null && Files.exists(parent) then
+            parent.toRealPath().resolve(absolute.getFileName).toString
+          else absolute.toString
+      catch
+        case _: java.io.IOException                => path
+        case _: java.nio.file.InvalidPathException => path
+        case _: SecurityException                  => path
+
+  override def cachedPackageHash(
+      packageCache: String,
+      name: String
+  ): Option[String] =
+    if !BendImportPaths.isNamedPackage(name) || packageCache.isEmpty then None
+    else
+      try
+        val input = Files.newInputStream(
+          Path.of(packageCache).resolve("names").resolve(name)
+        )
+        val bytes = try input.readNBytes(129)
+        finally input.close()
+        if bytes.length > 128 then None
+        else
+          Option(
+            new String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim
+          ).filter(BendImportPaths.isPackageHash)
+      catch
+        case _: java.io.IOException                => None
+        case _: java.nio.file.InvalidPathException => None
+        case _: SecurityException                  => None
+
   override def source(path: String): Option[BendSourceRecord] =
     try
       // VFS/document access stays in a short read action; disk reads follow it.

@@ -20,6 +20,54 @@ import java.nio.file.Files
 import java.util.concurrent.{Callable, FutureTask, TimeUnit}
 
 final class BendExplicitCheckRunnerServiceTest extends BasePlatformTestCase:
+  def testSharedCaptureRejectsRetargetedNamedPackageAndMissingNameAppearance()
+      : Unit =
+    val settings = ApplicationManager.getApplication.getService(
+      classOf[BendToolchainSettings]
+    )
+    val original = settings.choices
+    com.dearlordylord.bend.idea.test.VfsTestRoots
+      .allowSystemTemporaryDirectory(getTestRootDisposable)
+    val directory = Files.createTempDirectory("bend-named-capture-")
+    try
+      val cache = directory.resolve("cache")
+      val name = "bend-sample@1.0.0.0"
+      val firstHash = "0x" + "a" * 32
+      val secondHash = "0x" + "b" * 32
+      for hash <- List(firstHash, secondHash) do
+        val module = cache.resolve(hash).resolve("item.bend")
+        Files.createDirectories(module.getParent)
+        Files.writeString(module, "def item() -> Type:\n  Type\n")
+      Files.createDirectories(cache.resolve("names"))
+      val mapping = cache.resolve("names").resolve(name)
+      Files.writeString(mapping, firstHash + "\n")
+      val root = directory.resolve("main.bend")
+      Files.writeString(
+        root,
+        s"import $name/item.bend as Named\ndef main() -> Type:\n  Named.item()\n"
+      )
+      settings.update(original.copy(packageCache = cache.toString))
+      val capture = new BendRootSnapshotCapture(getProject)
+      val snapshot =
+        capture.capture(root.toString, settings.selection, () => false).get
+      assertTrue(capture.current(snapshot))
+      Files.writeString(mapping, secondHash + "\n")
+      assertFalse(capture.current(snapshot))
+      Files.delete(mapping)
+      val missing =
+        capture.capture(root.toString, settings.selection, () => false).get
+      assertTrue(capture.current(missing))
+      Files.writeString(mapping, firstHash + "\n")
+      assertFalse(capture.current(missing))
+    finally
+      settings.update(original)
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(path => { val _ = Files.deleteIfExists(path) })
+      finally paths.close()
+
   def testSharedCaptureRejectsRetargetedLoadedAlias(): Unit =
     def record(path: String, text: String): BendSourceRecord =
       BendSourceRecord(

@@ -31,13 +31,9 @@ enum BendGraphProblem:
   case InvalidImport(from: FileId, importLine: BendImport, reason: String)
   case Missing(from: FileId, importLine: BendImport, requestedPath: String)
   case Cycle(from: FileId, importLine: BendImport, target: FileId)
-  case NamespaceConflict(
-      from: FileId,
-      importLine: BendImport,
-      target: FileId,
-      previous: String,
-      requested: String
-  )
+
+/** A name lookup is a loading input even when the cache entry is missing. */
+final case class BendCachedPackage(name: String, hash: Option[String])
 
 enum BendGraphLimit:
   case SourceLookups, GraphFiles
@@ -48,7 +44,9 @@ final case class BendLoadedGraph(
     files: List[BendLoadedFile],
     edges: List[BendLoadedEdge],
     problems: List[BendGraphProblem],
-    sourceInventoryLimits: Set[BendGraphLimit] = Set.empty
+    sourceInventoryLimits: Set[BendGraphLimit] = Set.empty,
+    packageCacheIdentity: String = "",
+    cachedPackages: List[BendCachedPackage] = Nil
 ):
   def sourceInventoryCapped: Boolean = sourceInventoryLimits.nonEmpty
 
@@ -66,8 +64,7 @@ final case class BendLoadedGraph(
         file == from && imp.offset == offset
       case BendGraphProblem.Cycle(file, imp, _) =>
         file == from && imp.offset == offset
-      case BendGraphProblem.NamespaceConflict(file, imp, _, _, _) =>
-        file == from && imp.offset == offset
+
     }
     if invalid then None
     else

@@ -88,6 +88,33 @@ final class BendImportPathCompletionTest extends BasePlatformTestCase:
         myFixture.getEditor.getDocument.getText == "import ./sub/deep/child.bend as C"
     )
 
+  def testCachedNamedPackagePathsCompleteWithoutReplacingThePackageName()
+      : Unit =
+    val cache = temporary.resolve("cache")
+    val hash = "0x" + "a" * 32
+    Files.createDirectories(cache.resolve("names"))
+    Files.createDirectories(cache.resolve(hash))
+    Files.writeString(cache.resolve("names/bend-sample@1.0.0.0"), hash + "\n")
+    Files.writeString(cache.resolve("names/bend-second@1.0.0.0"), hash + "\n")
+    Files.writeString(
+      cache.resolve(hash).resolve("alpha.bend"),
+      "def alpha():\n  0\n"
+    )
+    Files.writeString(
+      cache.resolve(hash).resolve("beta.bend"),
+      "def beta():\n  0\n"
+    )
+    val packages = items("import bend-<caret> as P")
+    assertTrue(packages.exists(_.getLookupString == "bend-sample@1.0.0.0/"))
+    choose(
+      items("import bend-sample@1.0.0.0/<caret> as P"),
+      "bend-sample@1.0.0.0/alpha.bend"
+    )
+    assertEquals(
+      "import bend-sample@1.0.0.0/alpha.bend as P",
+      myFixture.getEditor.getDocument.getText
+    )
+
   def testCachedHashAndAbsolutePath(): Unit =
     myFixture.addFileToProject("0xabc.bend", "def local():\n  0\n")
     myFixture.addFileToProject("0xabc/child.bend", "def child():\n  0\n")

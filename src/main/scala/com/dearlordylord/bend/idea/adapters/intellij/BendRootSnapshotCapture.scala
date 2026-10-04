@@ -94,6 +94,17 @@ private[intellij] final class BendRootSnapshotCapture(
             catalog.source(edge.requestedPath).map(_.id) == edge.target
           )
       )
+      val packageInputs = snapshot.graph.forall(graph =>
+        (graph.packageCacheIdentity.isEmpty || catalog.canonicalPath(
+          snapshot.toolchain.packageCache
+        ) == graph.packageCacheIdentity) &&
+          graph.cachedPackages.forall(entry =>
+            catalog.cachedPackageHash(
+              graph.packageCacheIdentity,
+              entry.name
+            ) == entry.hash
+          )
+      )
       val laws =
         snapshot.graph.isEmpty || siblingPath(snapshot.path).forall(path =>
           (snapshot.siblingLaws, catalog.source(path)) match
@@ -105,7 +116,7 @@ private[intellij] final class BendRootSnapshotCapture(
         now.executable,
         Some(now.baseSource)
       )
-      present && observedEdges && laws && external &&
+      present && observedEdges && packageInputs && laws && external &&
       selection == now
 
   /** Root and configuration currency for worker cancellation. External and

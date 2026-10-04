@@ -349,7 +349,7 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     )
     assertEquals(second.getVirtualFile, target.getContainingFile.getVirtualFile)
 
-  def testNamespaceConflictCannotPairRejectedAliasWithLaw(): Unit =
+  def testCanonicalAliasesPairWithTheSameLaw(): Unit =
     val target = temporary.resolve("shared.bend")
     val alias = temporary.resolve("alias.bend")
     Files.writeString(
@@ -372,18 +372,11 @@ final class BendDocumentationTest extends BasePlatformTestCase:
       )
       .paths
     assertTrue(
-      graph
-        .loaded(myFixture.getFile, basePath, packageCache)
-        .problems
-        .exists(
-          _.isInstanceOf[
-            com.dearlordylord.bend.idea.workspace.model.BendGraphProblem.NamespaceConflict
-          ]
-        )
+      graph.loaded(myFixture.getFile, basePath, packageCache).problems.isEmpty
     )
-    assertFalse(rejected.contains("Accepted law"))
-    assertFalse(rejected.contains("for x: Nat"))
-    assertFalse(rejected.contains("Law specification"))
+    assertTrue(rejected.contains("Accepted law"))
+    assertTrue(rejected.contains("for x: Nat"))
+    assertTrue(rejected.contains("Law specification"))
     val accepted = docs(
       imports + "def Accepted.<caret>claim(value):\n  value\n"
     )

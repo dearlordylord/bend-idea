@@ -24,7 +24,7 @@ Supports IntelliJ IDEA **2025.1 and newer**. Compatibility has been verified wit
 - Syntax highlighting with configurable Bend colors, light and dark file icons, and hash line-comment toggling.
 - Keyword completion and editable snippets for `def`, `type`, `law`, `match`, `do`, and `import`.
 - Source-aware completion for declarations, constructors, parameters, local bindings, match cases, do blocks, and proof binders. Suggestions can show source signatures and nearby comments.
-- Completion from the selected Base source and direct imports, including qualified names and unsaved changes in open files. Import paths complete from local files, directories, and cached packages without downloading them.
+- Completion from the selected Base source and direct imports, including qualified names and unsaved changes in open files. Import paths complete from local files, directories, and cached hash or named Hub packages without downloading them.
 - Parameter information, parameter-name hints, source semantic highlights, constructor-case generation, and an explicit import action for unresolved names.
 - Token-aware spelling for comments and supported string text, using the IDE's spellchecker dictionaries and fixes.
 
@@ -39,6 +39,7 @@ To distinguish resolved constructors from ordinary calls, open **Settings → Ed
 ### Navigation and documentation
 
 - Go to Declaration for resolved local, imported, and Base names, including import aliases and literal dotted names.
+- Go to Type Declaration for explicit nominal source annotations and constructor datatypes, including imported declarations. Inferred or anonymous types require other compiler capabilities.
 - Find Usages and Highlight Usages for resolved source references across the project.
 - Quick Documentation for source declarations, signatures, comments, and law/fill relationships. It shows source information, not inferred expression types.
 - Go to Symbol across project sources and configured Base, plus navigable direct call and module-import relationships. Dependency inspection reports unresolved named calls and explains that it is not a complete runtime call graph.

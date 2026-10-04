@@ -226,7 +226,16 @@ final class BendCheckSession(project: Project)
       graph.files.exists(file =>
         changed(file.source.path) || changed(file.source.id.value)
       ) ||
-        graph.edges.exists(edge => changed(edge.requestedPath))
+        graph.edges.exists(edge => changed(edge.requestedPath)) ||
+        graph.cachedPackages.exists(entry =>
+          List(graph.packageCacheIdentity, snapshot.toolchain.packageCache)
+            .exists(cache =>
+              cache.nonEmpty && changed(
+                Path.of(cache).resolve("names").resolve(entry.name).toString
+              )
+            )
+        ) ||
+        changed(snapshot.toolchain.packageCache)
     ) ||
       (Path.of(snapshot.path).getFileName.toString == "PROOF.bend" &&
         changed(Path.of(snapshot.path).resolveSibling("LAWS.bend").toString))

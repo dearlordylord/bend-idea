@@ -2,6 +2,7 @@ package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.dearlordylord.bend.idea.workspace.api.{
+  BendSourceCatalog,
   BendPathInventoryStatus,
   BendWorkspacePaths
 }
@@ -50,3 +51,37 @@ final class BendLibrarySourceServiceTest extends BasePlatformTestCase:
       Option(externalFile).foreach(editors.closeFile)
       val _ = Files.deleteIfExists(externalPath)
       val _ = Files.deleteIfExists(externalDirectory)
+
+  def testCachedPackageMappingRejectsMalformedOversizedAndEscapingNames()
+      : Unit =
+    val directory = Files.createTempDirectory("bend-cache-mapping-")
+    val names = Files.createDirectories(directory.resolve("names"))
+    val name = "bend-sample@1.0.0.0"
+    val mapping = names.resolve(name)
+    val catalog = getProject.getService(classOf[BendSourceCatalog])
+    try
+      assertTrue(catalog.cachedPackageHash(directory.toString, name).isEmpty)
+      Files.writeString(mapping, "0x" + "a" * 32 + "\n")
+      assertEquals(
+        Some("0x" + "a" * 32),
+        catalog.cachedPackageHash(directory.toString, name)
+      )
+      Files.writeString(mapping, "0x" + "a" * 32 + " " * 128)
+      assertTrue(
+        "Oversized metadata is not accepted after trimming",
+        catalog.cachedPackageHash(directory.toString, name).isEmpty
+      )
+      Files.writeString(mapping, "0x" + "A" * 32)
+      assertTrue(catalog.cachedPackageHash(directory.toString, name).isEmpty)
+      assertTrue(
+        catalog.cachedPackageHash(directory.toString, "../" + name).isEmpty
+      )
+      assertTrue(
+        catalog
+          .cachedPackageHash(directory.toString, "bend-sample@01.0.0.0")
+          .isEmpty
+      )
+    finally
+      val _ = Files.deleteIfExists(mapping)
+      val _ = Files.deleteIfExists(names)
+      val _ = Files.deleteIfExists(directory)
