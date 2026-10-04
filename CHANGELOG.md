@@ -13,6 +13,9 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Accept compatible tooling protocols independently of the Bend release number.
+  When updated compiler sources are unsupported by the bundled structured helper,
+  retain ordinary check-only CLI checking; unavailable optional operations remain explicit.
 - Preserve lambda binding identity through typed local-let continuations, so completion, navigation and rename agree.
 - Expand selection using Bend's special grouping for glued less-than comparisons, while retaining ordinary precedence for spaced comparisons.
 - Add offline Quick Documentation and quick-navigation help for 25 Bend syntax

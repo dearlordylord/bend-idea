@@ -37,6 +37,10 @@ The adapter retains selected-root and snapshot provenance, exact executable/Base
 
 ## Transition and upstream adoption
 
+Compiler identities are opaque installation identities, not a release whitelist. The independent semantic capability command `--idea-structured-capabilities` likewise requires numeric `protocol: 1`, a nonempty string `compiler`, and an `operations` array advertising each requested operation. Diagnostic, goal, expression-type, binder-comparison and normalization consumers use this shared negotiation; check support alone enables none of them.
+
+The bundled helper advertises no check protocol when compiler-source hashes do not match: it returns a non-JSON unavailable message with a nonzero exit code to capability probing. The launcher then remains eligible for guarded CLI checking. This absence differs from advertising an incompatible JSON protocol, which still blocks fallback. Source-hash checks continue to protect optional private-API operations. CI pins the integration baseline independently of runtime negotiation or plugin release cadence.
+
 1. Use the pinned helper for protocol-backed checking today; ordinary published binaries continue through the guarded text `--check-only` fallback.
 2. During the Bend self-hosting rewrite, agree on the commands, envelope, check-only guarantee, coordinate convention and optional capability names above. The upstream implementation owns genuine compiler judgments and any safe recovery needed for multiple diagnostics (#75).
 3. Add a real compiler pairing to the integration matrix before advertising native protocol support. Exercise complete proofs, TODO/named holes, unsafe/foreign reliance, ordinary failures, source mapping and side-effecting `main`.

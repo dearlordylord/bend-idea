@@ -132,6 +132,32 @@ final class BendCliGraphCheckTest:
       )
     }
 
+  @Test def compatibleSemanticProviderNeedsNoPinnedCompilerIdentity(): Unit =
+    fixture { (dir, bend) =>
+      val helper = dir.resolve("structured-bend")
+      val _ = compiler.writeStructuredLauncher(helper, structuredChecks = true)
+      Files.writeString(
+        bend,
+        s"""#!/bin/sh
+        |if [ "$${1:-}" = "--idea-structured-capabilities" ]; then
+        |  '${helper}' "$$@" | sed 's/bend-2.0.35-pinned/bend-next-development-build/'
+        |else
+        |  exec '${helper}' "$$@"
+        |fi
+        |""".stripMargin
+      )
+      val root = source(
+        dir.resolve("main.bend"),
+        "def choose(A: Type, x: A) -> A:\n  ?need\n"
+      )
+      val result = check(dir, bend, root, goalRequested = true)
+      assertEquals(BendCompleteness.Incomplete, result.completeness)
+      val goal =
+        result.goal.getOrElse(throw new AssertionError("No compiler goal"))
+      assertEquals("A", goal.expectedType)
+      assertEquals(Some(List("x")), goal.compatibleBindings)
+    }
+
   @Test def pinnedHelperReturnsDependentGoalFromUnsavedImportedSource(): Unit =
     fixture { (dir, bend) =>
       val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)

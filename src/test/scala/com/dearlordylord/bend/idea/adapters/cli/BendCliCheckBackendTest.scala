@@ -83,6 +83,84 @@ final class BendCliCheckBackendTest:
       assertEquals(BendCheckOutcome.Unavailable, checked.outcome)
     }
 
+  @Test def changedCompilerSourcesKeepRealCliCheckingAvailable(): Unit =
+    withCompiler { real =>
+      val copy = real.resolveSibling("updated-compiler")
+      val sources = Files.walk(compiler.compilerDirectory.resolve("bend2"))
+      try
+        sources.forEach { source =>
+          val target = copy
+            .resolve("bend2")
+            .resolve(
+              compiler.compilerDirectory.resolve("bend2").relativize(source)
+            )
+          if Files.isDirectory(source) then Files.createDirectories(target)
+          else Files.copy(source, target)
+          ()
+        }
+      finally sources.close()
+      val main = copy.resolve("bend2/main.ts")
+      Files.writeString(
+        main,
+        Files
+          .readString(main)
+          .replace(
+            "const VERSION = \"2.0.35\";",
+            "const VERSION = \"2.99.0\";"
+          ) +
+          "\n// changed build identity\n"
+      )
+      val launcher = real.resolveSibling("bend-structured-launcher.sh")
+      List("bend-structured-launcher.sh", "bend-structured-helper.ts").foreach {
+        name =>
+          val resource = getClass.getResourceAsStream("/semantic/" + name)
+          try Files.copy(resource, real.resolveSibling(name))
+          finally resource.close()
+      }
+      val executable = real.resolveSibling("updated-bend")
+      Files.writeString(
+        executable,
+        s"""#!/bin/sh
+        |export BEND_IDEA_BUN='${compiler.bunExecutable}'
+        |export BEND_IDEA_BEND_DIR='${copy.resolve("bend2")}'
+        |exec sh '${launcher}' "$$@"
+        |""".stripMargin
+      )
+      assertTrue(executable.toFile.setExecutable(true))
+      val cases = List(
+        (
+          "def main() -> Type:\n  Type\n",
+          BendCheckOutcome.Success,
+          BendCompleteness.Complete
+        ),
+        (
+          "import Base\ndef main() -> U32:\n  ?need\n",
+          BendCheckOutcome.Failed,
+          BendCompleteness.Incomplete
+        ),
+        (
+          "import Base\ndef main() -> U32:\n  missing_name\n",
+          BendCheckOutcome.Failed,
+          BendCompleteness.Unknown
+        ),
+        (
+          "import Base\ndef main() -> IO(Unit):\n  do IO<Unit>:\n    IO.print(\"SIDE_EFFECT_MARKER\")\n",
+          BendCheckOutcome.Success,
+          BendCompleteness.Complete
+        )
+      )
+      cases.foreach { case (source, outcome, completeness) =>
+        val checked = backend(executable).check(
+          snapshot(executable, source, real.resolveSibling("main.bend"))
+        )
+        assertEquals(checked.details, outcome, checked.outcome)
+        assertEquals(completeness, checked.completeness)
+        assertFalse(checked.details.contains("SIDE_EFFECT_MARKER"))
+        assertTrue(checked.goal.isEmpty)
+        assertEquals(0L, tempCount(real.getParent))
+      }
+    }
+
   @Test def advertisedCheckWithoutProtocolNeverFallsBackToText(): Unit =
     withCompiler { real =>
       val executable = real.resolveSibling("missing-protocol")

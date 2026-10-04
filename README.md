@@ -53,6 +53,7 @@ To distinguish resolved constructors from ordinary calls, open **Settings → Ed
 
 ### Compiler checking
 
+- Bend's release number is not a runtime requirement. The plugin negotiates check-only support and individual tooling operations; compatible Bend updates do not require a plugin update. The exact Bend/Bun pin below applies to reproducible CI tests.
 - **Check Current Bend File** runs a supported Bend compiler against a snapshot of the current unsaved file and its loaded imports, without running `main` or fetching packages.
 - Optional background checking refreshes diagnostics after edits to the root or its dependencies. Results belong to the checked root, and older results are discarded when their inputs change.
 - The clickable **Bend status-bar indicator** shows checking, passed, stale, incomplete, failed, unavailable, and timeout states, with an unsafe/foreign qualification when applicable. Click it or use **Show Bend Check Status** for compiler output and **Check again**. Compiler errors appear in the editor when their source location can be mapped unambiguously.

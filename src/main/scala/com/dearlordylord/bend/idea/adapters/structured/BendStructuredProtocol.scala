@@ -9,7 +9,7 @@ import java.nio.file.Path
 import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
-/** Negotiates independent operations on the optional pinned helper. */
+/** Negotiates independent operations by protocol, not compiler release. */
 private[structured] object BendStructuredProtocol:
   /** The current CLI adds a verdict banner around the same compiler error
     * returned by semantic operations and the structured check transport.
@@ -22,7 +22,7 @@ private[structured] object BendStructuredProtocol:
 
   def string(value: JsonObject, name: String): Option[String] =
     Option(value.get(name))
-      .filter(_.isJsonPrimitive)
+      .filter(node => node.isJsonPrimitive && node.getAsJsonPrimitive.isString)
       .flatMap(node => Try(node.getAsString).toOption)
 
   def integer(value: JsonObject, name: String): Option[Int] =
@@ -40,7 +40,10 @@ private[structured] object BendStructuredProtocol:
       case _ => None
 
   private def valid(value: JsonObject): Boolean =
-    integer(value, "protocol").contains(1)
+    Option(value.get("protocol")).exists(node =>
+      node.isJsonPrimitive && node.getAsJsonPrimitive.isNumber &&
+        node.toString == "1"
+    )
 
   def request(
       executable: String,
@@ -80,7 +83,7 @@ private[structured] object BendStructuredProtocol:
       3000L,
       canceled
     ).exists(value =>
-      string(value, "compiler").contains("bend-2.0.35-pinned") &&
+      string(value, "compiler").exists(_.trim.nonEmpty) &&
         Try(value.getAsJsonArray("operations")).toOption
           .flatMap(Option(_))
           .exists(array =>
@@ -88,7 +91,8 @@ private[structured] object BendStructuredProtocol:
               .iterator()
               .asScala
               .exists(item =>
-                item.isJsonPrimitive && item.getAsString == operation
+                item.isJsonPrimitive && item.getAsJsonPrimitive.isString &&
+                  item.getAsString == operation
               )
           )
     )

@@ -1,10 +1,14 @@
 # Compiler support and maintenance
 
-Bend2 supports tested compiler/capability pairings. It does not promise compatibility with every future Bend release or with the in-progress compiler rewrite. The plugin remains Scala 3; the compiler's implementation language does not determine its external protocol.
+Bend2 negotiates compiler capabilities at runtime; it does not require one Bend release or maintain a whitelist of release numbers. A Bend update needs no plugin release while its advertised check-only CLI or versioned tooling protocols remain compatible. The exact compiler/Bun pin below is a reproducible CI baseline, not a restriction on the user's installed compiler. The plugin remains Scala 3; the compiler's implementation language does not determine its external protocol.
+
+Check protocol 1 and semantic protocol 1 accept nonempty opaque compiler identities, independent of Bend's version number. Each semantic operation must be advertised separately. The bundled helper uses private compiler APIs, so its source-hash guard still limits its advanced operations to the tested source pairing. When an updated checkout fails that guard, the launcher advertises no structured check capability and continues through the actual compiler's guarded `--check-only` CLI. Goals, expression types and other unadvertised operations remain unavailable. A compatible external protocol provider can expose them without a new plugin release.
+
+Compatibility still requires genuine check-only behavior, matching Base, supported source loading and understood results. Changed language rules, CLI output or protocol versions can require a plugin correction; no claim of compatibility with every future release or rewrite follows from accepting an opaque identity.
 
 | Pairing | Evidence and scope | Checking transport | Semantic operations |
 | --- | --- | --- | --- |
-| Bend 2.0.35, `79df8d9c40722ee9507a1e253f283b51025f9d6c`, Bun 1.4.2 (`744846f84`) | Approved full-suite compiler pin | Guarded text CLI; optional check protocol 1 helper | Only independently negotiated, hash-pinned helper operations and their documented location limits |
+| Bend 2.0.35, `79df8d9c40722ee9507a1e253f283b51025f9d6c`, Bun 1.4.2 (`744846f84`) | Reproducible full-suite test baseline | Guarded text CLI; optional check protocol 1 helper | Independently negotiated helper operations and their documented location limits |
 | Published Bend 2.0.26–2.0.34 | Historical basic Linux release smoke passes, recorded on `bend-release-results`; these predate the broader editor corpus | Guarded text CLI | No claim of pinned-helper compatibility |
 | Published releases passing `editor-compatibility-v2` | Candidate compatibility evidence for the recorded plugin commit, archive digest and source commit; inspect result records | Negotiated protocol when supplied, otherwise guarded text CLI | No new semantic capability implied |
 | Unseen/failed releases, compiler development branches, rewritten compiler | Untested or failed, according to the result record | Unsupported assumptions remain unavailable | Unavailable until a compatible implementation is demonstrated |

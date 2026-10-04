@@ -33,7 +33,14 @@ async function main(): Promise<void> {
       crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex") === expected;
   });
   if (!compatible) {
-    emit(operation === "check-capabilities" || operation === "check"
+    // No check capability is advertised for unknown private compiler APIs.
+    // The launcher can still serve the real CLI's guarded --check-only path.
+    if (operation === "check-capabilities") {
+      process.stdout.write("Structured check helper unavailable for this compiler build.\n");
+      process.exitCode = 1;
+      return;
+    }
+    emit(operation === "check"
       ? { checkProtocol: 0, compiler: "unsupported", operations: [] }
       : { protocol: 1, compiler: "unsupported", operations: [] });
     return;
