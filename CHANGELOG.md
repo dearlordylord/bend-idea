@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.19
+
 - Keep Quick Documentation Declaration and Implementation links inside IntelliJ's native PSI documentation navigation instead of opening them as external URLs.
 
 ## 0.1.18

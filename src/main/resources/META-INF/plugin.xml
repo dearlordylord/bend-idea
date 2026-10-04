@@ -20,11 +20,9 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.18:</p>
+<p>Version 0.1.19:</p>
 <ul>
-  <li>Resolve repeated imports and symlink aliases by canonical source identity with root-relative namespaces, retaining unsaved imported source.</li>
-  <li>Support offline named Hub imports and completion from cached name-to-hash records, invalidating checks when mappings change.</li>
-  <li>Add Go to Type Declaration for explicit source annotations and constructor datatypes, including imported and unsaved declarations.</li>
+  <li>Keep Quick Documentation Declaration and Implementation links inside IntelliJ's native PSI documentation navigation instead of opening them as external URLs.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
