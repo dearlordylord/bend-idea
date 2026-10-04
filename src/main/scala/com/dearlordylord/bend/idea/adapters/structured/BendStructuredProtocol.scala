@@ -11,6 +11,15 @@ import scala.util.Try
 
 /** Negotiates independent operations on the optional pinned helper. */
 private[structured] object BendStructuredProtocol:
+  /** The current CLI adds a verdict banner around the same compiler error
+    * returned by semantic operations and the structured check transport.
+    */
+  def matchesDiagnostic(message: Option[String], checked: String): Boolean =
+    message.exists(value =>
+      value.stripPrefix("SOME PROOFS FAIL\n") ==
+        checked.stripPrefix("SOME PROOFS FAIL\n")
+    )
+
   def string(value: JsonObject, name: String): Option[String] =
     Option(value.get(name))
       .filter(_.isJsonPrimitive)
@@ -71,7 +80,7 @@ private[structured] object BendStructuredProtocol:
       3000L,
       canceled
     ).exists(value =>
-      string(value, "compiler").contains("bend-2.0.25-pinned") &&
+      string(value, "compiler").contains("bend-2.0.35-pinned") &&
         Try(value.getAsJsonArray("operations")).toOption
           .flatMap(Option(_))
           .exists(array =>

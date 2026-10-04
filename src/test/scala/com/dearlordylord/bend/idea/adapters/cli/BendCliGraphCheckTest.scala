@@ -335,7 +335,7 @@ final class BendCliGraphCheckTest:
       )
       val incompatible =
         """if [ "${1:-}" = "--idea-structured-capabilities" ]; then
-          |  printf '%s\n' '{"protocol":2,"compiler":"bend-2.0.25-pinned","operations":["diagnostic"]}'
+          |  printf '%s\n' '{"protocol":2,"compiler":"bend-2.0.35-pinned","operations":["diagnostic"]}'
           |  exit 0
           |fi""".stripMargin
       val _ = compiler.writeLauncher(bend, incompatible)
@@ -374,7 +374,7 @@ final class BendCliGraphCheckTest:
     val output = dir.resolve("no-span.json")
     Files.writeString(output, response.toString + "\n")
     val helper = s"""if [ "$${1:-}" = "--idea-structured-capabilities" ]; then
-                    |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.25-pinned","operations":["diagnostic"]}'
+                    |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.35-pinned","operations":["diagnostic"]}'
                     |  exit 0
                     |fi
                     |if [ "$${1:-}" = "--idea-structured-diagnostic" ]; then

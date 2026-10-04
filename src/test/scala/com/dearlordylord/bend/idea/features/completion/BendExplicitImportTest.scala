@@ -207,8 +207,8 @@ final class BendExplicitImportTest extends BasePlatformTestCase:
     val ioCandidates =
       BendWorkspaceSymbolSearch.named(getProject, "IO").toOption.get
     assertEquals(
-      "Base has a law and its fill for IO; one import should cover both",
-      2,
+      "Pinned Base supplies one IO definition; one import should resolve it",
+      1,
       ioCandidates.count(_.isBase)
     )
     val intention = myFixture.getAvailableIntentions.asScala
@@ -273,7 +273,7 @@ final class BendExplicitImportTest extends BasePlatformTestCase:
           StandardCharsets.UTF_8
         )
       assertEquals(output, 0, process.exitValue())
-      assertTrue(output, output.contains("All terms check"))
+      assertTrue(output, output.contains("ALL PROOFS CHECK"))
     finally
       val paths = Files.walk(working)
       try

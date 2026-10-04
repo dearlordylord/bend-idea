@@ -35,7 +35,7 @@ object BendStructuredDiagnostic:
         canceled
       ).filter(value =>
         string(value, "kind").contains("first-error") &&
-          string(value, "message").contains(cliMessage)
+          matchesDiagnostic(string(value, "message"), cliMessage)
       ).flatMap { value =>
         objectField(value, "span").flatMap { span =>
           for

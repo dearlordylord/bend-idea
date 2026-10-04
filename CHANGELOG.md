@@ -13,6 +13,10 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Update the tested compiler and optional structured helper to Bend 2.0.35,
+  including its source-span format, integrated checker and failure banners
+  used by exact diagnostics and goal queries.
+
 - Explain supported Bend syntax tokens in offline Quick Documentation and quick navigation, including incomplete and unsaved code.
 
 ## 0.1.16

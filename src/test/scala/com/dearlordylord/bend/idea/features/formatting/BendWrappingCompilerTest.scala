@@ -176,7 +176,7 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
       fail("Pinned compiler timed out checking wrapping fixture")
     val result = Files.readString(output)
     assertEquals(result, 0, process.exitValue())
-    assertTrue(result, result.contains("All terms check."))
+    assertTrue(result, result.contains("ALL PROOFS CHECK"))
 
   def testCompleteImportedProofBearingProgramsPreserveCompilerAndSourceIdentities()
       : Unit =
@@ -207,7 +207,7 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
           fail("Pinned compiler timed out checking wrapping fixture")
         val result = Files.readString(output)
         assertEquals(result, 0, process.exitValue())
-        assertTrue(result, result.contains("All terms check."))
+        assertTrue(result, result.contains("ALL PROOFS CHECK"))
       val _ = myFixture.addFileToProject("types.bend", types)
       val file = myFixture.configureByText("main.bend", source)
       val beforeTokens = tokens(file).map(t => (t._1, t._2))
@@ -289,7 +289,7 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
             fail("Pinned compiler timed out checking omitted-comma fixture")
           val result = Files.readString(output)
           assertEquals(result, 0, process.exitValue())
-          assertTrue(result, result.contains("All terms check."))
+          assertTrue(result, result.contains("ALL PROOFS CHECK"))
         check()
         val settings =
           BendLayoutPolicy.defaultSettings.copy(maxLineLength = Some(20))

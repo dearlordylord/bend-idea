@@ -43,7 +43,7 @@ object BendStructuredGoal:
         canceled
       ).filter(value =>
         string(value, "kind").contains("goal") &&
-          string(value, "message").contains(cliMessage)
+          matchesDiagnostic(string(value, "message"), cliMessage)
       ).flatMap { value =>
         for
           hole <- string(value, "hole").filter(_.nonEmpty)
@@ -120,7 +120,7 @@ object BendStructuredGoal:
       ).filter(value =>
         string(value, "kind").contains("comparison") &&
           string(value, "hole").contains(hole) &&
-          string(value, "message").contains(cliMessage)
+          matchesDiagnostic(string(value, "message"), cliMessage)
       ).flatMap { value =>
         for
           span <- objectField(value, "span")

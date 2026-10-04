@@ -1,13 +1,13 @@
 # Bend check protocol 1
 
-Status: implemented by Bend2's optional hash-pinned Bend 2.0.25 helper. This is a plugin-side contract and an upstream integration proposal, not a claim that published Bend binaries implement it. The compiler rewrite can implement the same transport without exposing TypeScript internals. No changes to the trusted compiler checkout are required.
+Status: implemented by Bend2's optional hash-pinned Bend 2.0.35 helper. This is a plugin-side contract and an upstream integration proposal, not a claim that published Bend binaries implement it. The compiler rewrite can implement the same transport without exposing TypeScript internals. No changes to the trusted compiler checkout are required.
 
 ## Negotiation and commands
 
 The selected executable receives `--idea-check-capabilities` with no source argument. A compatible response is one JSON object, exit status 0:
 
 ```json
-{"checkProtocol":1,"compiler":"bend-2.0.25-pinned","checkOnly":true,"locations":"compiler-source-utf16","operations":["check"]}
+{"checkProtocol":1,"compiler":"bend-2.0.35-pinned","checkOnly":true,"locations":"compiler-source-utf16","operations":["check"]}
 ```
 
 `checkProtocol` is an integer, `checkOnly` is a boolean, and `compiler` is a nonempty installation identity. This identity need not use the helper's spelling. `locations` names the source-coordinate convention. The check operation must load and validate source without evaluating `main`, importing foreign implementations, building artifacts or publishing packages. Optional goals/types/resources/normalization retain their separate capability negotiation; check support implies none of them.
@@ -31,7 +31,7 @@ A successful judgment must be complete, have known reliance, contain no diagnost
 
 A span has `{ "source": "compiler input text", "start": 0, "end": 1 }`: zero-based UTF-16 offsets with an exclusive end. `source` is the exact text after the loader blanks import lines, not an original editor buffer or a filename. The adapter accepts an exact span only when one captured compiler source matches and the existing compiler-to-copy-to-original range mapping succeeds. Duplicate source texts, rewritten import paths, unknown sources and invalid ranges cannot produce a guessed editor location. Their diagnostics remain root-level where possible.
 
-This initial convention matches the real pinned compiler's source spans. A future upstream protocol can supply canonical source IDs/digests to disambiguate identical files, but that requires a new negotiated coordinate convention and mapping support; filenames alone must not be treated as proof of identity.
+The helper reads the pinned compiler's `Span.file.str`, `beg` and `end` fields and exposes them through this unchanged protocol convention. A future upstream protocol can supply canonical source IDs/digests to disambiguate identical files, but that requires a new negotiated coordinate convention and mapping support; filenames alone must not be treated as proof of identity.
 
 The adapter retains selected-root and snapshot provenance, exact executable/Base freshness, matching Base validation, closed graph materialization, isolated package cache and offline hub, sibling-LAWS guard, cancellation, process-tree termination and temporary-directory cleanup. Protocol output and capability output are capped at 256 KiB. Capability negotiation has a three-second limit and checking a fifteen-second limit. The helper's pinned book validation, completeness and reliance walk mirror the pinned CLI; compiler-source hashes gate those assumptions. The helper never calls run/build entry points.
 
