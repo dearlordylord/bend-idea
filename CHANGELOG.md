@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.17
+
 - Add **Pin Normalized Bend Value** to the Bend tools and editor menus. An explicit compiler-backed value appears beside its expression without editing source; repeat the action to unpin. Pins disappear when source or check results become stale.
 
 - Accept compatible tooling protocols independently of the Bend release number.
