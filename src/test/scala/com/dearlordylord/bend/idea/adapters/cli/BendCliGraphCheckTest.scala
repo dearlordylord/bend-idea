@@ -627,6 +627,74 @@ final class BendCliGraphCheckTest:
     assertEquals(BendLocation.RootOnly, result.diagnostics.head.location)
   }
 
+  /** RF8 preventive: even a real structured span cannot disambiguate identical
+    * captured dependency text. CRLF, astral text and unsaved revisions must map
+    * exactly once the duplicate is distinguishable. Original fixture.
+    */
+  @Test def structuredDuplicateUnsavedCrLfSourcesStayHonest(): Unit = fixture {
+    (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val first = dir.resolve("violet.bend")
+      val second = dir.resolve("amber.bend")
+      val persisted = "import Base\ndef shade() -> U32:\n  7\n"
+      Files.writeString(first, persisted)
+      Files.writeString(second, persisted)
+      val missing = "unknown_shadow_leaf"
+      val edited =
+        s"import Base\r\n# 🍁 current buffer\r\ndef shade() -> U32:\r\n  $missing\r\n"
+      val firstRecord = source(first, edited).copy(revision = 19L)
+      val secondRecord = source(second, edited).copy(revision = 31L)
+      val root = source(
+        dir.resolve("root.bend"),
+        "import ./violet.bend as Violet\r\nimport ./amber.bend as Amber\r\n"
+      )
+      val duplicate = check(
+        dir,
+        bend,
+        root,
+        Map(first.toString -> firstRecord, second.toString -> secondRecord)
+      )
+      assertEquals(
+        duplicate.details,
+        BendCheckOutcome.Failed,
+        duplicate.outcome
+      )
+      assertTrue(duplicate.diagnostics.head.message.contains(missing))
+      assertEquals(BendLocation.RootOnly, duplicate.diagnostics.head.location)
+      assertTrue(
+        duplicate.sources.exists(s =>
+          s.id == firstRecord.id && s.revision == 19L && s.text == edited
+        )
+      )
+      assertTrue(
+        duplicate.sources.exists(s =>
+          s.id == secondRecord.id && s.revision == 31L && s.text == edited
+        )
+      )
+      val distinct = secondRecord.copy(
+        text = edited.replace("current buffer", "other buffer"),
+        revision = 32L
+      )
+      val unique = check(
+        dir,
+        bend,
+        root,
+        Map(first.toString -> firstRecord, second.toString -> distinct)
+      )
+      assertEquals(unique.details, BendCheckOutcome.Failed, unique.outcome)
+      val start = edited.indexOf(missing)
+      assertEquals(
+        BendLocation.SourceRange(
+          firstRecord.id,
+          BendTextRange(start, start + missing.length)
+        ),
+        unique.diagnostics.head.location
+      )
+      assertTrue(start > edited.codePointCount(0, start))
+      assertEquals(persisted, Files.readString(first))
+      assertEquals(persisted, Files.readString(second))
+  }
+
   @Test def baseWithImportsIsRejectedBeforeAnySourceCommand(): Unit = fixture {
     (dir, bend) =>
       val baseWithImport = dir.resolve("base-with-import.bend")

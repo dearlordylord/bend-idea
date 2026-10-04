@@ -245,6 +245,118 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     settings.update(settings.choices.copy(diagnosticsEnabled = false))
     assertEquals(BendCheckingStatus.Disabled, service.status(root))
 
+  /** RF7 preventive: a closed intermediate must not hide open leaf revisions or
+    * leave either root's diagnostics behind after repair. Original fixture;
+    * motivation: comparison spec regression-fixtures.md, RF7.
+    */
+  def testClosedIntermediateTracksUnsavedLeafAndClearsBothRoots(): Unit =
+    val persisted = "import Base\ndef shade() -> U32:\n  7\n"
+    val leaf = myFixture.addFileToProject("shade.bend", persisted)
+    val intermediate = myFixture.addFileToProject(
+      "bridge.bend",
+      "import ./shade.bend as Leaf\ndef forward() -> U32:\n  Leaf.shade()\n"
+    )
+    val roots = List("violet", "amber").map { name =>
+      myFixture.addFileToProject(
+        s"$name.bend",
+        "import ./bridge.bend as Bridge\ndef entry() -> U32:\n  Bridge.forward()\n"
+      )
+    }
+    val editors = FileEditorManager.getInstance(getProject)
+    assertFalse(editors.isFileOpen(intermediate.getVirtualFile))
+    val leafId = id(leaf.getVirtualFile)
+    val rootIds = roots.map(file => id(file.getVirtualFile))
+    val service = getProject.getService(classOf[BendCheckService])
+    roots.foreach { file =>
+      myFixture.openFileInEditor(file.getVirtualFile)
+      myFixture.performEditorAction("Bend.CheckCurrentFile")
+      val checked = awaitResult(id(file.getVirtualFile), _.fresh)
+      assertEquals(checked.details, BendCheckOutcome.Success, checked.outcome)
+      assertTrue(
+        checked.sources.exists(_.id == id(intermediate.getVirtualFile))
+      )
+    }
+    val settings = ApplicationManager.getApplication.getService(
+      classOf[BendToolchainSettings]
+    )
+    val _ = getProject.getService(classOf[BendBackgroundChecking])
+    settings.update(settings.choices.copy(diagnosticsEnabled = true))
+    val broken = "import Base\ndef shade() -> U32:\n  unknown_violet_leaf\n"
+    def editLeaf(text: String): Unit =
+      myFixture.openFileInEditor(leaf.getVirtualFile)
+      WriteCommandAction.runWriteCommandAction(
+        getProject,
+        new Runnable:
+          override def run(): Unit =
+            myFixture.getEditor.getDocument.setText(text)
+      )
+      com.intellij.psi.PsiDocumentManager
+        .getInstance(getProject)
+        .commitAllDocuments()
+    editLeaf(broken)
+    rootIds.foreach { root =>
+      val checked = awaitResult(
+        root,
+        r => r.fresh && r.details.contains("unknown_violet_leaf")
+      )
+      assertEquals(BendCheckOutcome.Failed, checked.outcome)
+      assertTrue(
+        checked.sources.exists(s => s.id == leafId && s.text == broken)
+      )
+    }
+    assertEquals(
+      persisted,
+      new String(
+        leaf.getVirtualFile.contentsToByteArray(),
+        java.nio.charset.StandardCharsets.UTF_8
+      )
+    )
+    editors.closeFile(leaf.getVirtualFile)
+    assertFalse(editors.isFileOpen(leaf.getVirtualFile))
+    assertFalse(editors.isFileOpen(intermediate.getVirtualFile))
+    roots.foreach { file =>
+      val previous = service
+        .result(id(file.getVirtualFile))
+        .getOrElse(
+          throw new AssertionError("The initial leaf error was not published")
+        )
+      myFixture.openFileInEditor(file.getVirtualFile)
+      myFixture.performEditorAction("Bend.CheckCurrentFile")
+      val checked = awaitResult(
+        id(file.getVirtualFile),
+        r =>
+          (r ne previous) && r.fresh && r.details.contains(
+            "unknown_violet_leaf"
+          )
+      )
+      assertTrue(
+        checked.sources.exists(s => s.id == leafId && s.text == broken)
+      )
+    }
+    val repaired = "import Base\ndef shade() -> U32:\n  11\n"
+    editLeaf(repaired)
+    editors.closeFile(leaf.getVirtualFile)
+    rootIds.foreach { root =>
+      val checked = awaitResult(
+        root,
+        r =>
+          r.fresh && r.outcome == BendCheckOutcome.Success && r.sources.exists(
+            s => s.id == leafId && s.text == repaired
+          )
+      )
+      assertEquals(BendCompleteness.Complete, checked.completeness)
+      assertEquals(BendReliance.None, checked.reliance)
+      assertTrue(checked.diagnostics.isEmpty)
+    }
+    assertEquals(
+      2,
+      service
+        .resultsFor(leafId)
+        .count(r =>
+          rootIds.contains(r.key.root) && r.fresh && r.diagnostics.isEmpty
+        )
+    )
+
   def testDisablingAndDisposalCancelPendingWork(): Unit =
     myFixture.configureByText(
       "pending.bend",
