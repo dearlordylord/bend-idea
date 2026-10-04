@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.18
+
 - Resolve repeated imports and symlink aliases by canonical source identity, with namespaces relative to each check root, matching the tested Bend 2.0.35 loader behavior. Navigation and checks retain unsaved imported source.
 - Support offline named Hub imports (`name@1.0.0.0/file.bend`) from the configured cache's name-to-hash records. Import completion preserves package names; changed or missing mappings invalidate checks. Missing packages remain unavailable without downloading them.
 - Add native **Go to Type Declaration** for explicit nominal parameter annotations, definition result annotations and constructor datatypes, including imported and unsaved declarations. Shadowed or unavailable source types produce no target.
