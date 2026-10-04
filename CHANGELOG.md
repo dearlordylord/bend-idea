@@ -13,6 +13,9 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Preserve lambda binding identity through typed local-let continuations, so completion, navigation and rename agree.
+- Expand selection using Bend's special grouping for glued less-than comparisons, while retaining ordinary precedence for spaced comparisons.
+
 - Explain supported Bend syntax tokens in offline Quick Documentation and quick navigation, including incomplete and unsaved code.
 
 ## 0.1.16

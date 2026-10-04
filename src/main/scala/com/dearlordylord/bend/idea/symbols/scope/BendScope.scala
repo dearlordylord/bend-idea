@@ -193,7 +193,9 @@ object BendScope:
       at: Int
   ): Int =
     var j = at - 1
-    while j >= 0 && tokens(j).text != ";" && tokens(j).text != "(" && tokens(
+    while j >= 0 && tokens(j).text != ";" && tokens(j).text != "=>" && tokens(
+        j
+      ).text != "(" && tokens(
         j
       ).text != "{" &&
       !source.substring(tokens(j).end, tokens(j + 1).start).contains('\n')
@@ -237,12 +239,19 @@ object BendScope:
   ): Int =
     var i = from
     var depth = 0
+    var assignment = false
     val indent =
       if from > 0 then lineIndent(source, tokens(from - 1).start) else 0
     while i < tokens.size && tokens(i).start < enclosingEnd do
       val token = tokens(i)
       if depth == 0 then
-        if token.text == "," || token.text == ";" then return token.start + 1
+        if token.text == "," then return token.start + 1
+        // A let separator starts its continuation inside the lambda body.
+        // Ordinary semicolons still terminate the lambda expression.
+        if token.text == ";" then
+          if !assignment then return token.start + 1
+          assignment = false
+        if token.text == "=" then assignment = true
         if i > from && source
             .substring(tokens(i - 1).end, token.start)
             .contains('\n') &&

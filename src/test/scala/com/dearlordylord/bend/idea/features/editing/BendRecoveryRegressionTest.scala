@@ -170,3 +170,104 @@ final class BendRecoveryRegressionTest extends BasePlatformTestCase:
       BendSourceSymbols.declarations(file).exists(_.name == "imaginary")
     )
     usefulNeighbor(file)
+
+  def testDamagedBodyRetainsEditedCompletionNavigationSelectionAndFolding()
+      : Unit =
+    val good =
+      "def edited(value: Nat) -> Nat:\n  local = wrap(value)\n  value\n"
+    val source = prefix + good + suffix
+    val file = myFixture.configureByText("body-repair.bend", source)
+    val close = source.indexOf("wrap(value)") + "wrap(value".length
+    def usefulEdited(): Unit =
+      val text = file.getText
+      val use = text.indexOf("wrap(value") + "wrap(".length
+      val declaration =
+        BendSourceSymbols.declarations(file).find(_.name == "edited").get
+      assertEquals(
+        "def edited(value: Nat) -> Nat:",
+        declaration.signature.source
+      )
+      val reference = file.findReferenceAt(use)
+      assertNotNull(reference)
+      assertEquals(
+        text.indexOf("value: Nat"),
+        reference.resolve().getTextOffset
+      )
+      myFixture.getEditor.getCaretModel.moveToOffset(use + 3)
+      val items = Option(myFixture.completeBasic()).toList
+        .flatMap(_.toList)
+        .map(_.getLookupString)
+      assertTrue(items.contains("value"))
+      myFixture.performEditorAction(
+        IdeActions.ACTION_EDITOR_SELECT_WORD_AT_CARET
+      )
+      assertEquals(
+        "value",
+        myFixture.getEditor.getSelectionModel.getSelectedText
+      )
+      myFixture.getEditor.getSelectionModel.removeSelection()
+      CodeFoldingManager
+        .getInstance(getProject)
+        .updateFoldRegions(myFixture.getEditor)
+      assertTrue(
+        myFixture.getEditor.getFoldingModel.getAllFoldRegions.exists(r =>
+          r.getStartOffset == text.indexOf("Nat:\n  local") + 4 &&
+            r.getEndOffset <= text.indexOf("def neighbor")
+        )
+      )
+      usefulNeighbor(file)
+    myFixture.getEditor.getSelectionModel.setSelection(close, close + 1)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_DELETE)
+    PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    usefulEdited()
+    myFixture.performEditorAction(IdeActions.ACTION_EXPAND_ALL_REGIONS)
+    myFixture.getEditor.getCaretModel.moveToOffset(close)
+    myFixture.`type`(")")
+    PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    assertEquals(source, file.getText)
+    usefulEdited()
+    val fresh = PsiFileFactory
+      .getInstance(getProject)
+      .createFileFromText("fresh-body.bend", file.getFileType, source)
+    assertEquals(structure(fresh), structure(file))
+
+  def testParallelLastValueDamageAndRepairKeepsRhsScope(): Unit =
+    val good =
+      "def edited(value: U32) -> U32:\n  north south east west = {value : U32} {value : U32}\n    {value : U32} {value : U32}\n  north\n"
+    val source = prefix + good + suffix
+    val file = myFixture.configureByText("parallel-repair.bend", source)
+    val close = source.lastIndexOf("U32}") + 3
+    val names = Set("north", "south", "east", "west")
+    def rhs(): Unit =
+      val use = file.getText.lastIndexOf("{value") + 1
+      val bindings = BendSourceSymbols.visibleBindings(file, use)
+      assertTrue(bindings.exists(_.name == "value"))
+      assertFalse(bindings.exists(b => names.contains(b.name)))
+      assertEquals(
+        file.getText.indexOf("value: U32"),
+        file.findReferenceAt(use).resolve().getTextOffset
+      )
+      usefulNeighbor(file)
+    myFixture.getEditor.getSelectionModel.setSelection(close, close + 1)
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_DELETE)
+    PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    rhs()
+    assertFalse(
+      BendSourceSymbols
+        .visibleBindings(file, file.getText.lastIndexOf("\n  north") + 3)
+        .exists(b => names.contains(b.name))
+    )
+    myFixture.performEditorAction(IdeActions.ACTION_EXPAND_ALL_REGIONS)
+    myFixture.getEditor.getCaretModel.moveToOffset(close)
+    myFixture.`type`("}")
+    PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    assertEquals(source, file.getText)
+    rhs()
+    assertEquals(
+      names,
+      BendSourceSymbols
+        .visibleBindings(file, source.lastIndexOf("\n  north") + 3)
+        .filter(b => names.contains(b.name))
+        .map(_.name)
+        .toSet
+    )

@@ -266,3 +266,15 @@ final class BendLocalRenameTest extends BasePlatformTestCase:
             val _ = Files.deleteIfExists(p)
           })
       finally paths.close()
+
+  def testTypedLetLambdaRenameIncludesContinuationWithoutCapturingOuter()
+      : Unit =
+    myFixture.configureByText(
+      "lambda-let.bend",
+      "def f(input: U32):\n  use(input => local: U32 = input; U32.add(local, <caret>input))\n  input\n"
+    )
+    myFixture.renameElementAtCaret("argument")
+    assertEquals(
+      "def f(input: U32):\n  use(argument => local: U32 = argument; U32.add(local, argument))\n  input\n",
+      myFixture.getEditor.getDocument.getText
+    )

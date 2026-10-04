@@ -477,3 +477,35 @@ final class BendSelectionAtomsTest extends BasePlatformTestCase:
           .substring(range.getStartOffset, range.getEndOffset)
       )
     assertFalse(ranges.exists(_.contains("def next")))
+
+  def testGluedNumericComparisonsFollowPrecedenceAndAssociation(): Unit =
+    def selected(expression: String, caret: String): List[String] =
+      val source = "def numeric():\n  " + expression + "\n"
+      myFixture.configureByText("numeric-selection.bend", source)
+      val offset = source.indexOf(caret)
+      new BendSelectionHandler()
+        .select(
+          myFixture.getFile.findElementAt(offset),
+          source,
+          offset,
+          myFixture.getEditor
+        )
+        .asScala
+        .toList
+        .map(r => source.substring(r.getStartOffset, r.getEndOffset))
+    assertFalse(selected("4 + 5<6", "5<").contains("4 + 5"))
+    assertTrue(selected("4 + 5<6", "5<").contains("5<6"))
+    assertTrue(selected("4 + (5<6)", "5<").contains("5<6"))
+    assertFalse(selected("4<5<6", "5<").contains("4<5"))
+    assertTrue(selected("4<5<6", "5<").contains("5<6"))
+
+  def testSpacedComparisonsRetainOrdinaryPrecedence(): Unit =
+    val source = "def numeric():\n  4 + 5 < 6\n  4 < 5 < 6\n"
+    myFixture.configureByText("spaced-selection.bend", source)
+    def expressions(offset: Int): List[String] = BendSelectionExpressions
+      .at(source, offset)
+      .map(r => source.substring(r.from, r.until))
+    assertTrue(expressions(source.indexOf("5 <")).contains("4 + 5"))
+    assertFalse(expressions(source.indexOf("5 <")).contains("5 < 6"))
+    assertTrue(expressions(source.lastIndexOf("5 <")).contains("4 < 5"))
+    assertFalse(expressions(source.lastIndexOf("5 <")).contains("5 < 6"))

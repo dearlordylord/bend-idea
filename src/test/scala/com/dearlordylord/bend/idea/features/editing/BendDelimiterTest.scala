@@ -237,3 +237,30 @@ final class BendDelimiterTest extends BasePlatformTestCase:
       "type Box is Data:\n  Box{value: Map<U32, List<>>}\n",
       myFixture.getEditor.getDocument.getText
     )
+
+  def testCompoundTypeArgumentsAndUnfinishedAnglesRemainLocal(): Unit =
+    for argument <- List(
+        "Left & Right",
+        "(Left & Right)",
+        "Left & Right",
+        "(Left & Right)"
+      ).zipWithIndex
+    do
+      val (value, index) = argument
+      val close = if index < 2 then ">" else ""
+      val source =
+        "def edited(value: Envelope<" + value + close + ") -> U32:\n  0\ndef neighbor(value: Other<U32>) -> U32:\n  1\n"
+      editing(source)
+      val editor = myFixture.getEditor.asInstanceOf[EditorEx]
+      val fileType = myFixture.getFile.getFileType
+      val neighbor = source.indexOf("Other<") + 5
+      val iterator = editor.getHighlighter.createIterator(neighbor)
+      assertTrue(BraceMatchingUtil.matchBrace(source, fileType, iterator, true))
+      assertEquals(source.indexOf(">)", neighbor), iterator.getStart)
+      val open = source.indexOf("Envelope<") + 8
+      val first = editor.getHighlighter.createIterator(open)
+      assertEquals(
+        index < 2,
+        BraceMatchingUtil.matchBrace(source, fileType, first, true)
+      )
+      if index < 2 then assertEquals(source.indexOf(">)", open), first.getStart)

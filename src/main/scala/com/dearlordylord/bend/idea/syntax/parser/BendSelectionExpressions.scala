@@ -104,7 +104,10 @@ object BendSelectionExpressions:
           (next == '>' || next == '_' || next.isLetter) ||
           operator.text == "%" && !next.isWhitespace ||
           operator.text.startsWith(">") && !before.isWhitespace
-        if excluded || rule.isEmpty || rule.get._1 < minimum ||
+        // Bend admits a glued less-than even above comparison precedence.
+        // Its RHS parses at level 5, so another glued less-than nests on the right.
+        val gluedLess = operator.text == "<" && !before.isWhitespace
+        if excluded || rule.isEmpty || rule.get._1 < minimum && !gluedLess ||
           operator.text == "<" && angles.contains(operator.from) ||
           operator.text == ">" && angles.contains(operator.from)
         then running = false
@@ -113,7 +116,9 @@ object BendSelectionExpressions:
           val rhs = parse(
             tokens,
             left.next + 1,
-            if rightAssociative then level else level + 1,
+            if gluedLess then 5
+            else if rightAssociative then level
+            else level + 1,
             source,
             angles
           )

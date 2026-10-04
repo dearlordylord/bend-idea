@@ -226,3 +226,53 @@ final class BendLocalScopeTest extends BasePlatformTestCase:
         "target"
       )
     )
+
+  def testTypedLetWithinLambdaKeepsBothIdentities(): Unit =
+    val rhs = at(
+      "def f() -> U32 -> U32:\n  input => local: U32 = inp<caret>; local"
+    )
+    assertEquals(
+      BendBindingKind.Lambda,
+      rhs._2.find(_.name == "input").get.origin
+    )
+    assertFalse(rhs._2.exists(_.name == "local"))
+    val body = at(
+      "def f() -> U32 -> U32:\n  input => local: U32 = input; loc<caret>"
+    )
+    val input = body._2.find(_.name == "input").get
+    assertEquals(BendBindingKind.Lambda, input.origin)
+    assertEquals(
+      myFixture.getFile.getText.indexOf("input =>"),
+      input.handle.nameOffset
+    )
+    assertEquals(
+      BendBindingKind.Let,
+      body._2.find(_.name == "local").get.origin
+    )
+    assertFalse(
+      at("def f():\n  use(input => local: U32 = input; local, inp<caret>)")._2
+        .exists(_.name == "input")
+    )
+
+  def testFourParallelValuesAcrossLinesStartTogether(): Unit =
+    val head = "def f(seed: U32) -> U32:\n  north south east west = "
+    val values = "{seed : U32} {seed : U32}\n    {seed : U32} {seed : U32}"
+    val names = Set("north", "south", "east", "west")
+    for occurrence <- 0 until 4 do
+      val position = values
+        .sliding(4)
+        .zipWithIndex
+        .filter(_._1 == "seed")
+        .map(_._2)
+        .toList(occurrence)
+      val marked = values.patch(position + 4, "<caret>", 0)
+      val bindings = at(head + marked + "\n  north")._2
+      assertTrue(bindings.exists(_.name == "seed"))
+      assertFalse(bindings.exists(b => names.contains(b.name)))
+    val bindings = at(head + values + "\n  nor<caret>")._2
+    assertEquals(
+      names,
+      bindings.filter(b => names.contains(b.name)).map(_.name).toSet
+    )
+    val unfinished = at(head + values.dropRight(1) + "<caret>\n  north")._2
+    assertFalse(unfinished.exists(b => names.contains(b.name)))
