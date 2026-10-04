@@ -167,3 +167,18 @@ Cloudflare Pages deployed feed commit `619aa81dccf4334587501e876de2707b90f61d9b`
 Homebrew tap commit `7930a110d933158d44171647cc3f1620dd9d730c` updates all four macOS/Linux URLs and archive hashes. All four actual installation, style/audit, formula test and uninstall jobs passed in [workflow run 37170118770](https://github.com/dearlordylord/homebrew-tap/actions/runs/37170118770). Local `brew update`, `brew upgrade bend-format` from 0.1.14 to 0.1.16 and `brew test bend-format` passed on macOS ARM64. After archive, feed and Homebrew verification, GitHub Release v0.1.16 was marked stable/latest.
 
 Marketplace upload is not yet confirmed. The authenticated upload form was opened with Stable selected, but Chrome's active page changed repeatedly during the native file-selection flow. No successful submission/update ID for 0.1.16 was observed. The maintainer was asked for a short uninterrupted browser window; the signed ZIP remains ready for that final distribution step.
+
+
+## 0.1.17 release
+
+[GitHub Release v0.1.17](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.17) is tagged at verified source commit `9ff669b`. The versioned changelog and packaged change notes cover explicit normalized-value inlays, offline syntax help, native binding/selection fixes and compiler compatibility improvements. Release preparation changes version metadata only; existing architecture boundaries are unchanged. Implementer self-review followed `REVIEWER.md`, checked the metadata against the signed artifact and found no actionable findings. No independent review is claimed.
+
+Clean JDK 21.0.10 `clean check buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration signPlugin verifyPluginSignature buildFormatTool` passed: 583 tests passed, zero failures/errors, one optional current-release smoke skipped, and two architecture tests passed. Real subprocess inputs were pinned Bend 2.0.35 `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2. Plugin Verifier accepted IC 2025.1 and IU 2026.1 with existing API notices. The signed plugin's ID, version, since-build=251, description and change notes match the intended release. Signing and signature verification passed with the existing certificate identity.
+
+- Signed ZIP SHA-256: `8115b437f8505e50230b0de8a08eb1996e744403978d6c3f677243cc517392eb`.
+- Portable JAR SHA-256: `d71598c7d099f511580c2b5917ab5d6ad50fe4a035a7c2841b5a9177eafbbe3b`.
+- Runtime archive checksums: [BEND-FORMAT-SHA256SUMS.txt](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.17/BEND-FORMAT-SHA256SUMS.txt).
+
+All five native packaging/smoke jobs and publication passed in [workflow run 37216046072](https://github.com/dearlordylord/bend-idea/actions/runs/37216046072). Anonymous downloads of all eight payloads matched their two manifests; plugin/JAR/public certificate also matched the local verified artifacts. Homebrew tap commit `71dfcf6` updates all four macOS/Linux archives using those published hashes. Feed and installation validation are recorded below after confirmation.
+
+Marketplace submission of 0.1.17 is not yet confirmed: the authenticated Stable form is available, but the native Chrome file selector keeps Open disabled for the verified ZIP. No submit was performed. During this release, the authenticated versions page confirmed that the previous 0.1.16 update `1186896` already exists with status Under review; no duplicate 0.1.16 upload was attempted. An interactive 0.1.17 IDE installation has not been exercised.

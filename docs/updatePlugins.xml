@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.16/bend-idea-0.1.16-signed.zip"
-          version="0.1.16">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.17/bend-idea-0.1.17-signed.zip"
+          version="0.1.17">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,11 +19,14 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.16:</p>
+    <change-notes><![CDATA[<p>Version 0.1.17:</p>
 <ul>
-  <li>Fix declaration rename silently stalling in larger projects by discovering Bend sources through the file index.</li>
-  <li>Show a refactoring error when a complete source inventory is unavailable or a related law is read-only.</li>
-  <li>Restore the file structure view on IntelliJ IDEA 2026.2.</li>
+  <li>Pin explicitly requested compiler-normalized values beside expressions, with automatic stale-result removal and visible unsafe/foreign reliance.</li>
+  <li>Accept compatible tooling protocols independently of Bend release numbers, retaining check-only CLI fallback when optional helper operations are unavailable.</li>
+  <li>Preserve lambda binding identity through typed local-let continuations for completion, navigation and rename.</li>
+  <li>Respect Bend grouping when expanding selections over glued less-than comparisons.</li>
+  <li>Add offline Quick Documentation for 25 Bend syntax tokens, including incomplete and unsaved code.</li>
+  <li>Upgrade reproducible compiler tests and the optional structured helper to Bend 2.0.35 with Bun 1.4.2.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>
