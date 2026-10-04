@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-idea-0.1.14-signed.zip"
-          version="0.1.14">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-idea-0.1.15-signed.zip"
+          version="0.1.15">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,11 +19,11 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.14:</p>
+    <change-notes><![CDATA[<p>Version 0.1.15:</p>
 <ul>
-  <li>The standalone CLI identifies itself as bend-format and provides --help/-h, including subcommand help.</li>
-  <li>Report actionable argument and file errors; support -- for dash-prefixed filenames.</li>
-  <li>Check all tracked Bend files from repository subdirectories; provide safe hook arguments and pinned installed-tool CI examples.</li>
+  <li>Wrap long equality and inequality propositions in laws, binders and result types.</li>
+  <li>Wrap nested calls, constructors and parenthesized conjunctions with the shared IDE and offline formatter policy.</li>
+  <li>Preserve reflexivity witnesses, comments, significant call/index boundaries and fitting multiline layouts.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>

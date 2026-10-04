@@ -85,9 +85,9 @@ Add `https://idea.dearlordylord.com/updatePlugins.xml` and click **OK**. If that
 
 <img src="docs/screenshots/plugin-repository-url.png" alt="Custom Plugin Repositories dialog with the Bend2 repository URL" width="600">
 
-Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.14.
+Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.15.
 
-To install a signed ZIP directly, download [`bend-idea-0.1.14-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-idea-0.1.14-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.14) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
+To install a signed ZIP directly, download [`bend-idea-0.1.15-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-idea-0.1.15-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.15) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
 
 ## Planned
 

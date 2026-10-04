@@ -18,11 +18,11 @@ On **Windows**, or if you prefer a manual installation, download the archive for
 
 | Your machine | Download |
 |---|---|
-| Linux Intel/AMD 64-bit | [Linux x64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-format-0.1.14-linux-x64.tar.gz) |
-| Linux ARM64 | [Linux ARM64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-format-0.1.14-linux-aarch64.tar.gz) |
-| macOS Intel | [macOS Intel](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-format-0.1.14-macos-x64.tar.gz) |
-| macOS Apple Silicon | [macOS Apple Silicon](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-format-0.1.14-macos-aarch64.tar.gz) |
-| Windows Intel/AMD 64-bit | [Windows x64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-format-0.1.14-windows-x64.zip) |
+| Linux Intel/AMD 64-bit | [Linux x64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-format-0.1.15-linux-x64.tar.gz) |
+| Linux ARM64 | [Linux ARM64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-format-0.1.15-linux-aarch64.tar.gz) |
+| macOS Intel | [macOS Intel](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-format-0.1.15-macos-x64.tar.gz) |
+| macOS Apple Silicon | [macOS Apple Silicon](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-format-0.1.15-macos-aarch64.tar.gz) |
+| Windows Intel/AMD 64-bit | [Windows x64](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-format-0.1.15-windows-x64.zip) |
 
 Keep the extracted directory together and add its `bin` directory to your PATH:
 
@@ -181,11 +181,11 @@ The contributor [Git hook](../contrib/hooks/pre-commit) also uses the built JAR.
 
 `--version` reads packaged build metadata, independent of the JAR filename. Missing or blank metadata exits `2`; formatting commands remain usable.
 
-For users who already manage Java, the smaller [portable JAR](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.14/bend-format-tool-0.1.14.jar) requires Java 21 or newer:
+For users who already manage Java, the smaller [portable JAR](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-format-tool-0.1.15.jar) requires Java 21 or newer:
 
 ```sh
-java -jar bend-format-tool-0.1.14.jar check src/main.bend
-java -jar bend-format-tool-0.1.14.jar fix src/main.bend
+java -jar bend-format-tool-0.1.15.jar check src/main.bend
+java -jar bend-format-tool-0.1.15.jar fix src/main.bend
 ```
 
 The standard archives include a private Java runtime and do not use system Java or JAVA_HOME. Linux builds target glibc distributions and are tested on Ubuntu 22.04; Alpine/musl and Windows ARM64 are not supported. macOS archives are not notarized. Each archive records its runtime provenance and includes license notices. Verify downloads against `BEND-FORMAT-SHA256SUMS.txt` on the release page. To update, replace the extracted directory with the new version and keep PATH pointed at its `bin` directory.
