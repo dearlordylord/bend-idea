@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Navigate Quick Documentation Declaration and Implementation links to their source file and offset, instead of reloading the same documentation page; stale links stay inside IDEA without navigating.
+
 ## 0.1.19
 
 - Keep Quick Documentation Declaration and Implementation links inside IntelliJ's native PSI documentation navigation instead of opening them as external URLs.
