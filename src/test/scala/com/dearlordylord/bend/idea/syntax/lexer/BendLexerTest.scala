@@ -185,3 +185,28 @@ final class BendLexerTest:
           token.kind == BendTokens.Operator && token.text == spelling
         )
       )
+
+  @Test def signedExponentsAndFixedDotOperatorsRetainWholeLexemes(): Unit =
+    // Original preventive RF1/RF4 fixture; see docs/regression-fixtures.md.
+    for separator <- List("\n", "\r\n") do
+      val source = "def Numeric.mix(x: F32):" + separator +
+        "  -3.25e-4 + 7.5e+2 - x" + separator +
+        "def Mask.mix(): 7 .&. 3 .|. 2 .^. 1" + separator
+      val found = tokens(source)
+      for literal <- List("3.25e-4", "7.5e+2") do
+        assertTrue(
+          found.exists(t => t.kind == BendTokens.Number && t.text == literal)
+        )
+      assertEquals(
+        2,
+        found.count(t => t.kind == BendTokens.Operator && t.text == "-")
+      )
+      for operator <- List(".&.", ".|.", ".^.") do
+        assertTrue(
+          found.exists(t => t.kind == BendTokens.Operator && t.text == operator)
+        )
+      assertTrue(
+        found.exists(t =>
+          t.kind == BendTokens.FunctionName && t.text == "Numeric.mix"
+        )
+      )
