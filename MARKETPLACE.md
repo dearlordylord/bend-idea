@@ -149,3 +149,15 @@ Use a full JDK 21 and run the release gates:
 The real compiler checks require the pinned Bend checkout and Bun executable described in [`ci/bend-test-toolchain.properties`](ci/bend-test-toolchain.properties). Signing uses `BEND_IDEA_SIGNING_DIR` pointing to the directory containing `private.pem` and `chain.crt`. Keep those files and any Marketplace token out of Git and command history. Inspect the signed archive, then upload it through the authenticated Marketplace listing or use `publishPlugin` with `PUBLISH_TOKEN`. Confirm the channel and version before uploading. Check Marketplace for the resulting update and approval state; a successful upload is not proof of publication.
 
 The CI workflow never publishes to Marketplace. If signing secrets are configured, its signed artifact is for retrieval and verification, not evidence of Marketplace acceptance.
+
+## 0.1.16 rename fix and IDEA 2026.2 compatibility
+
+[GitHub Release v0.1.16](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.16) is tagged at verified source commit `ae8e61884420cf2174a1452f3b7de7cf35e15fad`. Declaration rename now discovers Bend sources through the file index, preserves current editor text and reports an incomplete inventory or related read-only law before edits. The structure view uses the supported tree-element interface on IDEA 2026.2.
+
+- Signed ZIP SHA-256: `ecef8558d21f4b8f541f7d89dd08f6cf65bfe1da8e4c9d08f3491533ee717055`.
+- Portable JAR SHA-256: `7eca4a763d60bb4d38410285ae383f35de0a2f21a5a6f9b18de627edead49070`.
+- Runtime archive checksums: [BEND-FORMAT-SHA256SUMS.txt](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.16/BEND-FORMAT-SHA256SUMS.txt).
+
+The clean JDK 21.0.10 release gate passed on 2026-10-03: 543 tests, zero failures/errors, one optional current-compiler smoke skipped. Real integration used pinned Bend `ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b` and Bun 1.4.2. Architecture, quality, packaging, structure/configuration, signing and signature checks passed. Plugin Verifier classified IC 2025.1, IU 2026.1 and installed IU 2026.2.3 (`262.10968.63`) as compatible; existing deprecated, scheduled-for-removal, experimental and internal API notices remain. Implementer self-review under `REVIEWER.md` found no outstanding actionable findings for rename/outline behavior and applicable A2, A3, A8 and A9 boundaries. No independent review is claimed.
+
+All five native formatter packaging/smoke jobs and publishing passed in [workflow run 37170008573](https://github.com/dearlordylord/bend-idea/actions/runs/37170008573). Anonymous public downloads of all eight payloads matched their manifests and the local signed ZIP/JAR/certificate. The existing signing identity is unchanged. The custom feed and documentation now target these verified artifacts. Marketplace submission and live feed/Homebrew verification are recorded below once confirmed.

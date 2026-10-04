@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.15/bend-idea-0.1.15-signed.zip"
-          version="0.1.15">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.16/bend-idea-0.1.16-signed.zip"
+          version="0.1.16">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,11 +19,11 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.15:</p>
+    <change-notes><![CDATA[<p>Version 0.1.16:</p>
 <ul>
-  <li>Wrap long equality and inequality propositions in laws, binders and result types.</li>
-  <li>Wrap nested calls, constructors and parenthesized conjunctions with the shared IDE and offline formatter policy.</li>
-  <li>Preserve reflexivity witnesses, comments, significant call/index boundaries and fitting multiline layouts.</li>
+  <li>Fix declaration rename silently stalling in larger projects by discovering Bend sources through the file index.</li>
+  <li>Show a refactoring error when a complete source inventory is unavailable or a related law is read-only.</li>
+  <li>Restore the file structure view on IntelliJ IDEA 2026.2.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>
