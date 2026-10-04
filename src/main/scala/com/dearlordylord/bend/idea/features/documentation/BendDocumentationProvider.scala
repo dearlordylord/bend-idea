@@ -17,13 +17,19 @@ import java.nio.charset.StandardCharsets
 /** IntelliJ Quick Documentation over current source declarations and native
   * references.
   */
-final class BendDocumentationProvider extends AbstractDocumentationProvider:
+class BendDocumentationProvider extends AbstractDocumentationProvider:
   override def getCustomDocumentationElement(
       editor: Editor,
       file: PsiFile,
       contextElement: PsiElement,
       targetOffset: Int
   ): PsiElement =
+    val leaf = Option(file)
+      .filter(
+        _.getLanguage == com.dearlordylord.bend.idea.syntax.BendLanguage.instance
+      )
+      .flatMap(f => Option(f.findElementAt(targetOffset)))
+    if leaf.flatMap(syntaxEntry).nonEmpty then return leaf.orNull
     Option(file.findReferenceAt(targetOffset))
       .flatMap(r => Option(r.resolve()))
       .orElse(
@@ -37,7 +43,7 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
       )
       .orElse(
         Option
-          .when(typeAt(file, targetOffset).nonEmpty)(())
+          .when(currentExpressionType(file, targetOffset).nonEmpty)(())
           .flatMap(_ => Option(file.findElementAt(targetOffset)))
       )
       .orNull
@@ -46,6 +52,10 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
       element: PsiElement,
       originalElement: PsiElement
   ): String =
+    val syntax = syntaxEntry(element)
+    if syntax.nonEmpty then
+      val entry = syntax.get
+      return s"${entry.heading}\n${entry.explanation}"
     val signature = target(element, originalElement).map(_._2.sourceSignature)
     val actual = typeAt(originalElement, element)
       .map(value => s"Expression type (Bend): ${value.typeText}")
@@ -57,6 +67,13 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
       element: PsiElement,
       originalElement: PsiElement
   ): String =
+    val syntax = syntaxEntry(element)
+    if syntax.nonEmpty then
+      val entry = syntax.get
+      return "<div class='definition'><pre>" + escape(entry.heading) +
+        "</pre></div><div class='content'><p>" + escape(
+          entry.explanation
+        ) + "</p></div>"
     val sourceDoc = target(element, originalElement).map { case (file, site) =>
       val symbol = site.symbol
       val html = new StringBuilder
@@ -154,6 +171,16 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
             )
             .orNull
 
+  private def syntaxEntry(element: PsiElement): Option[BendSyntaxEntry] =
+    Option(element)
+      .filter(e =>
+        e.isValid && e.getLanguage == com.dearlordylord.bend.idea.syntax.BendLanguage.instance &&
+          e.getFirstChild == null
+      )
+      .flatMap(e =>
+        BendSyntaxDocumentation.entry(e.getNode.getElementType, e.getText)
+      )
+
   private def target(
       element: PsiElement,
       originalElement: PsiElement
@@ -182,10 +209,12 @@ final class BendDocumentationProvider extends AbstractDocumentationProvider:
   ): Option[BendExpressionType] =
     Option(originalElement).orElse(Option(fallback)).flatMap { element =>
       Option(element.getContainingFile)
-        .flatMap(file => typeAt(file, element.getTextRange.getStartOffset))
+        .flatMap(file =>
+          currentExpressionType(file, element.getTextRange.getStartOffset)
+        )
     }
 
-  private def typeAt(
+  protected def currentExpressionType(
       file: PsiFile,
       offset: Int
   ): Option[BendExpressionType] =

@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Explain supported Bend syntax tokens in offline Quick Documentation and quick navigation, including incomplete and unsaved code.
+
 ## 0.1.16
 
 - Fix declaration rename silently stalling in larger projects. Discover Bend

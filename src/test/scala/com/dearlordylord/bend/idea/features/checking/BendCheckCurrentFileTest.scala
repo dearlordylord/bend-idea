@@ -203,7 +203,12 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       headerElement,
       headerOffset
     )
-    assertNull(headerTarget)
+    assertNotNull(headerTarget)
+    assertTrue(
+      provider
+        .generateDoc(headerTarget, headerElement)
+        .contains("Bend syntax: def")
+    )
     WriteCommandAction.runWriteCommandAction(
       getProject,
       new Runnable:

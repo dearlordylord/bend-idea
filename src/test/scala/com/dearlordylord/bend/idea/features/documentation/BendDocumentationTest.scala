@@ -389,3 +389,194 @@ final class BendDocumentationTest extends BasePlatformTestCase:
     )
     assertTrue(accepted.contains("Accepted law"))
     assertTrue(accepted.contains("for x: Nat"))
+
+  private def syntaxAt(
+      provider: BendDocumentationProvider,
+      offset: Int
+  ): String =
+    val file = myFixture.getFile
+    val leaf = file.findElementAt(offset)
+    val selected = provider.getCustomDocumentationElement(
+      myFixture.getEditor,
+      file,
+      null,
+      offset
+    )
+    if selected == null then null else provider.generateDoc(selected, leaf)
+
+  def testEverySyntaxEntryAndTokenRange(): Unit =
+    val spellings = List(
+      "def",
+      "type",
+      "law",
+      "import",
+      "match",
+      "case",
+      "do",
+      "return",
+      "for",
+      "exs",
+      "where",
+      "is",
+      "Type",
+      "Data",
+      "Kind",
+      "Quant",
+      "&0",
+      "&1",
+      "&2",
+      "<&>",
+      "->",
+      "=>",
+      "==",
+      "!=",
+      "{==}"
+    )
+    val provider = new BendDocumentationProvider
+    spellings.foreach { spelling =>
+      myFixture.configureByText("syntax.bend", "# 😀\n  " + spelling + "  ")
+      val start = myFixture.getFile.getText.indexOf(spelling)
+      val expected = syntaxAt(provider, start)
+      assertNotNull(spelling, expected)
+      for offset <- start until start + spelling.length do
+        assertEquals(spelling, expected, syntaxAt(provider, offset))
+      val leaf = myFixture.getFile.findElementAt(start)
+      val navigation = provider.getQuickNavigateInfo(leaf, null)
+      assertTrue(navigation, navigation.startsWith("Bend syntax: " + spelling))
+      assertTrue(
+        expected.contains(
+          navigation
+            .split("\n")(1)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("'", "&#39;")
+        )
+      )
+      assertNull(syntaxAt(provider, start - 1))
+      assertNull(syntaxAt(provider, start + spelling.length))
+      assertNull(syntaxAt(provider, myFixture.getFile.getTextLength))
+    }
+
+  def testSyntaxCatalogueMeaningAndEscaping(): Unit =
+    assertTrue(
+      docs("<caret>&1").contains("at most one use; discarding is allowed")
+    )
+    assertTrue(docs("<caret>do").contains("monads other than IO"))
+    assertTrue(
+      docs("<caret>law").contains(
+        "does not establish that it has been checked or filled"
+      )
+    )
+    assertTrue(docs("<caret><&>").contains("Bend syntax: &lt;&amp;&gt;"))
+    assertTrue(docs("<caret>{==}").contains("compiler must still check"))
+
+  def testSyntaxSuppressionAndExactLexemes(): Unit =
+    val provider = new BendDocumentationProvider
+    val excluded = List(
+      "# def",
+      "\"def\"",
+      "'def'",
+      "\"def",
+      "'def",
+      "\"\\ndef\"",
+      "lawful",
+      "Kindred",
+      "&20",
+      "M.Kind",
+      "==!=",
+      "as",
+      "?TODO",
+      "123",
+      "%",
+      "!",
+      "+",
+      "-",
+      "&",
+      "@",
+      "~"
+    )
+    excluded.foreach { text =>
+      myFixture.configureByText("excluded.bend", text)
+      for offset <- text.indices do
+        val leaf = myFixture.getFile.findElementAt(offset)
+        val documentation = provider.generateDoc(leaf, null)
+        assertFalse(
+          text + " at " + offset,
+          documentation != null && documentation.contains("Bend syntax:")
+        )
+    }
+    myFixture.configureByText("foreign.txt", "def")
+    assertNull(provider.generateDoc(myFixture.getFile.findElementAt(0), null))
+    assertNull(provider.generateDoc(null, null))
+    assertNull(provider.getQuickNavigateInfo(null, null))
+
+  def testSyntaxOfflineDispatchDoesNotReadCompilerResults(): Unit =
+    ApplicationManager.getApplication
+      .getService(classOf[BendToolchainSettings])
+      .update(BendToolchainChoices())
+    val provider = new BendDocumentationProvider:
+      override protected def currentExpressionType(
+          file: com.intellij.psi.PsiFile,
+          offset: Int
+      ): Option[com.dearlordylord.bend.idea.analysis.model.BendExpressionType] =
+        fail("Syntax documentation attempted compiler work")
+        None
+    myFixture.configureByText("offline.bend", "def broken(:\n  &1")
+    com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(
+      getProject,
+      new com.intellij.openapi.util.ThrowableComputable[Unit, Throwable]:
+        override def compute(): Unit =
+          val offset = myFixture.getFile.getText.indexOf("&1")
+          assertTrue(syntaxAt(provider, offset).contains("Bend syntax: &amp;1"))
+          val leaf = myFixture.getFile.findElementAt(offset)
+          assertTrue(
+            provider
+              .getQuickNavigateInfo(leaf, null)
+              .contains("Bend syntax: &1")
+          )
+    )
+
+  def testUnsavedEditSuppressesAndRestoresSyntax(): Unit =
+    myFixture.configureByText("editing.bend", "def broken(:\n  &1")
+    val provider = new BendDocumentationProvider
+    val manager = PsiDocumentManager.getInstance(getProject)
+    List("# law", "\"law", "law").foreach { text =>
+      WriteCommandAction.runWriteCommandAction(
+        getProject,
+        new Runnable:
+          override def run(): Unit =
+            myFixture.getEditor.getDocument.setText(text)
+      )
+      manager.commitAllDocuments()
+      val html = syntaxAt(provider, text.indexOf("law"))
+      if text == "law" then assertTrue(html.contains("Bend syntax: law"))
+      else assertNull(html)
+    }
+
+  def testNativeQuickDocumentationTargetDispatch(): Unit =
+    myFixture.configureByText("native.bend", "def main():\n  <caret>{==}\n")
+    val manager = com.intellij.codeInsight.documentation.DocumentationManager
+      .getInstance(getProject)
+    val selected =
+      manager.findTargetElement(myFixture.getEditor, myFixture.getFile)
+    assertNotNull(selected)
+    assertEquals("{==}", selected.getText)
+    val provider = com.intellij.codeInsight.documentation.DocumentationManager
+      .getProviderFromElement(selected)
+    assertTrue(
+      provider.generateDoc(selected, null).contains("Bend syntax: {==}")
+    )
+    assertTrue(
+      provider
+        .getQuickNavigateInfo(selected, null)
+        .contains("reflexivity witness")
+    )
+
+  def testImportPathAndCrLfSuppression(): Unit =
+    myFixture.configureByText("path.bend", "# 😀\r\nimport ./law.bend as L\r\n")
+    val provider = new BendDocumentationProvider
+    val offset = myFixture.getFile.getText.indexOf("./law")
+    assertNull(syntaxAt(provider, offset))
+    val keyword = myFixture.getFile.getText.indexOf("import")
+    assertTrue(syntaxAt(provider, keyword).contains("Bend syntax: import"))
