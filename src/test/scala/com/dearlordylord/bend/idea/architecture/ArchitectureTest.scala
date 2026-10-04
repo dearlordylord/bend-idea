@@ -161,6 +161,12 @@ final class ArchitectureTest:
       ) && classes.contain(
         "com.dearlordylord.bend.idea.features.semantics.BendNormalizeExpressionAction"
       ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.semantics.BendPinNormalizedValueAction"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.semantics.BendNormalizationInlays"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.semantics.BendNormalizedValueRenderer"
+      ) && classes.contain(
         "com.dearlordylord.bend.idea.features.semantics.BendExplainResourcesAction"
       )
     )

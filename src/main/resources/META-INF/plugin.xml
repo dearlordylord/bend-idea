@@ -132,6 +132,7 @@ compiler-backed features. See the
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.process.BendBuildProcessService"/>
         <projectService serviceInterface="com.dearlordylord.bend.idea.features.execution.api.BendNativeProcessFactory"
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.process.BendNativeProcessService"/>
+        <projectService serviceImplementation="com.dearlordylord.bend.idea.features.semantics.BendNormalizationInlays"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.features.proofs.BendProofRootStore"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendBackgroundChecking"/>
         <applicationService serviceInterface="com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings"
@@ -184,6 +185,12 @@ compiler-backed features. See the
         <action id="Bend.NormalizeExpression"
                 class="com.dearlordylord.bend.idea.features.semantics.BendNormalizeExpressionAction"
                 text="Normalize Bend Expression" description="Display bounded compiler normalization of a closed checked expression">
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
+        </action>
+        <action id="Bend.PinNormalizedValue"
+                class="com.dearlordylord.bend.idea.features.semantics.BendPinNormalizedValueAction"
+                text="Pin Normalized Bend Value" description="Pin or remove a current compiler-normalized value beside its expression">
             <add-to-group group-id="Bend.Tools" anchor="last"/>
             <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
         </action>
