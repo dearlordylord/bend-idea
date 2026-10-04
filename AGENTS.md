@@ -27,7 +27,7 @@ Explicit user instructions take precedence. Feature issues own acceptance behavi
 - Preserve root/source identity, snapshot provenance and honest result states when changing analysis. Use the actual compiler for compiler judgments; missing optional capabilities remain unavailable.
 - Use IntelliJ editor fixtures for observable editor behavior and real pinned Bend subprocess tests for compiler integration. Add focused lower-level tests when they address a concrete parser, mapping, transition or boundary risk.
 - Run relevant checks using a full JDK 21: `./gradlew check` covers editor fixtures and `architectureTest`; `buildPlugin verifyPlugin` covers packaging/compatibility. Extend the compiled dependency rules with new boundaries as described in ARCHITECTURE.md. Do not report planned, skipped or unavailable checks as passing.
-- Preserve supplied reference checkouts and the protected trusted Bend core. Reference implementations inform the design; their architectures are not automatically applicable here.
+- Preserve supplied reference checkouts and the protected trusted Bend core. Reference implementations inform the design; their architectures are not automatically applicable here. Follow [the reuse policy](docs/reuse-policy.md) for original comparison-driven work and any copied or adapted material; record provenance and verify required notices in the distributions that contain it.
 
 ## Before finishing
 
