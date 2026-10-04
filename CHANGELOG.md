@@ -13,11 +13,16 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
-- Update the tested compiler and optional structured helper to Bend 2.0.35,
-  including its source-span format, integrated checker and failure banners
-  used by exact diagnostics and goal queries.
-
-- Explain supported Bend syntax tokens in offline Quick Documentation and quick navigation, including incomplete and unsaved code.
+- Add offline Quick Documentation and quick-navigation help for 25 Bend syntax
+  tokens: declaration and control keywords, kinds, quantities, function and
+  lambda arrows, equality and reflexivity notation. Help works in incomplete
+  and unsaved code without a compiler, Base or ready indexes, and excludes
+  comments, literals and import paths.
+- Upgrade the tested compiler and optional structured helper to Bend 2.0.35
+  with Bun 1.4.2. Adapt to the integrated checker and new source spans, and
+  match diagnostics across the CLI failure banner so exact error locations
+  and first named-hole goals remain available. Update real compiler fixtures
+  for the new Base definitions and unsafe/foreign verdicts.
 
 ## 0.1.16
 
