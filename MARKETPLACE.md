@@ -259,3 +259,5 @@ A read-only profile using the reported request-content sources measured 237 ms c
 - Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
 
 All four assets were downloaded anonymously and matched the locally verified files and manifest. Distribution is limited to the user's custom plugin repository; no Marketplace submission. Native formatter archives and Homebrew remain on 0.1.19, and the shared-version portable JAR retains unchanged formatter behavior. The GitHub release remains non-latest to preserve the complete formatter release. Live feed verification is recorded after deployment.
+
+Cloudflare Pages successfully deployed feed commit `2d89061` on 2026-10-07. Ordinary requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` served 0.1.21 with ID, name, IDE range, description and change notes matching packaged metadata. Anonymous downloads through both feed links matched the signed ZIP digest again. GitHub Release v0.1.21 is stable and non-latest; no Marketplace submission was made.
