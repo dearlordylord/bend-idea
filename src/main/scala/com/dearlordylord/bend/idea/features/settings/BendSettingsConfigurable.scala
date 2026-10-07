@@ -2,6 +2,7 @@ package com.dearlordylord.bend.idea.features.settings
 
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendCompilerInfoResult,
+  BendLintOptions,
   BendCompilerInfoProbe,
   BendToolchainChoices,
   BendToolchainPaths,
@@ -22,6 +23,10 @@ final class BendSettingsConfigurable extends BaseConfigurable:
   private var base: JTextField = null
   private var cache: JTextField = null
   private var diagnostics: JCheckBox = null
+  private var lintEnabled: JCheckBox = null
+  private var lintBun: JTextField = null
+  private var lintDirectory: JTextField = null
+  private var lintObservations: JCheckBox = null
   private var status: JLabel = null
   private var compilerInfo: JLabel = null
   private var detectCompiler: JButton = null
@@ -37,6 +42,14 @@ final class BendSettingsConfigurable extends BaseConfigurable:
     base = new JTextField()
     cache = new JTextField()
     diagnostics = new JCheckBox("Enable background diagnostics")
+    lintEnabled = new JCheckBox(
+      "Enable bend-lint prototype (explicit runs only)"
+    )
+    lintBun = new JTextField()
+    lintDirectory = new JTextField()
+    lintObservations = new JCheckBox(
+      "Show compiler observations (up to 128 variable sites)"
+    )
     status = new JLabel()
     compilerInfo = new JLabel("Not detected")
     detectCompiler = new JButton("Detect")
@@ -60,6 +73,16 @@ final class BendSettingsConfigurable extends BaseConfigurable:
       )
       .addComponent(diagnostics)
       .addComponent(status)
+      .addSeparator()
+      .addComponent(lintEnabled)
+      .addLabeledComponent("Bun executable:", lintBun)
+      .addLabeledComponent("bend-lint checkout:", lintDirectory)
+      .addComponent(lintObservations)
+      .addComponent(
+        new JLabel(
+          "Uses the compiler sources beside Base. See README for supported revisions."
+        )
+      )
       .addComponentFillVertically(new JPanel(), 0)
       .getPanel
     reset()
@@ -72,7 +95,13 @@ final class BendSettingsConfigurable extends BaseConfigurable:
       executable.getText,
       base.getText,
       cache.getText,
-      diagnostics.isSelected
+      diagnostics.isSelected,
+      BendLintOptions(
+        lintEnabled.isSelected,
+        lintBun.getText,
+        lintDirectory.getText,
+        lintObservations.isSelected
+      )
     )
 
   override def apply(): Unit =
@@ -89,6 +118,10 @@ final class BendSettingsConfigurable extends BaseConfigurable:
     base.setText(value.baseSource)
     cache.setText(value.packageCache)
     diagnostics.setSelected(value.diagnosticsEnabled)
+    lintEnabled.setSelected(value.lint.enabled)
+    lintBun.setText(value.lint.bun)
+    lintDirectory.setText(value.lint.directory)
+    lintObservations.setSelected(value.lint.semanticObservations)
     refreshStatus()
     inspectCompiler()
 
@@ -163,6 +196,10 @@ final class BendSettingsConfigurable extends BaseConfigurable:
     base = null
     cache = null
     diagnostics = null
+    lintEnabled = null
+    lintBun = null
+    lintDirectory = null
+    lintObservations = null
     status = null
     compilerInfo = null
     detectCompiler = null

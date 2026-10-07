@@ -973,3 +973,69 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     action.update(event)
     assertTrue(event.getPresentation.isEnabled)
     assertEquals("Show Bend Check Status", event.getPresentation.getText)
+
+  def testLintActionHighlightsUnsavedTextAndDropsItOnEdit(): Unit =
+    val checkout = Option(System.getenv("BEND_TEST_LINT_DIR"))
+    org.junit.Assume.assumeTrue(
+      "Set BEND_TEST_LINT_DIR for the optional external prototype",
+      checkout.nonEmpty
+    )
+    val settings = ApplicationManager.getApplication.getService(
+      classOf[BendToolchainSettings]
+    )
+    val compiler = RealBendCompilerFixture.inputs
+    settings.update(
+      settings.choices.copy(
+        baseSource = compiler.base.toString,
+        lint = com.dearlordylord.bend.idea.toolchain.api
+          .BendLintOptions(true, compiler.bunExecutable.toString, checkout.get)
+      )
+    )
+    val text = "import Base\n# 😀  \ndef main() -> U32:\n  1\n"
+    myFixture.configureByText("lint-editor.bend", text)
+    val file = myFixture.getFile.getVirtualFile
+    val id = new FileId(
+      Option(file.getCanonicalPath).getOrElse(file.getPath),
+      file.getCanonicalPath != null
+    )
+    val service = getProject.getService(classOf[BendCheckService])
+    myFixture.performEditorAction("Bend.RunLint")
+    val until = System.nanoTime() + 30_000_000_000L
+    while service.result(id).isEmpty && System.nanoTime() < until do
+      Thread.sleep(50)
+    val result = service
+      .result(id)
+      .getOrElse(throw new AssertionError("Lint action did not publish"))
+    assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
+    assertEquals(
+      com.dearlordylord.bend.idea.analysis.model.BendLintOutcome.Completed,
+      result.lint.get.outcome
+    )
+    val finding = result.lint.get.findings.head
+    assertEquals("  ", text.substring(finding.range.start, finding.range.end))
+    assertTrue(
+      myFixture
+        .doHighlighting()
+        .asScala
+        .exists(info =>
+          Option(info.getDescription)
+            .exists(_.contains("bend-lint [style/trailing-whitespace]")) &&
+            info.getStartOffset == finding.range.start && info.getEndOffset == finding.range.end
+        )
+    )
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          myFixture.getEditor.getDocument.insertString(0, "# edit\n")
+    )
+    PsiDocumentManager.getInstance(getProject).commitAllDocuments()
+    assertFalse(service.result(id).get.fresh)
+    assertFalse(
+      myFixture
+        .doHighlighting()
+        .asScala
+        .exists(info =>
+          Option(info.getDescription).exists(_.contains("bend-lint ["))
+        )
+    )

@@ -2,7 +2,8 @@ package com.dearlordylord.bend.idea.adapters.intellij
 
 import com.dearlordylord.bend.idea.adapters.cli.{
   BendCliCheckBackend,
-  BendExternalInputs
+  BendExternalInputs,
+  BendLintBackend
 }
 import com.dearlordylord.bend.idea.analysis.api.{
   BendBackgroundCheckTicket,
@@ -191,7 +192,10 @@ final class BendCheckSession(project: Project)
               case (root, rootState)
                   if rootState.result.exists(result =>
                     changed(result.key.executable) ||
-                      result.key.basePath.exists(changed)
+                      result.key.basePath.exists(changed) ||
+                      result.lint.exists(
+                        _.observedFiles.exists(entry => changed(entry._1))
+                      )
                   ) ||
                     (rootState.snapshot.toList ++ rootState.pending.toList.map(
                       _.snapshot
@@ -462,7 +466,8 @@ final class BendCheckSession(project: Project)
             .getService(classOf[BendToolchainSettings])
             .selection
           val externalCurrent = checked.key.externalStamp == BendExternalInputs
-            .stamp(checked.key.executable, checked.key.basePath)
+            .stamp(checked.key.executable, checked.key.basePath) && checked.lint
+            .forall(BendLintBackend.current)
           val facts = BendCheckFinishFacts(
             sourceCurrent,
             inputsCurrent,
@@ -508,7 +513,10 @@ final class BendCheckSession(project: Project)
     )
     val externalCurrent = stored.forall(result =>
       result.key.externalStamp ==
-        BendExternalInputs.stamp(result.key.executable, result.key.basePath)
+        BendExternalInputs.stamp(
+          result.key.executable,
+          result.key.basePath
+        ) && result.lint.forall(BendLintBackend.current)
     )
     if stored.exists(_.fresh) && (graphChanged || !externalCurrent) then
       val reason = if graphChanged then

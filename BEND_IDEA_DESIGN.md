@@ -32,6 +32,8 @@ Primary local source map. The reference checkouts are intentionally excluded fro
 - [Quint grammar](.references/quint/Quint.g4), [Quint plugin registration](.references/quint-idea/src/main/resources/META-INF/plugin.xml), [implementation learnings](.references/quint-idea/LEARNINGS.md).
 - [Bundled Bend formatter](.references/bend/tools/bend-fmt-lsp/src/formatter.ts) and [its scope](.references/bend/tools/bend-fmt-lsp/README.md).
 
+Follow-up research, 2026-10-07: [MattCozendey/bend-lint](https://github.com/MattCozendey/bend-lint) provides another Bend 2 tooling reference. See [the architecture and feature comparison](research/bend-lint-architecture-and-features.md) for compiler-fact collection, lint rules, fix applicability, compatibility limits and recommendations against the current Scala plugin. This is a later assessment, separate from the original checkout versions above.
+
 The VS Code study targets installed 2.0.16 and also references older source. The current checkout requires annotations for overloaded arithmetic operators; even the core's introductory comment still mentions the old implicit Nat behavior. Executable parser/checker code takes precedence over comments and older notes. The test corpus also contains historical cases whose expected result is now a missing-import error, so it cannot all be treated as positive syntax examples.
 
 The copied SDK guides contain outdated examples. Quint's actual build uses JDK 21, whereas parts of its learnings still mention Java 17. Pin a coherent platform/JDK/Kotlin/Gradle combination when implementation starts. Do not copy individual version suggestions independently.

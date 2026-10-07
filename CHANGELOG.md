@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Prototype optional bend-lint integration: configure Bun and a supported bend-lint checkout in Bend settings, then run it explicitly on the current unsaved file and imports. Trailing-whitespace findings and optional compiler observations appear in the editor; stale findings are discarded. Lint status remains separate from the compiler verdict. No automatic fixes or background linting.
+
 ## 0.1.21
 
 - Preserve unsaved imported source and its revision after closing an editor opened through a symlink or another path alias; checks and navigation through the canonical path keep using the modified document.

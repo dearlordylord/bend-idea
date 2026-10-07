@@ -133,3 +133,17 @@ For the design and contribution rules, see [ARCHITECTURE.md](ARCHITECTURE.md), [
 ## License
 
 [Apache-2.0](LICENSE)
+
+
+### Experimental bend-lint integration (prototype branch)
+
+This worktree adds native, **explicit and read-only** linting. It does not require File Watchers or Ultimate. It is not part of the published plugin release.
+
+1. Use Bend sources at `79df8d9c40722ee9507a1e253f283b51025f9d6c` (Bend 2.0.35), with the matching compiler executable and `bend2/base.bend` selected in Bend settings. The linter loads compiler sources beside that Base; an unrelated copied Base is insufficient.
+2. Obtain [bend-lint](https://github.com/MattCozendey/bend-lint) separately and check out `c5e950cdcb0024b9ffe66caf730301ed98a99a8d`. Keep this external checkout unchanged. The plugin verifies the source files it uses and reports unsupported versions explicitly; it does not bundle or install the tool.
+3. In **Settings → Languages & Frameworks → Bend**, enable **bend-lint prototype**, set absolute paths to **Bun** (tested with 1.4.2) and the **bend-lint checkout**. Optionally enable compiler observations.
+4. Open the file to use as the checking root and invoke **Tools → Bend → Run bend-lint on Current File** (also in Find Action/editor context menu). Its unsaved text and imported buffers are captured without saving them. The result notification reports lint status; exact findings appear in the editor and its native Problems view.
+
+The default rule is upstream trailing whitespace. Optional observations display the compiler's type and input demand at up to 128 checked variable sites across the root/imports, excluding Base and template instances. They are informational; they do not explain remaining resources at a hole. Unmapped findings are counted in the result notification. The ordinary compiler must accept the root before lint runs; incomplete/rejected roots are not reported as lint-clean. Lint errors/timeouts do not change the compiler verdict. Results expire with source/configuration changes; a subsequent ordinary check replaces prior lint findings.
+
+The prototype does not load project `bend-lint.json`, arbitrary user rule modules or apply `--fix`. It uses explicit empty rule configuration, a 15-second subprocess limit and a 256 KiB output limit. Tests for actual bend-lint runs are enabled by `BEND_TEST_LINT_DIR=/absolute/path/to/the/pinned/bend-lint` alongside the existing `BEND_TEST_COMPILER_DIR` and `BEND_TEST_BUN`. Without the extra checkout, those optional prototype integration witnesses are skipped; protocol/settings/compatibility checks still run.

@@ -21,7 +21,8 @@ final case class BendCheckSnapshot(
     goalRequested: Boolean = false,
     normalizationRequest: Option[BendNormalizationRequest] = None,
     externalInputStamp: String = "",
-    selectedPath: String = ""
+    selectedPath: String = "",
+    lintRequested: Boolean = false
 ):
   def selectedBasePath: Option[String] =
     val importsBase = graph.fold(
@@ -393,7 +394,8 @@ final case class BendCheckResult(
     goal: Option[BendGoal] = None,
     incompleteKind: Option[BendIncompleteKind] = None,
     expressionTypes: List[BendExpressionType] = Nil,
-    normalization: Option[BendNormalization] = None
+    normalization: Option[BendNormalization] = None,
+    lint: Option[BendLintResult] = None
 ):
   def status: String =
     val verdict = outcome match

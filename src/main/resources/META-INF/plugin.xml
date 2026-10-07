@@ -166,6 +166,12 @@ compiler-backed features. See the
         <group id="Bend.EditorPopup" text="Bend" popup="true" icon="/icons/bend.svg">
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
         </group>
+        <action id="Bend.RunLint"
+                class="com.dearlordylord.bend.idea.features.checking.BendRunLintAction"
+                text="Run bend-lint on Current File" description="Run optional bend-lint on the current unsaved root and imports">
+            <add-to-group group-id="Bend.Tools" anchor="last"/>
+            <add-to-group group-id="Bend.EditorPopup" anchor="last"/>
+        </action>
         <action id="Bend.CheckCurrentFile"
                 class="com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileAction"
                 text="Check Current Bend File" description="Check the current Bend document without running main">

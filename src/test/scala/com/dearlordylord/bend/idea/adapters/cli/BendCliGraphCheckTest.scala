@@ -56,7 +56,10 @@ final class BendCliGraphCheckTest:
       laws: Option[BendSourceRecord] = None,
       configuredBase: Path = base,
       goalRequested: Boolean = false,
-      normalizationRequest: Option[BendNormalizationRequest] = None
+      normalizationRequest: Option[BendNormalizationRequest] = None,
+      lint: com.dearlordylord.bend.idea.toolchain.api.BendLintOptions =
+        com.dearlordylord.bend.idea.toolchain.api.BendLintOptions(),
+      lintRequested: Boolean = false
   ): BendCheckResult =
     val cache = directory.resolve("lib")
     val catalog = new BendSourceCatalog:
@@ -92,7 +95,8 @@ final class BendCliGraphCheckTest:
       configuredBase.toString,
       cache.toString,
       true,
-      1L
+      1L,
+      lint = lint
     )
     val initial =
       BendCheckSnapshot(
@@ -102,7 +106,8 @@ final class BendCliGraphCheckTest:
         root.revision,
         selection,
         goalRequested = goalRequested,
-        normalizationRequest = normalizationRequest
+        normalizationRequest = normalizationRequest,
+        lintRequested = lintRequested
       )
     val snapshot = BendGraphSnapshot.attach(initial, graph, laws)
     new BendCliCheckBackend(directory).check(snapshot)
@@ -925,5 +930,113 @@ final class BendCliGraphCheckTest:
         )
       )
       assertFalse(result.details.contains("One namespace per file"))
+      assertEquals(0L, snapshotCount(dir))
+    }
+
+  @Test def realBendLintMapsUnsavedRootAndImportedCompilerFacts(): Unit =
+    val checkout = Option(System.getenv("BEND_TEST_LINT_DIR"))
+    org.junit.Assume.assumeTrue(
+      "Set BEND_TEST_LINT_DIR for the optional external prototype",
+      checkout.nonEmpty
+    )
+    fixture { (dir, bend) =>
+      val dependency = dir.resolve("identity.bend")
+      val disk = "this is not the edited module\n"
+      Files.writeString(dependency, disk)
+      val edited = source(
+        dependency,
+        "import Base\r\n# 😀\r\ndef identity(x: U32) -> U32:\r\n  x\r\n"
+      )
+      val text =
+        "import Base\r\nimport ./identity.bend as I\r\n# 😀  \r\ndef main() -> U32:\r\n  I.identity(1)\r\n"
+      val root = source(dir.resolve("lint.bend"), text)
+      val result = check(
+        dir,
+        bend,
+        root,
+        Map(dependency.toString -> edited),
+        lint = com.dearlordylord.bend.idea.toolchain.api.BendLintOptions(
+          true,
+          compiler.bunExecutable.toString,
+          checkout.get,
+          true
+        ),
+        lintRequested = true
+      )
+      assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
+      val lint =
+        result.lint.getOrElse(throw new AssertionError("Missing lint reply"))
+      assertEquals(lint.details, BendLintOutcome.Completed, lint.outcome)
+      val whitespace =
+        lint.findings.find(_.code == "style/trailing-whitespace").get
+      assertEquals(root.id, whitespace.source)
+      assertEquals(
+        "  ",
+        text.substring(whitespace.range.start, whitespace.range.end)
+      )
+      val fact = lint.findings
+        .find(f =>
+          f.code == "idea/compiler-observation" && f.source == edited.id
+        )
+        .get
+      assertEquals("x", edited.text.substring(fact.range.start, fact.range.end))
+      assertTrue(fact.message, fact.message.contains("checked demand: live"))
+      assertTrue(fact.message, fact.message.contains("U32"))
+      assertEquals(0, lint.unmapped)
+      assertEquals(disk, Files.readString(dependency))
+      assertFalse(Files.exists(Path.of(root.path)))
+      assertEquals(0L, snapshotCount(dir))
+    }
+
+  @Test def incompatibleLinterDoesNotChangeCompilerVerdict(): Unit =
+    fixture { (dir, bend) =>
+      val root =
+        source(dir.resolve("lint.bend"), "def main() -> Type:\n  Type\n")
+      val result = check(
+        dir,
+        bend,
+        root,
+        lint = com.dearlordylord.bend.idea.toolchain.api
+          .BendLintOptions(true, compiler.bunExecutable.toString, dir.toString),
+        lintRequested = true
+      )
+      assertEquals(BendCheckOutcome.Success, result.outcome)
+      assertEquals(BendLintOutcome.Unavailable, result.lint.get.outcome)
+      assertTrue(result.lint.get.findings.isEmpty)
+      assertEquals(0L, snapshotCount(dir))
+    }
+
+  @Test def lintDoesNotExecuteMainOrRunOnIncompleteSource(): Unit =
+    val checkout = Option(System.getenv("BEND_TEST_LINT_DIR"))
+    org.junit.Assume.assumeTrue(
+      "Set BEND_TEST_LINT_DIR for the optional external prototype",
+      checkout.nonEmpty
+    )
+    fixture { (dir, bend) =>
+      val options = com.dearlordylord.bend.idea.toolchain.api
+        .BendLintOptions(true, compiler.bunExecutable.toString, checkout.get)
+      val root = source(
+        dir.resolve("lint.bend"),
+        "import Base\ndef main() -> IO(Unit):\n  do IO<Unit>:\n    IO.print(\"LINT_MAIN_MUST_NOT_EXECUTE\")\n"
+      )
+      val complete =
+        check(dir, bend, root, lint = options, lintRequested = true)
+      assertEquals(complete.details, BendCheckOutcome.Success, complete.outcome)
+      assertEquals(
+        complete.lint.get.details,
+        BendLintOutcome.Completed,
+        complete.lint.get.outcome
+      )
+      val incomplete = source(
+        dir.resolve("todo.bend"),
+        "import Base\ndef main() -> U32:\n  ?unfinished\n"
+      )
+      val pending =
+        check(dir, bend, incomplete, lint = options, lintRequested = true)
+      assertEquals(BendCompleteness.Incomplete, pending.completeness)
+      assertTrue(pending.lint.isEmpty)
+      val ordinary = check(dir, bend, root, lint = options)
+      assertEquals(BendCheckOutcome.Success, ordinary.outcome)
+      assertTrue("Ordinary checks must not start lint", ordinary.lint.isEmpty)
       assertEquals(0L, snapshotCount(dir))
     }

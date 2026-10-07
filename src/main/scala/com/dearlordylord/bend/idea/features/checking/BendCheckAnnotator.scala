@@ -69,6 +69,29 @@ final class BendCheckAnnotator
       Option(virtual.getCanonicalPath).getOrElse(virtual.getPath),
       virtual.getCanonicalPath != null
     )
+    results.foreach { result =>
+      result.lint.filter(_.outcome == BendLintOutcome.Completed).foreach {
+        lint =>
+          lint.findings.filter(_.source == id).foreach { finding =>
+            val span = finding.range
+            if span.start >= 0 && span.end > span.start && span.end <= file.getTextLength
+            then
+              val severity = finding.severity match
+                case BendLintSeverity.Error       => HighlightSeverity.ERROR
+                case BendLintSeverity.Warning     => HighlightSeverity.WARNING
+                case BendLintSeverity.Information =>
+                  HighlightSeverity.INFORMATION
+                case BendLintSeverity.Hint => HighlightSeverity.INFORMATION
+              val _ = holder
+                .newAnnotation(
+                  severity,
+                  s"bend-lint [${finding.code}]: ${finding.message}"
+                )
+                .range(new TextRange(span.start, span.end))
+                .create()
+          }
+      }
+    }
     results
       .filter(result => BendCheckAnnotator.shouldHighlight(result.outcome))
       .foreach { result =>

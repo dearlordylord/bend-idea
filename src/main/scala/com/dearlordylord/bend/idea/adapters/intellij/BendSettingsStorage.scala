@@ -18,6 +18,10 @@ final class BendSettingsState:
   var baseSource: String = ""
   var packageCache: String = ""
   var diagnosticsEnabled: Boolean = true
+  var lintEnabled: Boolean = false
+  var lintBun: String = ""
+  var lintDirectory: String = ""
+  var lintSemanticObservations: Boolean = false
 
 @State(name = "BendSettings", storages = Array(new Storage("BendSettings.xml")))
 final class BendSettingsStorage
@@ -44,6 +48,10 @@ final class BendSettingsStorage
     copied.baseSource = source.baseSource
     copied.packageCache = source.packageCache
     copied.diagnosticsEnabled = source.diagnosticsEnabled
+    copied.lintEnabled = source.lintEnabled
+    copied.lintBun = source.lintBun
+    copied.lintDirectory = source.lintDirectory
+    copied.lintSemanticObservations = source.lintSemanticObservations
     copied
 
   override def choices: BendToolchainChoices = synchronized {
@@ -51,7 +59,13 @@ final class BendSettingsStorage
       data.executable,
       data.baseSource,
       data.packageCache,
-      data.diagnosticsEnabled
+      data.diagnosticsEnabled,
+      BendLintOptions(
+        data.lintEnabled,
+        data.lintBun,
+        data.lintDirectory,
+        data.lintSemanticObservations
+      )
     )
   }
 
@@ -69,7 +83,13 @@ final class BendSettingsStorage
       path.trim.isEmpty || path.startsWith("~/") ||
         java.nio.file.Path.of(path).isAbsolute
     require(
-      List(value.executable, value.baseSource, value.packageCache)
+      List(
+        value.executable,
+        value.baseSource,
+        value.packageCache,
+        value.lint.bun,
+        value.lint.directory
+      )
         .forall(valid),
       "Bend paths must be absolute or start with ~/."
     )
@@ -83,6 +103,10 @@ final class BendSettingsStorage
         next.baseSource = value.baseSource.trim
         next.packageCache = value.packageCache.trim
         next.diagnosticsEnabled = value.diagnosticsEnabled
+        next.lintEnabled = value.lint.enabled
+        next.lintBun = value.lint.bun.trim
+        next.lintDirectory = value.lint.directory.trim
+        next.lintSemanticObservations = value.lint.semanticObservations
         data = next
         revision += 1
         (true, pathsChanged)
