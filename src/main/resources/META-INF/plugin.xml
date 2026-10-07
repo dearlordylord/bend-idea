@@ -20,9 +20,10 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.19:</p>
+<p>Version 0.1.20:</p>
 <ul>
-  <li>Keep Quick Documentation Declaration and Implementation links inside IntelliJ's native PSI documentation navigation instead of opening them as external URLs.</li>
+  <li>Speed up switching between laws and candidate proofs by caching bounded source-link inventories. Revalidate source and loading inputs, reject canceled or inconsistent captures, and release cached sources when the project closes.</li>
+  <li>Navigate Quick Documentation Declaration and Implementation links to their source file and offset instead of reloading the documentation page; stale links stay inside IDEA without navigating.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

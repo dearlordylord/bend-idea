@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.20
+
 - Reuse bounded root source-link inventories when navigating between laws and candidate proofs. Edits, import changes, external source/package changes and loading settings invalidate cached links; root check status stays current. Reject inconsistent or canceled captures, release cached sources on project disposal, and preserve valid cached roots when an oversized entry is rejected.
 
 - Navigate Quick Documentation Declaration and Implementation links to their source file and offset, instead of reloading the same documentation page; stale links stay inside IDEA without navigating.
