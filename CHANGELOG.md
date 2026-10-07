@@ -13,6 +13,7 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Preserve unsaved imported source and its revision after closing an editor opened through a symlink or another path alias; checks and navigation through the canonical path keep using the modified document.
 - Navigate Quick Documentation Declaration and Implementation links to their source file and offset, instead of reloading the same documentation page; stale links stay inside IDEA without navigating.
 
 ## 0.1.19

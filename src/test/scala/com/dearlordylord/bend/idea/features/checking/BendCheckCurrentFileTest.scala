@@ -30,6 +30,8 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
@@ -567,6 +569,79 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       "Document opened after publication must invalidate its root",
       service.resultsFor(depId).head.fresh
     )
+
+  def testCheckUsesClosedModifiedAliasOfCanonicalDependency(): Unit =
+    val target = directory.resolve("closed-module.bend").toAbsolutePath
+    val alias = directory.resolve("closed-alias.bend")
+    val saved = "def value() -> Type:\n  Type\n"
+    val broken = "def value() -> Type:\n  unknown_closed_alias\n"
+    Files.writeString(target, saved)
+    Files.createSymbolicLink(alias, target.getFileName)
+    val aliasFile =
+      LocalFileSystem.getInstance().refreshAndFindFileByNioFile(alias)
+    assertNotNull(aliasFile)
+    myFixture.configureFromExistingVirtualFile(aliasFile)
+    val document = myFixture.getEditor.getDocument
+    def edit(text: String): Unit =
+      WriteCommandAction.runWriteCommandAction(
+        getProject,
+        new Runnable:
+          override def run(): Unit = document.setText(text)
+      )
+      PsiDocumentManager.getInstance(getProject).commitDocument(document)
+    edit(broken)
+    val editors = FileEditorManager.getInstance(getProject)
+    editors.closeFile(aliasFile)
+    assertFalse(editors.isFileOpen(aliasFile))
+    assertTrue(FileDocumentManager.getInstance().isFileModified(aliasFile))
+    val canonical = target.toRealPath()
+    myFixture.configureByText(
+      "closed-alias-root.bend",
+      s"import $canonical as Module\ndef main() -> Type:\n  Module.value()\n"
+    )
+    val rootFile = myFixture.getFile.getVirtualFile
+    val root = new FileId(rootFile.getCanonicalPath, true)
+    val dependency = new FileId(canonical.toString, true)
+    val service = getProject.getService(classOf[BendCheckService])
+    def checkCurrent(text: String): BendCheckResult =
+      myFixture.performEditorAction("Bend.CheckCurrentFile")
+      val deadline = System.nanoTime() + 15_000_000_000L
+      var result = service
+        .result(root)
+        .filter(r =>
+          r.fresh && r.sources.exists(s => s.id == dependency && s.text == text)
+        )
+      while result.isEmpty && System.nanoTime() < deadline do
+        Thread.sleep(25)
+        result = service
+          .result(root)
+          .filter(r =>
+            r.fresh && r.sources
+              .exists(s => s.id == dependency && s.text == text)
+          )
+      result.getOrElse(
+        throw new AssertionError(
+          "Canonical root did not check its closed modified alias"
+        )
+      )
+    val failed = checkCurrent(broken)
+    assertEquals(failed.details, BendCheckOutcome.Failed, failed.outcome)
+    assertTrue(failed.details.contains("unknown_closed_alias"))
+    assertTrue(
+      failed.sources.exists(s =>
+        s.id == dependency && s.revision == document.getModificationStamp
+      )
+    )
+    assertEquals(saved, Files.readString(target))
+    edit(saved + "# repaired without reopening\n")
+    assertFalse(
+      "Closed document changes invalidate the canonical root",
+      service.result(root).get.fresh
+    )
+    val repaired = checkCurrent(document.getText)
+    assertEquals(repaired.details, BendCheckOutcome.Success, repaired.outcome)
+    assertTrue(repaired.diagnostics.isEmpty)
+    assertEquals(saved, Files.readString(target))
 
   def testExternalSymlinkTargetOpenedAfterCheckInvalidatesRoot(): Unit =
     val target = directory.resolve("external.bend")

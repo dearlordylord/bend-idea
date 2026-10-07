@@ -8,6 +8,8 @@ import com.dearlordylord.bend.idea.adapters.intellij.{
 import com.dearlordylord.bend.idea.analysis.api.BendCheckService
 import com.dearlordylord.bend.idea.analysis.model.*
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph
+import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import com.dearlordylord.bend.idea.test.VfsTestRoots
 import com.dearlordylord.bend.idea.toolchain.api.{
   BendToolchainChoices,
@@ -21,8 +23,11 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.IndexingTestUtil
+import com.intellij.testFramework.ServiceContainerUtil
 import org.junit.Assert.*
 import java.nio.file.{Files, Path}
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.jdk.CollectionConverters.*
 
 final class BendBackgroundCheckingTest extends BasePlatformTestCase:
@@ -414,6 +419,155 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
       "Edit must start a replacement process",
       Files.size(marker) >= 2L
     )
+
+  def testCloseAndReopenDuringCompilerCheckPublishesOnlyReopenedRevision()
+      : Unit =
+    val settings = ApplicationManager.getApplication.getService(
+      classOf[BendToolchainSettings]
+    )
+    val marker = directory.resolve("reopen-started")
+    val slow = directory.resolve("reopen-bend")
+    val _ = RealBendCompilerFixture.writeLauncher(
+      slow,
+      RealBendCompilerFixture.markAndSleep(marker, 3)
+    )
+    myFixture.configureByText(
+      "reopen.bend",
+      "import Base\ndef main() -> U32:\n  unknown_before_close\n"
+    )
+    val file = myFixture.getFile.getVirtualFile
+    val root = id(file)
+    val service = getProject.getService(classOf[BendCheckService])
+    getProject.getService(classOf[BendBackgroundChecking])
+    settings.update(
+      settings.choices
+        .copy(executable = slow.toString, diagnosticsEnabled = true)
+    )
+    val deadline = System.nanoTime() + 10_000_000_000L
+    while !Files.exists(marker) && System.nanoTime() < deadline do
+      Thread.sleep(25)
+    assertTrue(
+      "The pre-close compiler check reached its staged source",
+      Files.exists(marker)
+    )
+    assertTrue(service.result(root).isEmpty)
+    val editors = FileEditorManager.getInstance(getProject)
+    editors.closeFile(file)
+    assertFalse(editors.isFileOpen(file))
+    myFixture.configureFromExistingVirtualFile(file)
+    val reopened = "import Base\ndef main() -> U32:\n  unknown_after_reopen\n"
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          myFixture.getEditor.getDocument.setText(reopened)
+    )
+    val revision = myFixture.getEditor.getDocument.getModificationStamp
+    val checked = awaitResult(
+      root,
+      r => r.fresh && r.details.contains("unknown_after_reopen")
+    )
+    assertEquals(BendCheckOutcome.Failed, checked.outcome)
+    assertEquals(revision, checked.key.sourceRevision)
+    assertTrue(checked.sources.exists(s => s.id == root && s.text == reopened))
+    assertFalse(checked.details.contains("unknown_before_close"))
+    assertTrue(
+      "Reopened edits require a new compiler invocation",
+      Files.size(marker) >= 2L
+    )
+
+  def testDisposalDuringGraphCaptureInterruptsWorkerWithoutStartingCompiler()
+      : Unit =
+    val settings = ApplicationManager.getApplication.getService(
+      classOf[BendToolchainSettings]
+    )
+    val marker = directory.resolve("capture-dispose-compiler")
+    val executable = directory.resolve("capture-dispose-bend")
+    val _ = RealBendCompilerFixture.writeLauncher(
+      executable,
+      RealBendCompilerFixture.markAndSleep(marker, 1)
+    )
+    myFixture.configureByText(
+      "capture-dispose.bend",
+      "import Base\ndef main() -> U32:\n  0\n"
+    )
+    val root = id(myFixture.getFile.getVirtualFile)
+    val delegate = getProject.getService(classOf[BendWorkspaceGraph])
+    val entered = new CountDownLatch(1)
+    val finished = new CountDownLatch(1)
+    val release = new CountDownLatch(1)
+    val interrupted = new AtomicBoolean(false)
+    val captureThread = new AtomicReference[Thread]
+    val first = new AtomicBoolean(true)
+    val gated = new BendWorkspaceGraph:
+      override def load(
+          source: BendSourceRecord,
+          base: String,
+          cache: String,
+          canceled: () => Boolean
+      ) =
+        val graph = delegate.load(source, base, cache, canceled)
+        if source.id == root && first.compareAndSet(true, false) then
+          captureThread.set(Thread.currentThread())
+          entered.countDown()
+          try
+            assertTrue(
+              "Release the captured graph",
+              release.await(10, TimeUnit.SECONDS)
+            )
+          catch case _: InterruptedException => interrupted.set(true)
+          finally finished.countDown()
+        graph
+      override def siblingLaws(path: String) = delegate.siblingLaws(path)
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[BendWorkspaceGraph],
+      gated,
+      getTestRootDisposable
+    )
+    val service = getProject.getService(classOf[BendCheckService])
+    // Light fixtures reuse their project services between methods. Dispose a
+    // replacement owned by this test, then restore the live project scheduler.
+    val scheduler = new BendBackgroundChecking(getProject)
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[BendBackgroundChecking],
+      scheduler,
+      getTestRootDisposable
+    )
+    try
+      settings.update(
+        settings.choices
+          .copy(executable = executable.toString, diagnosticsEnabled = true)
+      )
+      assertTrue(
+        "Capture reached the real graph before compiler dispatch",
+        entered.await(5, TimeUnit.SECONDS)
+      )
+      assertTrue(service.busy)
+      scheduler.dispose()
+      assertTrue(
+        "Disposal interrupts the graph worker",
+        finished.await(5, TimeUnit.SECONDS)
+      )
+      assertTrue(interrupted.get())
+      captureThread.get().join(5000)
+      assertFalse(
+        "Disposed scheduler owns no remaining capture thread",
+        captureThread.get().isAlive
+      )
+      assertFalse("Disposal releases the reserved check slot", service.busy)
+      assertTrue(
+        "No disposed capture may publish",
+        service.result(root).isEmpty
+      )
+      assertFalse(
+        "No compiler dispatch after capture disposal",
+        Files.exists(marker)
+      )
+    finally
+      scheduler.dispose()
+      release.countDown()
 
   def testManualActionPreemptsRunningBackgroundProcess(): Unit =
     val settings = ApplicationManager.getApplication.getService(
