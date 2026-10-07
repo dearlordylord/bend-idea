@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.20/bend-idea-0.1.20-signed.zip"
-          version="0.1.20">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.21/bend-idea-0.1.21-signed.zip"
+          version="0.1.21">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,10 +19,11 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.20:</p>
+    <change-notes><![CDATA[<p>Version 0.1.21:</p>
 <ul>
-  <li>Speed up switching between laws and candidate proofs by caching bounded source-link inventories. Revalidate source and loading inputs, reject canceled or inconsistent captures, and release cached sources when the project closes.</li>
-  <li>Navigate Quick Documentation Declaration and Implementation links to their source file and offset instead of reloading the documentation page; stale links stay inside IDEA without navigating.</li>
+  <li>Reuse cached law/proof links across unchanged editor open/close transitions, validate source and loading contents, and skip project-wide discovery when proof roots are selected.</li>
+  <li>Keep gutter navigation in the background without displaying a progress task on every switch.</li>
+  <li>Preserve unsaved imported source after closing an editor opened through a symlink or another path alias.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>

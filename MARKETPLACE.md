@@ -244,3 +244,18 @@ Clean JDK 21.0.12.1 release gates passed on 2026-10-07: 616 main-suite cases, 61
 All four GitHub release assets were downloaded anonymously and matched the local verified files and checksum manifest. The portable JAR reports `bend-format 0.1.20`. An interactive 0.1.20 installation/update in IDEA has not been exercised.
 
 Cloudflare Pages successfully deployed feed commit `6f11793` on 2026-10-07. Ordinary requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` served 0.1.20. ID, name, IDE range, description and change notes match the signed plugin's packaged metadata. Anonymous downloads through both feed links matched the recorded ZIP SHA-256 again. GitHub Release v0.1.20 is published as a stable, non-latest custom-repository plugin update; the latest complete formatter release remains v0.1.19. No Marketplace update was submitted.
+
+
+## 0.1.21 custom repository release
+
+[GitHub Release v0.1.21](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.21) is tagged at verified source commit `7747f0669b5c507e434391d21eeb1b2768b6f13d`. It preserves navigation inventories across unchanged editor open/close transitions, skips unnecessary selected-root discovery and runs gutter navigation without visible progress. It also includes the merged unsaved alias lifecycle correction. CHANGELOG and packaged plugin change notes cover these behaviors.
+
+Clean JDK 21.0.12.1 release gates passed on 2026-10-07: 624 main cases, 623 successful, one optional installed-compiler smoke skipped, zero failures/errors; two architecture tests passed. Quality, packaging, structure/configuration, signing and signature verification passed. Real compiler subprocess tests used pinned Bend 2.0.35 and Bun 1.4.2. Plugin Verifier accepted IC 2025.1 and IU 2026.1 with existing API notices. Metadata preserves ID `com.dearlordylord.bend.idea` and since-build 251 with no upper bound. Independent Standards and Spec reviews found no remaining actionable findings; release metadata received implementer self-review under REVIEWER.md.
+
+A read-only profile using the reported request-content sources measured 237 ms cold search and 2–7 ms warm searches across five round trips without warm graph reloads. These are editor-fixture search timings, not interactive IDEA rendering measurements. Actual installation/update of 0.1.21 remains a manual smoke check.
+
+- Signed ZIP SHA-256: `fcd1b58366a2db51f2fb936a7ce1fdfd94ac3a65e36052bf18c7007d35b60e78`.
+- Portable JAR SHA-256: `a046555f1dc07f513c92cdc296c7608e59615b6dca05617da0d908ae2221108a`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
+
+All four assets were downloaded anonymously and matched the locally verified files and manifest. Distribution is limited to the user's custom plugin repository; no Marketplace submission. Native formatter archives and Homebrew remain on 0.1.19, and the shared-version portable JAR retains unchanged formatter behavior. The GitHub release remains non-latest to preserve the complete formatter release. Live feed verification is recorded after deployment.
