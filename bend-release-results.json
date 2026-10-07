@@ -109,6 +109,17 @@
       "status": "passed",
       "suite": "editor-compatibility-v2",
       "tag": "v2.0.35"
+    },
+    "405390692": {
+      "commit": "ae1101ca7d15364f9274fa6b1367d175884a7da7",
+      "digest": "02089dc0eed0fd5fd6d73c74cc9cffcb2c6638dd3b02ae83f7b8cc57fbe381ba",
+      "exit_code": 0,
+      "plugin_commit": "499fecb8dd9fbc8ea9e77c7ab75b4454cab6221b",
+      "release_id": 405390692,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/37583168056",
+      "status": "passed",
+      "suite": "editor-compatibility-v2",
+      "tag": "v2.0.36"
     }
   },
   "schema": 1
