@@ -227,6 +227,8 @@ final class ArchitectureTest:
         "com.dearlordylord.bend.idea.features.proofs.BendProofNavigation$"
       ) && classes.contain(
         "com.dearlordylord.bend.idea.features.proofs.BendHoleNavigation$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.proofs.BendProofLinkCache"
       )
     )
     assertTrue(

@@ -86,24 +86,12 @@ private[intellij] final class BendRootSnapshotCapture(
     if !rootCurrent(snapshot) then false
     else
       val now = selection
-      val sources = snapshot.graph.toList.flatMap(_.files.map(_.source))
-      val present = sources.forall(sameSource)
-      val observedEdges = snapshot.graph.forall(
-        _.edges
-          .forall(edge =>
-            catalog.source(edge.requestedPath).map(_.id) == edge.target
-          )
-      )
-      val packageInputs = snapshot.graph.forall(graph =>
-        (graph.packageCacheIdentity.isEmpty || catalog.canonicalPath(
-          snapshot.toolchain.packageCache
-        ) == graph.packageCacheIdentity) &&
-          graph.cachedPackages.forall(entry =>
-            catalog.cachedPackageHash(
-              graph.packageCacheIdentity,
-              entry.name
-            ) == entry.hash
-          )
+      val graphCurrent = snapshot.graph.forall(graph =>
+        BendWorkspaceGraph.current(
+          graph,
+          snapshot.toolchain.packageCache,
+          catalog
+        )
       )
       val laws =
         snapshot.graph.isEmpty || siblingPath(snapshot.path).forall(path =>
@@ -116,7 +104,7 @@ private[intellij] final class BendRootSnapshotCapture(
         now.executable,
         Some(now.baseSource)
       )
-      present && observedEdges && packageInputs && laws && external &&
+      graphCurrent && laws && external &&
       selection == now
 
   /** Root and configuration currency for worker cancellation. External and
@@ -137,9 +125,6 @@ private[intellij] final class BendRootSnapshotCapture(
           record.id == snapshot.root && record.revision == snapshot.sourceRevision &&
             record.text == snapshot.text
         )
-
-  private def sameSource(before: BendSourceRecord): Boolean =
-    catalog.source(before.path).exists(sameRecord(before, _))
 
   private def sameRecord(a: BendSourceRecord, b: BendSourceRecord): Boolean =
     a.id == b.id && a.revision == b.revision && a.text == b.text

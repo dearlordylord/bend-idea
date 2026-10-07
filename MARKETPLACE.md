@@ -229,3 +229,18 @@ Cloudflare Pages deployed feed commit `dcf2a11`. Both ordinary public feed URLs 
 
 
 After restarting Codex, Computer Use reconnected. The maintainer completed the upload; authenticated Marketplace UI displayed Upload Successful and Stable version 0.1.19 as update [1187439](https://plugins.jetbrains.com/plugin/34452-bend2/edit/versions/stable/1187439). The success notice says additional support checks are required before publication. Submission is confirmed; approval and public availability are not. The version detail status was not separately inspected before the maintainer closed the tab. This supersedes the transport blocker recorded above.
+
+
+## 0.1.20 custom repository release
+
+[GitHub Release v0.1.20](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.20) is tagged at verified release commit `25824c9777fd05b96f149b975ce4ad5b8e63c054`. It includes bounded, validated law/fill navigation caching and source navigation from Quick Documentation links. Versioned CHANGELOG and packaged plugin change notes cover both changes. The user requested distribution through the existing custom plugin repository only; 0.1.20 was not submitted to JetBrains Marketplace. Native formatter archives and Homebrew remain on 0.1.19; the attached portable JAR carries the shared 0.1.20 version with unchanged formatter policy. The GitHub release remains non-latest to preserve the complete 0.1.19 formatter release.
+
+Clean JDK 21.0.12.1 release gates passed on 2026-10-07: 616 main-suite cases, 615 successful, one optional current-release compiler smoke skipped, zero failures/errors. Architecture/quality gates, packaging, structure/configuration, signing and signature verification passed. Real subprocess tests used pinned Bend 2.0.35 `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2. Plugin Verifier classified Community 2025.1 and Ultimate 2026.1 as compatible with existing API usage notices. Signed metadata preserves ID `com.dearlordylord.bend.idea` and since-build 251 with no upper bound. Independent Standards and Spec reviews of the navigation changes found no actionable findings; release metadata received implementer self-review under REVIEWER.md.
+
+- Signed ZIP SHA-256: `b7a7047228eb9858b05e21d565ce995167c34b10cdb0d316485ade888c3df33c`.
+- Portable JAR SHA-256: `64b8af6b3f4d35e64b279528835f639906171c35cd54812e100371e58c4bad29`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
+
+All four GitHub release assets were downloaded anonymously and matched the local verified files and checksum manifest. The portable JAR reports `bend-format 0.1.20`. An interactive 0.1.20 installation/update in IDEA has not been exercised.
+
+Cloudflare Pages successfully deployed feed commit `6f11793` on 2026-10-07. Ordinary requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` served 0.1.20. ID, name, IDE range, description and change notes match the signed plugin's packaged metadata. Anonymous downloads through both feed links matched the recorded ZIP SHA-256 again. GitHub Release v0.1.20 is published as a stable, non-latest custom-repository plugin update; the latest complete formatter release remains v0.1.19. No Marketplace update was submitted.
