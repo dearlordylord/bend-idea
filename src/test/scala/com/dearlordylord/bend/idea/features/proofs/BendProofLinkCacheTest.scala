@@ -16,7 +16,7 @@ import junit.framework.TestCase
 import org.junit.Assert.*
 
 final class BendProofLinkCacheTest extends TestCase:
-  private val revision = BendProofLinkRevision(1, 1, 1)
+  private val revision = 1L
   private def inventory(
       path: String,
       count: Int = 0,

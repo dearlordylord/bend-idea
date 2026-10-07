@@ -48,6 +48,12 @@ final class BendProofColdCaptureTest extends BasePlatformTestCase:
       )
       val _ =
         myFixture.addFileToProject("invalidate.bend", "def unrelated():\n  0\n")
+      ServiceContainerUtil.replaceService(
+        getProject,
+        classOf[BendProofLinkCache],
+        new BendProofLinkCache,
+        getTestRootDisposable
+      )
       val delegate = getProject.getService(classOf[BendWorkspaceGraph])
       val originalCatalog = getProject.getService(classOf[BendSourceCatalog])
       var changed = false

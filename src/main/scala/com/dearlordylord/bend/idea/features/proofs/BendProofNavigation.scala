@@ -31,7 +31,8 @@ import com.intellij.openapi.actionSystem.{
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.ScrollType
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
-import com.intellij.openapi.progress.{ProgressIndicator, Task}
+import com.intellij.openapi.progress.{ProgressIndicator, ProgressManager, Task}
+import com.intellij.openapi.progress.util.ProgressIndicatorBase
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.{VirtualFile, VirtualFileManager}
@@ -97,11 +98,8 @@ object BendProofNavigation:
     val project = origin.getProject
     val currentPath = Option(origin.getVirtualFile).map(_.getPath)
     val saved = project.getService(classOf[BendProofRootStore]).selectedPaths
-    val lawIndex = currentPath.exists(path =>
-      java.nio.file.Path.of(path).getFileName.toString == "LAWS.bend"
-    )
     val discovered =
-      if saved.isEmpty || lawIndex then
+      if saved.isEmpty then
         project
           .getService(classOf[BendWorkspacePaths])
           .filesNamed("PROOF.bend", RootLimit)
@@ -129,7 +127,7 @@ object BendProofNavigation:
   ): List[BendProofDestination] =
     val project = origin.getProject
     // Discovering a previously unseen VFS dependency can advance its revision.
-    // Retry once from fresh inputs rather than returning a false empty result.
+    // Retry from fresh inputs rather than returning a false empty result.
     (0 until 3).iterator
       .map { _ =>
         val (
@@ -188,7 +186,8 @@ object BendProofNavigation:
     if canceled() || !ReadAction.compute(() => inputsCurrent(origin, expected))
     then return None
     val cached = ReadAction.compute(() =>
-      if inputsCurrent(origin, expected) then cache.get(path, expected)
+      if inputsCurrent(origin, expected) then
+        cache.get(path, expected.configuration)
       else None
     )
     if canceled() then return None
@@ -201,18 +200,18 @@ object BendProofNavigation:
           inventory.graph
             .source(inventory.root)
             .exists(before =>
-              record.id == before.id && record.revision == before.revision && record.text == before.text
+              record.id == before.id && record.text == before.text
             )
-        ) && graphService.current(
+        ) && graphService.contentsCurrent(
         inventory.graph,
         configuration.packageCache,
         canceled
       )
     )
-    if reusable.nonEmpty && ReadAction.compute(() =>
-        inputsCurrent(origin, expected)
+    if reusable.nonEmpty then
+      return ReadAction.compute(() =>
+        if inputsCurrent(origin, expected) then reusable else None
       )
-    then return reusable
     val root = project.getService(classOf[BendSourceCatalog]).source(path)
     root match
       case None       => None
@@ -293,12 +292,17 @@ object BendProofNavigation:
             .toSet,
           inventoryCapped
         )
-        if !graphService.current(graph, configuration.packageCache, canceled)
+        if !graphService.contentsCurrent(
+            graph,
+            configuration.packageCache,
+            canceled
+          )
         then return None
         ReadAction.compute(() =>
           if canceled() || !inputsCurrent(origin, expected) then None
           else
-            if !inventory.capped then cache.put(path, expected, inventory)
+            if !inventory.capped then
+              cache.put(path, expected.configuration, inventory)
             Some(inventory)
         )
 
@@ -397,7 +401,7 @@ object BendProofNavigation:
     if canceled() || !observed.forall(graph =>
         project
           .getService(classOf[BendWorkspaceGraph])
-          .current(
+          .contentsCurrent(
             graph,
             loadingConfiguration.packageCache,
             canceled
@@ -453,7 +457,13 @@ object BendProofNavigation:
   private def findDestinations(
       file: PsiFile,
       selected: BendSourceSymbol
-  ): Unit = searchTask(file, selected).queue()
+  ): Unit =
+    ProgressManager
+      .getInstance()
+      .runProcessWithProgressAsynchronously(
+        searchTask(file, selected),
+        new ProgressIndicatorBase()
+      )
 
   private[proofs] def searchTask(
       file: PsiFile,

@@ -17,6 +17,16 @@ trait BendWorkspaceGraph:
       canceled: () => Boolean = () => false
   ): Boolean = false
 
+  /** Source-link inventories depend on source contents and identities, not on
+    * switching a catalog record between persisted text and an editor document.
+    * Compiler snapshots continue to use strict current revision validation.
+    */
+  def contentsCurrent(
+      graph: BendLoadedGraph,
+      packageCache: String,
+      canceled: () => Boolean = () => false
+  ): Boolean = current(graph, packageCache, canceled)
+
   def load(
       root: BendSourceRecord,
       basePath: String,
@@ -39,6 +49,21 @@ object BendWorkspaceGraph:
       packageCache: String,
       catalog: BendSourceCatalog,
       canceled: () => Boolean = () => false
+  ): Boolean = observedCurrent(graph, packageCache, catalog, canceled, true)
+
+  def contentsCurrent(
+      graph: BendLoadedGraph,
+      packageCache: String,
+      catalog: BendSourceCatalog,
+      canceled: () => Boolean = () => false
+  ): Boolean = observedCurrent(graph, packageCache, catalog, canceled, false)
+
+  private def observedCurrent(
+      graph: BendLoadedGraph,
+      packageCache: String,
+      catalog: BendSourceCatalog,
+      canceled: () => Boolean,
+      exactRevisions: Boolean
   ): Boolean =
     val observedPaths = (graph.files.map(_.source.path) ++ graph.edges.map(
       _.requestedPath
@@ -52,7 +77,7 @@ object BendWorkspaceGraph:
         .get(file.source.path)
         .flatten
         .exists(record =>
-          record.id == file.source.id && record.revision == file.source.revision && record.text == file.source.text
+          record.id == file.source.id && (!exactRevisions || record.revision == file.source.revision) && record.text == file.source.text
         )
     ) && graph.edges.forall(edge =>
       observations.get(edge.requestedPath).flatten.map(_.id) == edge.target

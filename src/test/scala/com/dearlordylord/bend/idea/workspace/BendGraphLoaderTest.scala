@@ -42,6 +42,32 @@ final class BendGraphLoaderTest:
       )
     )
 
+  @Test def contentFreshnessAcceptsReopenedRevisionButRejectsChangedText()
+      : Unit =
+    val root = record("/p/main.bend", "law claim:\n  Type\n")
+    val graph = BendGraphLoader.load(
+      root,
+      BendGraphLoader.Config("", ""),
+      mapCatalog(root)
+    )
+    val reopened = mapCatalog(root.copy(revision = 2))
+    assertFalse(
+      "Compiler snapshots retain strict revision provenance",
+      BendWorkspaceGraph.current(graph, "", reopened)
+    )
+    assertTrue(
+      "Unchanged source links survive switching disk/document revisions",
+      BendWorkspaceGraph.contentsCurrent(graph, "", reopened)
+    )
+    assertFalse(
+      "A source edit must still reject the inventory",
+      BendWorkspaceGraph.contentsCurrent(
+        graph,
+        "",
+        mapCatalog(root.copy(revision = 2, text = "law changed:\n  Type\n"))
+      )
+    )
+
   private def record(
       path: String,
       text: String,

@@ -30,7 +30,8 @@ private[proofs] final case class BendProofLinkInventory(
     graph.files.iterator.map(_.source.text.length.toLong).sum
 
 /** Project lifetime; globally bounded even when roots contain very long names.
-  * Revisions are supplied and checked by the navigation capture owner.
+  * Loading configuration is the cache generation; source contents are validated
+  * by the navigation capture owner before every reuse.
   */
 final class BendProofLinkCache extends com.intellij.openapi.Disposable:
   private var disposed = false
@@ -40,12 +41,12 @@ final class BendProofLinkCache extends com.intellij.openapi.Disposable:
     entries = Nil
     revision = None
   }
-  private var revision: Option[BendProofLinkRevision] = None
+  private var revision: Option[Long] = None
   private var entries = List.empty[(String, BendProofLinkInventory)]
 
   private[proofs] def get(
       path: String,
-      expected: BendProofLinkRevision
+      expected: Long
   ): Option[BendProofLinkInventory] = synchronized {
     if disposed then return None
     if !revision.contains(expected) then
@@ -58,7 +59,7 @@ final class BendProofLinkCache extends com.intellij.openapi.Disposable:
 
   private[proofs] def put(
       path: String,
-      expected: BendProofLinkRevision,
+      expected: Long,
       inventory: BendProofLinkInventory
   ): Unit = synchronized {
     if disposed then return

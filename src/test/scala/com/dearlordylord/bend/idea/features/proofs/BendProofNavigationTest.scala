@@ -27,9 +27,9 @@ import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import org.junit.Assert.*
 
 final class BendProofNavigationTest extends BasePlatformTestCase:
-  def testLinkCacheBoundsRootsAndSourceTextAndDropsOldRevisions(): Unit =
+  def testLinkCacheBoundsRootsAndSourceTextAndDropsOldConfigurations(): Unit =
     val cache = new BendProofLinkCache
-    val revision = BendProofLinkRevision(1, 1, 1)
+    val revision = 1L
     def inventory(path: String, text: String): BendProofLinkInventory =
       val id = new com.dearlordylord.bend.idea.model.FileId(path, true)
       val source = BendSourceRecord(id, path, text, 1, Nil)
@@ -67,8 +67,8 @@ final class BendProofNavigationTest extends BasePlatformTestCase:
     )
     assertTrue(cache.get("root0", revision).nonEmpty)
     assertTrue(
-      "A new input revision drops previous root entries",
-      cache.get("root0", revision.copy(vfs = 2)).isEmpty
+      "A new loading configuration drops previous root entries",
+      cache.get("root0", revision + 1).isEmpty
     )
 
   def testRoundTripReusesRootInventory(): Unit =
@@ -620,3 +620,34 @@ final class BendProofNavigationTest extends BasePlatformTestCase:
       BendHoleNavigation.nextOffset(source, source.length)
     )
     assertEquals(Some(last), BendHoleNavigation.previousOffset(source, 0))
+
+  def testExplicitProofRootsSkipUnneededProjectInventory(): Unit =
+    val laws =
+      myFixture.addFileToProject("selected/LAWS.bend", "law claim:\n  Type\n")
+    val proof = myFixture.addFileToProject(
+      "selected/PROOF.bend",
+      "import ./LAWS.bend as Laws\ndef Laws.claim():\n  ?TODO\n"
+    )
+    val roots = getProject.getService(classOf[BendProofRootStore])
+    val previous = roots.getState
+    roots.loadState(new BendProofRootState)
+    roots.select(proof.getVirtualFile.getPath)
+    com.intellij.openapi.util.Disposer
+      .register(getTestRootDisposable, () => roots.loadState(previous))
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[com.dearlordylord.bend.idea.workspace.api.BendWorkspacePaths],
+      new com.dearlordylord.bend.idea.workspace.api.BendWorkspacePaths:
+        override def children(path: String, limit: Int) = Nil
+        override def filesNamed(name: String, limit: Int) =
+          throw new AssertionError(
+            "Explicit proof roots must not trigger project-wide discovery on every law click"
+          )
+        override def filesWithExtension(extension: String, limit: Int) =
+          Right(Nil)
+      ,
+      getTestRootDisposable
+    )
+    val inventory = BendProofNavigation.roots(laws)
+    assertEquals(List(proof.getVirtualFile.getPath), inventory.paths)
+    assertEquals(BendPathInventoryStatus.Complete, inventory.status)

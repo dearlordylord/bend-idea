@@ -24,6 +24,17 @@ final class BendWorkspaceGraphService(project: Project)
     canceled
   )
 
+  override def contentsCurrent(
+      graph: BendLoadedGraph,
+      packageCache: String,
+      canceled: () => Boolean
+  ): Boolean = BendWorkspaceGraph.contentsCurrent(
+    graph,
+    packageCache,
+    project.getService(classOf[BendSourceCatalog]),
+    canceled
+  )
+
   override def load(
       root: BendSourceRecord,
       basePath: String,

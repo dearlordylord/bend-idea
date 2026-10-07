@@ -1,7 +1,10 @@
 package com.dearlordylord.bend.idea.features.proofs
 
 import com.dearlordylord.bend.idea.symbols.api.BendSourceSymbols
-import com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph
+import com.dearlordylord.bend.idea.workspace.api.{
+  BendWorkspaceGraph,
+  BendLoadingConfiguration
+}
 import com.dearlordylord.bend.idea.workspace.model.{
   BendLoadedGraph,
   BendSourceRecord
@@ -58,6 +61,12 @@ final class BendProofGutterNavigationTest extends BasePlatformTestCase:
             cache: String,
             cancel: () => Boolean
         ): BendLoadedGraph =
+          assertFalse(
+            com.intellij.openapi.application.ApplicationManager.getApplication.isDispatchThread
+          )
+          val progress = ProgressManager.getInstance().getProgressIndicator
+          assertNotNull(progress)
+          assertFalse(progress.isShowing)
           val graph = delegate.load(root, base, cache, cancel)
           if loads.incrementAndGet() == 1 then
             ProgressManager.getInstance().getProgressIndicator.cancel()
@@ -303,21 +312,9 @@ final class BendProofGutterNavigationTest extends BasePlatformTestCase:
         BendSourceSymbols.declarations(laws).head
       )
       task.run(new com.intellij.openapi.progress.EmptyProgressIndicator)
-      val revision = BendProofLinkRevision(
-        com.intellij.psi.util.PsiModificationTracker
-          .getInstance(project)
-          .getModificationCount,
-        com.intellij.openapi.vfs.VirtualFileManager
-          .getInstance()
-          .getModificationCount,
-        project
-          .getService(
-            classOf[
-              com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
-            ]
-          )
-          .configurationRevision
-      )
+      val revision = project
+        .getService(classOf[BendLoadingConfiguration])
+        .configurationRevision
       val captured = cache.get(proof.getVirtualFile.getPath, revision)
       assertTrue(
         "The completed task cached its source inventory",

@@ -13,7 +13,11 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.21
+
 - Preserve unsaved imported source and its revision after closing an editor opened through a symlink or another path alias; checks and navigation through the canonical path keep using the modified document.
+
+- Preserve cached law/proof source links when unchanged files switch between closed disk sources and editor documents. Validate source contents and import/package identities per use, skip project-wide proof discovery when roots are already selected, and keep routine gutter navigation in the background without showing a progress task for every switch.
 
 ## 0.1.20
 
