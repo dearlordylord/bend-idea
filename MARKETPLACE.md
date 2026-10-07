@@ -242,3 +242,5 @@ Clean JDK 21.0.12.1 release gates passed on 2026-10-07: 616 main-suite cases, 61
 - Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
 
 All four GitHub release assets were downloaded anonymously and matched the local verified files and checksum manifest. The portable JAR reports `bend-format 0.1.20`. An interactive 0.1.20 installation/update in IDEA has not been exercised.
+
+Cloudflare Pages successfully deployed feed commit `6f11793` on 2026-10-07. Ordinary requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` served 0.1.20. ID, name, IDE range, description and change notes match the signed plugin's packaged metadata. Anonymous downloads through both feed links matched the recorded ZIP SHA-256 again. GitHub Release v0.1.20 is published as a stable, non-latest custom-repository plugin update; the latest complete formatter release remains v0.1.19. No Marketplace update was submitted.
