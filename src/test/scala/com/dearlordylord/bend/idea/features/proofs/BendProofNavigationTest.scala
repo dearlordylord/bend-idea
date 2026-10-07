@@ -21,9 +21,212 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.testFramework.ServiceContainerUtil
+import com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph
+import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import org.junit.Assert.*
 
 final class BendProofNavigationTest extends BasePlatformTestCase:
+  def testLinkCacheBoundsRootsAndSourceTextAndDropsOldRevisions(): Unit =
+    val cache = new BendProofLinkCache
+    val revision = BendProofLinkRevision(1, 1, 1)
+    def inventory(path: String, text: String): BendProofLinkInventory =
+      val id = new com.dearlordylord.bend.idea.model.FileId(path, true)
+      val source = BendSourceRecord(id, path, text, 1, Nil)
+      val graph = com.dearlordylord.bend.idea.workspace.model.BendLoadedGraph(
+        id,
+        List(
+          com.dearlordylord.bend.idea.workspace.model.BendLoadedFile(source, "")
+        ),
+        Nil,
+        Nil
+      )
+      BendProofLinkInventory(
+        graph,
+        id,
+        Map.empty,
+        Map.empty,
+        Map.empty,
+        Set.empty,
+        false
+      )
+    (0 until 32).foreach(i =>
+      cache.put(s"root$i", revision, inventory(s"root$i", ""))
+    )
+    assertTrue(cache.get("root0", revision).nonEmpty)
+    cache.put("root32", revision, inventory("root32", ""))
+    assertTrue(
+      "The least recently used root is evicted",
+      cache.get("root1", revision).isEmpty
+    )
+    assertTrue(cache.get("root0", revision).nonEmpty)
+    cache.put("oversized", revision, inventory("oversized", "x" * 4000001))
+    assertTrue(
+      "An oversized graph cannot enter the cache",
+      cache.get("oversized", revision).isEmpty
+    )
+    assertTrue(cache.get("root0", revision).nonEmpty)
+    assertTrue(
+      "A new input revision drops previous root entries",
+      cache.get("root0", revision.copy(vfs = 2)).isEmpty
+    )
+
+  def testRoundTripReusesRootInventory(): Unit =
+    val lawFile = myFixture.addFileToProject(
+      "roundtrip/LAWS.bend",
+      "law claim:\n  Type\n"
+    )
+    val proof = myFixture.addFileToProject(
+      "roundtrip/PROOF.bend",
+      "import ./LAWS.bend as Laws\ndef Laws.claim():\n  ?TODO\n"
+    )
+    val delegate = getProject.getService(classOf[BendWorkspaceGraph])
+    var loads = 0
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[BendWorkspaceGraph],
+      new BendWorkspaceGraph:
+        override def load(
+            root: BendSourceRecord,
+            base: String,
+            cache: String,
+            canceled: () => Boolean
+        ) =
+          loads += 1
+          delegate.load(root, base, cache, canceled)
+        override def current(
+            graph: com.dearlordylord.bend.idea.workspace.model.BendLoadedGraph,
+            cache: String,
+            canceled: () => Boolean
+        ) = delegate.current(graph, cache, canceled)
+        override def siblingLaws(path: String) = delegate.siblingLaws(path)
+      ,
+      getTestRootDisposable
+    )
+    val law = BendSourceSymbols.declarations(lawFile).head
+    val fill = BendSourceSymbols.declarations(proof).head
+    val paths = List(proof.getVirtualFile.getPath)
+    val cold = System.nanoTime()
+    assertEquals(1, BendProofNavigation.destinations(lawFile, law, paths).size)
+    val warm = System.nanoTime()
+    (1 to 5).foreach { _ =>
+      assertEquals(
+        law.handle,
+        BendProofNavigation.destinations(proof, fill, paths).head.symbol.handle
+      )
+      assertEquals(
+        fill.handle,
+        BendProofNavigation.destinations(lawFile, law, paths).head.symbol.handle
+      )
+    }
+    println(
+      s"Proof navigation: cold=${(warm - cold) / 1000000}ms, ten warm searches=${(System.nanoTime() - warm) / 1000000}ms, graph loads=$loads"
+    )
+    assertEquals(
+      "Switching back and forth must not reload and reparse the same root",
+      1,
+      loads
+    )
+    val settings =
+      com.intellij.openapi.application.ApplicationManager.getApplication
+        .getService(classOf[BendToolchainSettings])
+    val original = settings.choices
+    try
+      settings.update(
+        original.copy(packageCache =
+          original.packageCache + "/navigation-change"
+        )
+      )
+      assertEquals(
+        1,
+        BendProofNavigation.destinations(lawFile, law, paths).size
+      )
+      assertEquals(
+        "Loading settings must invalidate cached inventories",
+        2,
+        loads
+      )
+    finally settings.update(original)
+
+  def testCachedLinksRejectUncommittedAndCommittedImportEdits(): Unit =
+    val laws =
+      myFixture.addFileToProject("edit/LAWS.bend", "law claim:\n  Type\n")
+    val other =
+      myFixture.addFileToProject("edit/other.bend", "law other:\n  Type\n")
+    val proof = myFixture.addFileToProject(
+      "edit/PROOF.bend",
+      "import ./LAWS.bend as Laws\ndef Laws.claim():\n  ?TODO\n"
+    )
+    val selected = BendSourceSymbols.declarations(laws).head
+    val paths = List(proof.getVirtualFile.getPath)
+    assertEquals(
+      1,
+      BendProofNavigation.destinations(laws, selected, paths).size
+    )
+    val manager = PsiDocumentManager.getInstance(getProject)
+    val document = manager.getDocument(proof)
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit = document.setText(
+          "import ./other.bend as Laws\ndef Laws.claim():\n  ?TODO\n"
+        )
+    )
+    assertTrue(
+      "Dirty imports cannot reuse links from committed PSI",
+      BendProofNavigation.destinations(laws, selected, paths).isEmpty
+    )
+    manager.commitAllDocuments()
+    assertTrue(
+      "Unsaved committed imports invalidate cached relationships",
+      BendProofNavigation.destinations(laws, selected, paths).isEmpty
+    )
+    assertTrue(
+      BendProofNavigation
+        .destinations(other, BendSourceSymbols.declarations(other).head, paths)
+        .isEmpty
+    )
+
+  def testCachedLinksObserveClosedFileChangesBeforeVfsRefresh(): Unit =
+    val directory =
+      java.nio.file.Files.createTempDirectory("bend-proof-link-input-")
+    val path = directory.resolve("laws.bend")
+    com.dearlordylord.bend.idea.test.VfsTestRoots
+      .allowSystemTemporaryDirectory(getTestRootDisposable, directory)
+    try
+      val _ = java.nio.file.Files.writeString(path, "law claim:\n  Type\n")
+      val proof = myFixture.addFileToProject(
+        "external/PROOF.bend",
+        s"import $path as Laws\ndef Laws.claim():\n  ?TODO\n"
+      )
+      val fill = BendSourceSymbols.declarations(proof).head
+      val paths = List(proof.getVirtualFile.getPath)
+      assertEquals(1, BendProofNavigation.destinations(proof, fill, paths).size)
+      assertEquals(1, BendProofNavigation.destinations(proof, fill, paths).size)
+      val psi =
+        PsiModificationTracker.getInstance(getProject).getModificationCount
+      val vfs = com.intellij.openapi.vfs.VirtualFileManager
+        .getInstance()
+        .getModificationCount
+      val _ = java.nio.file.Files.writeString(path, "law other:\n  Type\n")
+      assertEquals(
+        psi,
+        PsiModificationTracker.getInstance(getProject).getModificationCount
+      )
+      assertEquals(
+        vfs,
+        com.intellij.openapi.vfs.VirtualFileManager
+          .getInstance()
+          .getModificationCount
+      )
+      assertTrue(
+        "Disk observations invalidate links even without a PSI/VFS event",
+        BendProofNavigation.destinations(proof, fill, paths).isEmpty
+      )
+    finally
+      val _ = java.nio.file.Files.deleteIfExists(path)
+      val _ = java.nio.file.Files.deleteIfExists(directory)
+
   def testLawAndFillLinksStayInsideEachSelectedRoot(): Unit =
     val lawFile = myFixture.addFileToProject(
       "shared/LAWS.bend",

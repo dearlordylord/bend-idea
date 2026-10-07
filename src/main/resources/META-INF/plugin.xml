@@ -133,6 +133,7 @@ compiler-backed features. See the
                         serviceImplementation="com.dearlordylord.bend.idea.adapters.process.BendNativeProcessService"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.features.semantics.BendNormalizationInlays"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.features.proofs.BendProofRootStore"/>
+        <projectService serviceImplementation="com.dearlordylord.bend.idea.features.proofs.BendProofLinkCache"/>
         <projectService serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendBackgroundChecking"/>
         <applicationService serviceInterface="com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings"
                             serviceImplementation="com.dearlordylord.bend.idea.adapters.intellij.BendSettingsStorage"/>
