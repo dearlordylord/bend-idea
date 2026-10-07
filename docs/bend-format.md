@@ -181,11 +181,11 @@ The contributor [Git hook](../contrib/hooks/pre-commit) also uses the built JAR.
 
 `--version` reads packaged build metadata, independent of the JAR filename. Missing or blank metadata exits `2`; formatting commands remain usable.
 
-For users who already manage Java, the smaller [portable JAR](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.19/bend-format-tool-0.1.19.jar) requires Java 21 or newer:
+For users who already manage Java, the smaller [portable JAR](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.20/bend-format-tool-0.1.20.jar) requires Java 21 or newer:
 
 ```sh
-java -jar bend-format-tool-0.1.19.jar check src/main.bend
-java -jar bend-format-tool-0.1.19.jar fix src/main.bend
+java -jar bend-format-tool-0.1.20.jar check src/main.bend
+java -jar bend-format-tool-0.1.20.jar fix src/main.bend
 ```
 
 The standard archives include a private Java runtime and do not use system Java or JAVA_HOME. Linux builds target glibc distributions and are tested on Ubuntu 22.04; Alpine/musl and Windows ARM64 are not supported. macOS archives are not notarized. Each archive records its runtime provenance and includes license notices. Verify downloads against `BEND-FORMAT-SHA256SUMS.txt` on the release page. To update, replace the extracted directory with the new version and keep PATH pointed at its `bin` directory.
