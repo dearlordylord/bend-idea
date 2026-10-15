@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Format block-bearing argument lists while preserving significant newlines, physical relative indentation, comments and multiline-string contents. Block layouts requiring ambiguous tab/space conversion remain unavailable.
+
 ## 0.1.19
 
 - Keep Quick Documentation Declaration and Implementation links inside IntelliJ's native PSI documentation navigation instead of opening them as external URLs.

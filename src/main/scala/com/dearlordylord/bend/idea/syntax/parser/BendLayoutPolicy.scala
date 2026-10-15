@@ -238,6 +238,50 @@ object BendLayoutPolicy:
             }
         }
         gaps(list.close) = newline + indent(base)
+    val blockWords = Set(
+      "do", "match", "case", "return", "for", "exs", "=>", "=", ";", "%", "\\"
+    )
+    def containsBlock(list: LayoutList): Boolean =
+      significant.slice(list.open + 1, list.close).exists(token => blockWords(token.text))
+    def linePrefix(index: Int): String =
+      val at = significant(index).start
+      val beginning = source.lastIndexOf('\n', at - 1) + 1
+      source.substring(beginning, at).takeWhile(c => c == ' ' || c == '\t')
+    // A block item is a layout island. Its anchor is its original physical LINE
+    // prefix, never the inline token column after an application head. Shift
+    // every continuation prefix equally; keep significant newlines and string
+    // token bytes untouched. Tabs are not safely interchangeable with columns.
+    def expandBlocks(list: LayoutList, base: Int): Unit =
+      if settings.useTabs then
+        unsafe = Some("Tab-sensitive block expression in list")
+      else if list.items.nonEmpty then
+        list.items.foreach { (from, until) =>
+          val original = linePrefix(from)
+          val target = base + settings.indentSize
+          val delta = target - original.length
+          if original.contains('\t') then
+            unsafe = Some("Tab-sensitive block expression in list")
+          else
+            (from + 1 to until).foreach { index =>
+              val gap = source.substring(significant(index - 1).end, significant(index).start)
+              val lastBreak = gap.lastIndexOf('\n')
+              if lastBreak >= 0 then
+                val prefix = gap.substring(lastBreak + 1)
+                if prefix.exists(_ != ' ') || prefix.length + delta < 0 then
+                  unsafe = Some("Unrepresentable block item indentation")
+                else gaps(index) = gap.substring(0, lastBreak + 1) + (" " * (prefix.length + delta))
+            }
+            gaps(from) = newline + indent(target)
+            list.children.flatMap(candidates)
+              .filter(child => child.open >= from && child.close <= until)
+              .foreach { child =>
+                val childBase = linePrefix(child.open).length + delta
+                if childBase < 0 then unsafe = Some("Unrepresentable block item indentation")
+                else if overlong(spelling(child.open, child.close), childBase) then
+                  expandBlocks(child, childBase)
+              }
+        }
+        gaps(list.close) = newline + indent(base)
     def select(list: LayoutList): Unit =
       val start = source.lastIndexOf('\n', significant(list.open).start - 1) + 1
       val end = source.indexOf('\n', significant(list.close).end) match
@@ -257,29 +301,14 @@ object BendLayoutPolicy:
         .getOrElse(source.substring(start, significant(from).start))
       val region = prefix + spelling(from, until)
       if list.items.nonEmpty && overlong(region, 0) then
-        if significant
+        if containsBlock(list) then
+          if source.contains("\r") && source.replace("\r\n", "").exists(c => c == '\n' || c == '\r') then
+            unsafe = Some("Mixed line endings")
+          else expandBlocks(list, indentation(significant(list.open).start))
+        else if significant
             .slice(list.open, list.close + 1)
             .exists(_.text.startsWith("#"))
         then unsafe = Some("Comment-sensitive list layout")
-        else if significant
-            .slice(list.open + 1, list.close)
-            .exists(token =>
-              Set(
-                "do",
-                "match",
-                "case",
-                "return",
-                "for",
-                "exs",
-                "=>",
-                "=",
-                ";",
-                "%",
-                "\\"
-              )
-                .contains(token.text)
-            )
-        then unsafe = Some("Unsupported block expression in list")
         else if structure.exists(group =>
             atomic(
               group
