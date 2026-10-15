@@ -13,7 +13,12 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
-- Format block-bearing argument lists while preserving significant newlines, physical relative indentation, comments and multiline-string contents. Block layouts requiring ambiguous tab/space conversion remain unavailable.
+- Format block-bearing argument lists while preserving significant newlines,
+  physical relative indentation, comments and multiline-string contents. Keep
+  adjacent curried calls stable in one pass. Ambiguous tab-sensitive layouts and
+  multiline atomic descendants remain unavailable.
+- Index delimiter nesting and layout lookups once per source to avoid repeated
+  whole-file scans when formatting large, deeply nested files.
 
 ## 0.1.19
 
