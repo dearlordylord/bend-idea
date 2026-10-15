@@ -42,6 +42,48 @@ final class BendFormatCliTest:
           })
       finally paths.close()
 
+  @Test def inlineBodyContinuationCannotBeShiftedByHeaderSpacing(): Unit =
+    temporary { dir =>
+      val compiler = RealBendCompilerFixture.inputs
+      val executable = compiler.writeLauncher(dir.resolve("bend"))
+      Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nindent_style = space\nindent_size = 2\nbend_max_line_length = 100\n"
+      )
+      val file = dir.resolve("inline.bend")
+      for
+        (header, column) <- List(
+          ("def f(a: Array<U32>,n: U32) -> Array<U32>: a[0] <- 7", 43),
+          ("def f(a: Array<U32> , n: U32) -> Array<U32>: a[0] <- 7", 45),
+          (
+            "def f(a: Array<U32>,n: U32) -> Array<U32>: a[0] <- zero(\"first\nsecond\")",
+            43
+          )
+        )
+        ending <- List("\n", "\r\n")
+      do
+        val source = "import Base" + ending +
+          "def zero(s: String) -> U32: 0" + ending +
+          header.replace("\n", ending) + ending +
+          "# Keep this continuation attached." + ending + ending +
+          " " * column + "a[1] <- 8" + ending
+        Files.writeString(file, source)
+        val before =
+          run(dir, executable.toString, file.toString, "--check-only")
+        assertEquals(before._2, 0, before._1)
+        val checked = tool(dir, "check", file.toString)
+        assertEquals(checked._2, 2, checked._1)
+        assertTrue(
+          checked._2.contains("Column-sensitive inline body continuation")
+        )
+        assertEquals(source, Files.readString(file))
+        val fixed = tool(dir, "fix", file.toString)
+        assertEquals(fixed._2, 2, fixed._1)
+        assertEquals(source, Files.readString(file))
+        val after = run(dir, executable.toString, file.toString, "--check-only")
+        assertEquals(after._2, 0, after._1)
+    }
+
   @Test def fileErrorsExplainHowInputsAreUnavailable(): Unit = temporary {
     dir =>
       val missing = tool(dir, "check", "missing.bend")

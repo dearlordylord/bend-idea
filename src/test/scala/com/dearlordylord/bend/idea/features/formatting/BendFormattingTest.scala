@@ -23,6 +23,61 @@ final class BendFormattingTest extends BasePlatformTestCase:
     myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
     myFixture.getEditor.getDocument.getText
 
+  def testInlineBodyContinuationRejectsHeaderSpacingAndWrapping(): Unit =
+    val root = Files.createTempDirectory(
+      Files.createDirectories(java.nio.file.Path.of(getProject.getBasePath)),
+      "inline-layout-"
+    )
+    for
+      (header, column) <- List(
+        ("def f(a: Array<U32>,n: U32) -> Array<U32>: a[0] <- 7", 43),
+        ("def f(a: Array<U32> , n: U32) -> Array<U32>: a[0] <- 7", 45)
+      )
+      width <- List("100", "20", "off")
+    do
+      val directory = Files.createDirectories(root.resolve(s"$column-$width"))
+      Files.writeString(
+        directory.resolve(".editorconfig"),
+        s"root = true\n[*.bend]\nindent_size = 2\nbend_max_line_length = $width\n"
+      )
+      val source = "import Base\n" + header + "\n# continuation\n\n" +
+        " " * column + "a[1] <- 8\n"
+      val path = directory.resolve("inline.bend")
+      Files.writeString(path, source)
+      val file = com.intellij.openapi.vfs.LocalFileSystem.getInstance
+        .refreshAndFindFileByNioFile(path)
+      assertNotNull(file)
+      myFixture.configureFromExistingVirtualFile(file)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(source, myFixture.getEditor.getDocument.getText)
+      myFixture.getEditor.getSelectionModel.setSelection(0, header.length + 12)
+      myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+      assertEquals(source, myFixture.getEditor.getDocument.getText)
+
+  def testMultilineStringCannotHideInlineBodyContinuation(): Unit =
+    val source = "import Base\ndef zero(s: String) -> U32: 0\n" +
+      "def f(a: Array<U32>,n: U32) -> Array<U32>: a[0] <- zero(\"first\nsecond\")\n" +
+      " " * 43 + "a[1] <- 8\n"
+    assertEquals(source, reformat(source))
+
+  def testUnchangedInlineContinuationAllowsFormattingAnotherDeclaration()
+      : Unit =
+    val anchored = "def f(a: Array<U32>, n: U32) -> Array<U32>: a[0] <- 7\n" +
+      " " * 44 + "a[1] <- 8\n"
+    val sibling = "def g(a: U32,n: U32) -> U32: U32.add(a,n)\n"
+    val expected = anchored + "def g(a: U32, n: U32) -> U32: U32.add(a, n)\n"
+    assertEquals(expected, reformat(anchored + sibling))
+    myFixture.performEditorAction(IdeActions.ACTION_EDITOR_REFORMAT)
+    assertEquals(expected, myFixture.getEditor.getDocument.getText)
+    myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+    assertEquals(anchored + sibling, myFixture.getEditor.getDocument.getText)
+
+  def testSingleLineInlineBodyStillFormats(): Unit =
+    assertEquals(
+      "def f(a: U32, n: U32) -> U32: U32.add(a, n)\n",
+      reformat("def f(a: U32,n: U32) -> U32: U32.add(a,n)\n")
+    )
+
   def testCommaSpacingInHeadersAndCallsIsIdempotent(): Unit =
     val expected = "def main(x: U32, y: U32) -> U32:\n  U32.add(x, y)\n"
     assertEquals(

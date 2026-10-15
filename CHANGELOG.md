@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter.
+
 ## 0.1.22
 
 - Show imported compiler failures on affected import paths, including transitive imports, with a **Go to original compiler error** action. Stale root results cannot restore highlights or navigate to an outdated cause.

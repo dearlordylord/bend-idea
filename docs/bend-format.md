@@ -112,7 +112,7 @@ law exact_assembly:
 The width is a soft layout limit: `check` reports available formatting changes,
 not every line longer than the configured width.
 
-Incomplete source, unsupported layout, unsafe comment attachment, significant newlines that could change call/index parsing, and mixed line endings requiring inserted breaks yield `unavailable` without edits to that file. The formatter does not reflow arbitrary expressions, imports or comments.
+Incomplete source, unsupported layout, unsafe comment attachment, significant newlines that could change call/index parsing, and mixed line endings requiring inserted breaks yield `unavailable` without edits to that file. Inline bodies with indented continuations also remain untouched when their declaration would change: header spacing can move the physical column that anchors later statements. The CLI reports `unavailable`; Reformat Code leaves the file unchanged. The formatter does not reflow arbitrary expressions, imports or comments.
 
 In IntelliJ, invoke **Reformat Code** on the whole file, or use **Select All → Reformat Code**; omitting surrounding whitespace or the final newline from that selection still allows wrapping. Partial selections apply only safe horizontal spacing. The opt-in **Actions on Save** and **Commit Checks** use the same formatter. Enter and Backspace stay conservative where tab normalization could change physical body ownership. See [manual feature verification](manual-verification.md).
 

@@ -322,6 +322,43 @@ object BendLayoutPolicy:
         replacements += Edit(left.end, right.start, replacement)
     }
 
+    // Inline statement bodies anchor later statements to physical columns.
+    // Until those anchors are represented, even horizontal header edits cannot
+    // be applied independently of their continuations. Reject the whole plan.
+    val declarations = recognized.declarationBodies.toVector.sortBy(_._1)
+    val continuedInlineBodies = declarations.zipWithIndex.collect {
+      case ((start, body), index)
+          if source
+            .substring(source.lastIndexOf('\n', body - 1) + 1, body)
+            .trim
+            .nonEmpty =>
+        val end = declarations.lift(index + 1).fold(source.length)(_._1)
+        val lineEnd = source.indexOf('\n', body) match
+          case -1    => end
+          case value => value
+        // Literal interiors are opaque: a physical line inside a string must
+        // not hide a later statement. Treat any later indented code token as
+        // potentially anchored, including after multiline nested expressions.
+        val continuation = significant.iterator
+          .dropWhile(_.start < lineEnd)
+          .takeWhile(_.start < end)
+          .filterNot(_.text.startsWith("#"))
+          .exists { token =>
+            val prefix = source.substring(
+              source.lastIndexOf('\n', token.start - 1) + 1,
+              token.start
+            )
+            prefix.nonEmpty && prefix.forall(c => c == ' ' || c == '\t')
+          }
+        (start, end, continuation)
+    }
+    if continuedInlineBodies.exists { (start, end, continued) =>
+        continued && replacements.exists(edit =>
+          edit.start >= start && edit.start < end
+        )
+      }
+    then return Left("Column-sensitive inline body continuation")
+
     Right(replacements.toList)
 
   private final case class LayoutList(
