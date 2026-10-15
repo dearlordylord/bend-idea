@@ -257,9 +257,11 @@ object BendWrappingFixtures:
       |  {value == value : Nat}
       |  & {value == value : Nat}:
       |  ({==}, {==})
+      |type ADeliberatelyLongWitnessTypeForResultHeaderContinuationLayout is Data:
+      |  HeaderWitness{value: Nat}
       |def shifted_result(
-      |  +value: Nat, other: Nat
-      |  ) -> Exists(Nat, witness => {a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(0) == 0 : U32}):
+      |  +value: ADeliberatelyLongWitnessTypeForResultHeaderContinuationLayout, +other: Nat
+      |  ) -> Exists(ADeliberatelyLongWitnessTypeForResultHeaderContinuationLayout, witness => {other == other : Nat}):
       |  (value, {==})
       |def literal() -> String:
       |  "(a,b) [c,d]"
@@ -306,16 +308,14 @@ object BendWrappingFixtures:
       |  {value == value : Nat}
       |  & {value == value : Nat}:
       |  ({==}, {==})
+      |type ADeliberatelyLongWitnessTypeForResultHeaderContinuationLayout is Data:
+      |  HeaderWitness{value: Nat}
       |def shifted_result(
-      |  +value: Nat,
-      |  other: Nat
+      |  +value: ADeliberatelyLongWitnessTypeForResultHeaderContinuationLayout,
+      |  +other: Nat
       |) -> Exists(
-      |  Nat,
-      |  witness => {
-      |    a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(0)
-      |    == 0
-      |    : U32
-      |  }
+      |  ADeliberatelyLongWitnessTypeForResultHeaderContinuationLayout,
+      |  witness => {other == other : Nat}
       |):
       |  (value, {==})
       |def literal() -> String:
