@@ -40,15 +40,24 @@ The native formatter and Homebrew steps below apply to a full formatter release.
      verifyPluginProjectConfiguration signPlugin verifyPluginSignature buildFormatTool
    ```
 
+   Full `check` and packaging/compatibility gates may instead be established by
+   the **Verify** workflow for the exact versioned candidate commit. For this
+   path, self-review, commit and push the candidate first; tag it only after CI
+   succeeds and local packaging, signing and signature verification pass. Keep
+   the full JDK 21 and pinned compiler/runtime inputs. Preserve failed local
+   invocations as failed evidence, retry affected scenarios without weakening
+   deadlines, and record which environment established each passing gate.
+
    The signing directory contains `private.pem` and `chain.crt`; never publish
    the private key. Distribute only `build/distributions/*-signed.zip`. The
    unsigned ZIP is an intermediate and may be removed after all gates finish.
    Record actual test results, skipped optional checks, verifier reports and
    signatures. Inspect the signed ZIP's packaged `plugin.xml`: ID, version,
    `since-build`, description and change notes must match the intended release.
-4. Perform the required self-review under `REVIEWER.md`. Commit the reviewed
-   source and version metadata, push it and tag that exact commit as `vVERSION`.
-   Do not tag a dirty candidate or overwrite an existing tag.
+4. Perform the required self-review under `REVIEWER.md`. Commit and push the
+   reviewed source and version metadata if not already done for CI. After the
+   required gates pass, tag that exact commit as `vVERSION`. Do not tag a dirty
+   or unverified candidate or overwrite an existing tag.
 
 ## Publish the artifacts
 
