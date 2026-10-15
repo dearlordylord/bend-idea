@@ -115,6 +115,172 @@ final class BendCliGraphCheckTest:
         .count()
     finally stream.close()
 
+  @Test def pinnedHelperReportsIndependentErrorsFromOneUnchangedSnapshot()
+      : Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val text =
+        "import Base\ndef first() -> Nat:\n  True{}\ndef second() -> Nat:\n  False{}\n"
+      val root = source(dir.resolve("main.bend"), text)
+      val result = check(dir, bend, root)
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      assertEquals(BendCompleteness.Unknown, result.completeness)
+      assertEquals(2, result.diagnostics.size)
+      for (term <- List("True{}", "False{}")) do
+        val start = text.indexOf(term)
+        assertTrue(
+          result.diagnostics.exists(
+            _.location ==
+              BendLocation.SourceRange(
+                root.id,
+                BendTextRange(start, start + term.length)
+              )
+          )
+        )
+      assertEquals(0L, snapshotCount(dir))
+    }
+
+  @Test def recoveryBlocksPoisonedDependentsAndPreservesLawFillOrder(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val text = """import Base
+        |law good: Nat
+        |def good():
+        |  0n
+        |def first() -> Nat:
+        |  True{}
+        |def dependent() -> Bool:
+        |  first()
+        |def transitive() -> Nat:
+        |  dependent()
+        |type Choice is Data:
+        |  Left{}
+        |  Right{}
+        |def second(value: Choice) -> Nat:
+        |  match value:
+        |    case Left{}:
+        |      0n
+        |""".stripMargin
+      val result = check(dir, bend, source(dir.resolve("main.bend"), text))
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      assertEquals(2, result.diagnostics.size)
+      assertTrue(result.diagnostics.head.message.contains("Location: first"))
+      assertTrue(result.diagnostics.last.message.contains("cases for Right"))
+      assertFalse(
+        result.diagnostics.exists(_.message.contains("Location: dependent"))
+      )
+      assertFalse(
+        result.diagnostics.exists(_.message.contains("Location: transitive"))
+      )
+    }
+
+  @Test def recoveryBlocksRejectedDatatypeConstructorsAndMatches(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val text = """import Base
+        |type Broken is Data:
+        |  BrokenBox{value: True{}}
+        |def dependent(x: Broken) -> Nat:
+        |  match x:
+        |    case BrokenBox{value}:
+        |      0n
+        |def second() -> Nat:
+        |  False{}
+        |""".stripMargin
+      val result = check(dir, bend, source(dir.resolve("main.bend"), text))
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      assertEquals(2, result.diagnostics.size)
+      assertTrue(result.diagnostics.last.message.contains("Location: second"))
+      assertFalse(
+        result.diagnostics.exists(_.message.contains("Location: dependent"))
+      )
+    }
+
+  @Test def recoveryFailsClosedForRetroactiveDependenciesIncompleteSourceAndCaps()
+      : Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val cases = List(
+        "def earlier() -> later:\n  0n\ndef later() -> Type:\n  0n\ndef last() -> Nat:\n  True{}\n",
+        "def unfinished() -> Nat:\n  ?TODO\ndef first() -> Nat:\n  True{}\ndef second() -> Nat:\n  False{}\n",
+        "def first( -> Nat:\n  True{}\ndef second() -> Nat:\n  False{}\n",
+        "def template(~A: Type, x: A) -> A:\n  x\ndef first() -> Nat:\n  True{}\ndef second() -> Nat:\n  False{}\n",
+        (0 until 18).map(i => s"def wrong$i() -> Nat:\n  True{}\n").mkString
+      )
+      for (text <- cases) do
+        val result = check(
+          dir,
+          bend,
+          source(dir.resolve("main.bend"), "import Base\n" + text)
+        )
+        assertEquals(BendCheckOutcome.Failed, result.outcome)
+        assertEquals(text, 1, result.diagnostics.size)
+        assertEquals(BendReliance.Unknown, result.reliance)
+    }
+
+  @Test def recoveryMapsIndependentUnsavedDependencyAndRootErrors(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val dependency = dir.resolve("math.bend")
+      val disk = "import Base\ndef bad() -> Nat:\n  0n\n"
+      Files.writeString(dependency, disk)
+      val edited =
+        source(dependency, "import Base\n# 😀\ndef bad() -> Nat:\n  True{}\n")
+      val root = source(
+        dir.resolve("main.bend"),
+        "import Base\nimport ./math.bend as M\ndef independent() -> Nat:\n  False{}\n"
+      )
+      val result = check(dir, bend, root, Map(dependency.toString -> edited))
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      val ranged = result.diagnostics.map(_.location)
+      for ((record, term) <- List((edited, "True{}"), (root, "False{}"))) do
+        val start = record.text.indexOf(term)
+        assertTrue(
+          ranged.contains(
+            BendLocation.SourceRange(
+              record.id,
+              BendTextRange(start, start + term.length)
+            )
+          )
+        )
+      assertEquals(disk, Files.readString(dependency))
+      assertEquals(0L, snapshotCount(dir))
+    }
+
+  @Test def recoveryKeepsDatatypeAndConstructorNamespacesDistinct(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val text = """import Base
+        |type Holder is Data:
+        |  Shared{value: True{}}
+        |type Shared is Data:
+        |  Independent{}
+        |def second() -> Shared:
+        |  True{}
+        |""".stripMargin
+      val result = check(dir, bend, source(dir.resolve("main.bend"), text))
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      assertEquals(2, result.diagnostics.size)
+      assertTrue(result.diagnostics.last.message.contains("Location: second"))
+    }
+
+  @Test def recoveryTracksImplicitLiteralConstructorOwners(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val text = """type Nat is Data:
+        |  NatEmpty{}
+        |def first() -> Nat:
+        |  1n
+        |type Other is Data:
+        |  Zero{}
+        |  Succ{pred: 0n}
+        |""".stripMargin
+      val result = check(dir, bend, source(dir.resolve("main.bend"), text))
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      assertEquals(1, result.diagnostics.size)
+      assertTrue(result.diagnostics.head.message.contains("Location: first"))
+    }
+
   @Test def pinnedHelperMapsRealFirstErrorToUnsavedDependencyRange(): Unit =
     fixture { (dir, bend) =>
       val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)

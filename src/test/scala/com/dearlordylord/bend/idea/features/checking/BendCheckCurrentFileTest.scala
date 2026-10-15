@@ -115,6 +115,47 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       }
     )
 
+  def testStructuredRecoveryHighlightsBothIndependentCompilerErrors(): Unit =
+    val _ = RealBendCompilerFixture.inputs.writeStructuredLauncher(
+      directory.resolve("bend"),
+      structuredChecks = true
+    )
+    val text =
+      "import Base\n# 😀\ndef first() -> Nat:\n  True{}\ndef second() -> Nat:\n  False{}\n"
+    myFixture.configureByText("independent-errors.bend", text)
+    val file = myFixture.getFile.getVirtualFile
+    val id = new FileId(
+      Option(file.getCanonicalPath).getOrElse(file.getPath),
+      file.getCanonicalPath != null
+    )
+    myFixture.performEditorAction("Bend.CheckCurrentFile")
+    val service = getProject.getService(classOf[BendCheckService])
+    val until = System.nanoTime() + 15_000_000_000L
+    while service.result(id).isEmpty && System.nanoTime() < until do
+      Thread.sleep(50)
+    val result = service
+      .result(id)
+      .getOrElse(throw new AssertionError("Recovery check did not publish"))
+    assertEquals(BendCheckOutcome.Failed, result.outcome)
+    assertEquals(2, result.diagnostics.size)
+    val highlights = myFixture.doHighlighting().asScala
+    for (term <- List("True{}", "False{}")) do
+      val start = text.indexOf(term)
+      assertTrue(
+        term,
+        highlights.exists(info =>
+          info.getSeverity == HighlightSeverity.ERROR &&
+            info.getStartOffset == start && info.getEndOffset == start + term.length
+        )
+      )
+    WriteCommandAction.runWriteCommandAction(
+      getProject,
+      new Runnable:
+        override def run(): Unit =
+          myFixture.getEditor.getDocument.insertString(0, "# changed\n")
+    )
+    assertFalse(service.result(id).get.fresh)
+
   def testStructuredHelperHighlightsExactCurrentSourceRange(): Unit =
     val _ = RealBendCompilerFixture.inputs.writeStructuredLauncher(
       directory.resolve("bend")

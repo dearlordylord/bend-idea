@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Show multiple independent compiler errors with the optional pinned Bend 2.0.35 helper, using bounded fresh-state recovery, dependency blocking and first-error fallback for unsupported constructs.
+
 ## 0.1.23
 
 - Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter.

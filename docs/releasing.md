@@ -51,6 +51,14 @@ The native formatter and Homebrew steps below apply to a full formatter release.
    The signing directory contains `private.pem` and `chain.crt`; never publish
    the private key. Distribute only `build/distributions/*-signed.zip`. The
    unsigned ZIP is an intermediate and may be removed after all gates finish.
+   Verify the recovery adaptation's license and notices in every distributed
+   plugin archive (replace `VERSION` with the candidate version):
+
+   ```sh
+   python3 scripts/verify-recovery-notices.py build/libs/bend-idea-VERSION.jar \
+     build/distributions/bend-idea-VERSION-signed.zip
+   ```
+
    Record actual test results, skipped optional checks, verifier reports and
    signatures. Inspect the signed ZIP's packaged `plugin.xml`: ID, version,
    `since-build`, description and change notes must match the intended release.

@@ -1,0 +1,23 @@
+Bend2 IDEA pinned compiler recovery instrumentation
+
+Adapted orchestration hooks and reconstruction/guard approach:
+IlyaGulya/bend2-lsp-rs, revision 217a2e1c6d7830a1e394173a51ba689fadbbafb6
+src/server/compiler_backend/patch_plan.js
+src/server/compiler_backend/recovery_runtime.js
+https://github.com/IlyaGulya/bend2-lsp-rs/tree/217a2e1c6d7830a1e394173a51ba689fadbbafb6
+
+Native validator/loader anchors:
+bendlang/bend, revision 79df8d9c40722ee9507a1e253f283b51025f9d6c
+bend2/bend.ts
+https://github.com/bendlang/bend/tree/79df8d9c40722ee9507a1e253f283b51025f9d6c
+
+Copyright 2026 HigherOrderCO
+Licensed under Apache License 2.0; see bend-recovery-LICENSE.txt.
+Neither inspected revision supplies a NOTICE file or file-specific notice
+for these paths. Their LICENSE copyright notice is retained above.
+
+Modified for Bend2 IDEA: runtime source-module hooks instead of binary patches;
+immutable loading observations; successfully parsed sources only; conservative
+unsupported-construction fallback; bounded fresh replay; existing check protocol
+and source mapping. No parser recovery or upstream runtime is bundled.
+Derived destination: semantic/bend-structured-helper.ts.

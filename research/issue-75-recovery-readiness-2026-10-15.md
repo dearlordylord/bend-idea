@@ -1,5 +1,11 @@
 # Issue #75: upstream recovery readiness — 2026-10-15
 
+Historical readiness investigation. After this finding, the user authorized a
+restricted private compiler-helper adaptation. Its current contract is documented
+in [restricted pinned recovery](../docs/compiler/check-protocol.md#restricted-pinned-recovery-75).
+The upstream capability findings below remain unchanged; the blocked-status
+conclusion records the state before that authorized implementation.
+
 ## Verified upstream state
 
 Live GitHub API queries and fresh temporary checkouts on October 15 found official Bend HEAD [`d2aeefc1902d617340e26f7fab5c1ef50fe28efa`](https://github.com/bendlang/bend/commit/d2aeefc1902d617340e26f7fab5c1ef50fe28efa), 36 commits after latest published release [v2.0.37](https://github.com/bendlang/bend/releases/tag/v2.0.37), whose tag resolves to `4ff8545f19b09b7d2b8ca2303668100eac8efd66`. The current plugin baseline remains its own pinned 2.0.35 pairing; this inspection does not upgrade that baseline. LSP HEAD remains [`217a2e1c6d7830a1e394173a51ba689fadbbafb6`](https://github.com/IlyaGulya/bend2-lsp-rs/commit/217a2e1c6d7830a1e394173a51ba689fadbbafb6), with latest release [v0.6.1](https://github.com/IlyaGulya/bend2-lsp-rs/releases/tag/v0.6.1).
@@ -106,3 +112,45 @@ This is new compiler-adapter work with a recovery semantic contract, not a curre
 ## Evidence and self-review
 
 Read AGENTS.md, REVIEWER.md, CONTEXT.md, architecture A5–A7/capability rules, reuse policy and October 14/15 assessments. Inspected fresh temporary upstream source checkouts and primary GitHub metadata; protected references were untouched. The two actual compiler subprocess probes and direct exported-API counterexamples above were executed; no Gradle checks, release-tag executable tests or benchmarks were run for this research note. Author self-review: distinguishes official capability, private adaptation and possible original implementation; preserves original-source judgments and explicit partial coverage. This is not an independent implementation review.
+
+## Authorized implementation and validation follow-up
+
+The user-authorized restricted private-helper slice is implemented in source.
+Native upstream adoption remains outstanding. The exact pinned 2.0.35 helper
+now reports independent native validation errors from one unchanged captured
+snapshot, with a failed verdict and the existing source identity/range mapping.
+Each retry parses fresh compiler state, replays the surviving prefix, and blocks
+failed declarations, their constructors and dependent declarations. Dependency
+collection distinguishes constructor/declaration namespaces and includes native
+literal expansion dependencies. Parser errors, unsupported templates/foreign
+forms, incomplete prefixes, replay uncertainty and work caps retain the original
+first error. Parser recovery is not delivered; the invalid-import case retains
+its existing first-error behavior. See the current [contract](../docs/compiler/check-protocol.md#restricted-pinned-recovery-75).
+
+Final validation used full JDK 21, Bend `79df8d9c40722ee9507a1e253f283b51025f9d6c`
+and Bun 1.4.2 (`744846f84`) on Linux ARM64:
+
+- `./gradlew spotlessApply check buildPlugin verifyPlugin` passed.
+- Main test report: 660 cases, 659 passed, zero failures/errors, one optional
+  installed-release smoke skipped because its separate inputs were not supplied.
+  Both compiled architecture tests passed.
+- Plugin Verifier accepted IC 2025.1 and IU 2026.1, with API notices retained.
+- `python3 scripts/verify-recovery-notices.py build/libs/bend-idea-0.1.23.jar
+  build/distributions/bend-idea-0.1.23.zip` passed: exact helper bytes and both
+  license/attribution resources survived actual JAR and ZIP packaging. A synthetic
+  archive without notices was rejected. These are local unreleased artifacts,
+  not a new publication of version 0.1.23.
+
+An earlier full run had one fixture-isolation failure: the new test retained a
+stale result for `editor.bend`, colliding with an existing test's empty-result
+precondition. Giving the new test its own root preserved all assertions; the
+whole editor class then passed 19/19 before the final full run. Intermediate
+runs cancelled while adding namespace/literal regressions are not passing gates.
+The original first-error CLI counterexamples above remain valid upstream evidence.
+
+Implementer self-review under REVIEWER.md found and corrected namespace
+conflation; independent Astra review found and corrected frozen-loading,
+rendering-fallback and implicit-literal dependency risks. Final Standards and
+Astra Spec/safety reviews reported no open actionable findings. The native
+compiler checkout remained clean, shared Scala APIs and freshness/process owners
+were unchanged, and no release or native-upstream implementation is claimed.

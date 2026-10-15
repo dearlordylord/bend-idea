@@ -82,3 +82,26 @@ Original fixtures are the matching structured check, graph check, import project
 Production classes/resources enter the plugin. Test sources and research records enter only source material; no upstream-derived notice addition is required in either plugin or standalone formatter archives for this original work. Validation results and independent Astra review outcomes are recorded in the implementation report rather than inferred from these links.
 
 The three native inspection descriptions in `src/main/resources/inspectionDescriptions/` are original product help text and enter the plugin with the registrations above.
+
+## #75: restricted compiler recovery
+
+`src/main/resources/semantic/bend-structured-helper.ts` is an **adaptation** of
+orchestration hooks and reconstruction/guard ideas from
+[IlyaGulya/bend2-lsp-rs](https://github.com/IlyaGulya/bend2-lsp-rs/tree/217a2e1c6d7830a1e394173a51ba689fadbbafb6),
+`src/server/compiler_backend/patch_plan.js` and `recovery_runtime.js`, and native
+validator/loader anchors from
+[Bend 2.0.35](https://github.com/bendlang/bend/blob/79df8d9c40722ee9507a1e253f283b51025f9d6c/bend2/bend.ts).
+Both revisions use Apache-2.0 with `Copyright 2026 HigherOrderCO` in LICENSE;
+no root NOTICE or file-specific notices were present in the inspected paths.
+The packaged `META-INF/bend-recovery-LICENSE.txt` and
+`META-INF/bend-recovery-NOTICES.txt` retain terms, notices, revisions, destination
+and modifications. The adaptation uses in-memory source hooks and the existing
+check transport, with frozen loading, no parser recovery and a smaller,
+conservative supported scope. Compiler rules themselves are not redistributed.
+
+The graph and native editor fixtures are original examples; expected judgments
+come from the pinned real compiler. The source distribution and plugin JAR/ZIP
+contain the helper and its notices. The formatter JAR/native distribution does
+not select this resource or compiler helper. `scripts/verify-recovery-notices.py <plugin.jar> <plugin.zip>` verifies
+both plugin JAR and ZIP for byte-identical notices; the helper carries no new formatter
+payload.

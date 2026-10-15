@@ -10,7 +10,7 @@ This checklist covers only this PR's new compiler protocol and broader compatibi
 
 ## Versioned checking protocol
 
-**Only the first compiler error is reported.** A later mistake can have no red highlight while an earlier error remains, including an error in an imported file. **No red highlight does not mean the code passes.** Look at the Bend status, fix the reported error, then run **Check Current Bend File** again to reveal the next one. After editing, the previous result may be stale until you recheck.
+**The ordinary CLI reports only the first compiler error.** The optional pinned 2.0.35 helper can report multiple independent errors from successfully parsed sources, and conservatively falls back to the first error for unsupported constructs or uncertain dependencies. A later mistake can still have no red highlight while an earlier error remains, including an error in an imported file. **No red highlight does not mean the code passes.** Look at the Bend status, fix the reported error, then run **Check Current Bend File** again to reveal the next one. After editing, the previous result may be stale until you recheck.
 
 Use the pinned Bend 2.0.35 structured helper as your configured compiler, with matching Base. Setup is described in the plugin repository README under **Compiler checking**. Skip this section if that helper is not configured; a plain compiler does not exercise the new protocol.
 

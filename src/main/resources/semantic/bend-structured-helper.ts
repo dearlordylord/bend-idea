@@ -1,5 +1,8 @@
 #!/usr/bin/env bun
-// Protocol 1 exposes the first error from the pinned Bend 2.0.35 sources.
+// Protocol 1 uses bounded, fail-closed recovery for the pinned Bend 2.0.35 sources.
+// Native validation hooks adapted from bend2-lsp-rs and Bend.
+// Copyright 2026 HigherOrderCO. SPDX-License-Identifier: Apache-2.0
+// See META-INF/bend-recovery-NOTICES.txt and bend-recovery-LICENSE.txt.
 // Check protocol 1 is independent of the optional semantic protocol.
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
@@ -54,6 +57,7 @@ async function main(): Promise<void> {
     emit({ protocol: 1, compiler: "bend-2.0.35-pinned", operations: ["diagnostic", "goal-first-named-hole", "expression-types-checked", "goal-binder-comparison", "normalize-closed-expression"] });
     return;
   }
+  if (operation === "check") installRecoveryHooks(dir);
   const Bend = await import(url.pathToFileURL(path.join(dir, "bend.ts")).href);
   if (operation === "check") {
     await check(Bend, root);
@@ -258,13 +262,23 @@ async function check(Bend: any, root: string): Promise<void> {
     const book = Bend.book_nil();
     const seen = new Map<string, string | null>();
     await Bend.book_load(book, root, "", seen);
+    Bend.idea_freeze();
     const laws = path.join(path.dirname(root), "LAWS.bend");
     if (path.basename(root) === "PROOF.bend" && fs.existsSync(laws) && !seen.has(fs.realpathSync(laws))) {
       const message = "PROOF.bend must import ./LAWS.bend";
       report("failed", "unknown", "unknown", message, [{ message }]);
       return;
     }
-    Bend.book_valid(book);
+    const recovery = await validateWithRecovery(Bend, book, root, seen);
+    if (recovery.length > 0) {
+      let diagnostics;
+      try { diagnostics = recovery.map(error => checkDiagnostic(Bend, root, error)); }
+      catch { diagnostics = [checkDiagnostic(Bend, root, recovery[0])]; }
+      const named = diagnostics.length === 1 && recovery[0]?.obs?.$ === "Hol" && recovery[0].obs.k !== "TODO";
+      report("failed", named ? "incomplete" : "unknown", "unknown",
+        diagnostics.map(d => d.message).join("\n"), diagnostics, named ? "named-hole" : undefined);
+      return;
+    }
     if (book.hols > 0) {
       const message = `${book.hols} TODOs found. The code is incomplete.`;
       report("failed", "incomplete", "unknown", message, [{ message }], "todo");
@@ -298,21 +312,226 @@ async function check(Bend: any, root: string): Promise<void> {
     report("success", "complete", reliance,
       reliance === "none" ? "Bend check complete." : "Bend check complete; relies on unsafe or foreign code.");
   } catch (error) {
-    const structured = error && typeof error === "object" && "$" in error && error.$ === "Err";
-    const message = structured ? Bend.err_show(error) : String(error);
+    const diagnostic = checkDiagnostic(Bend, root, error);
     const err = error as any;
-    const span = structured && err.spn && typeof err.spn.file.str === "string" &&
-      Number.isInteger(err.spn.beg) && Number.isInteger(err.spn.end) && err.spn.beg >= 0 &&
-      err.spn.end > err.spn.beg && err.spn.end <= err.spn.file.str.length
-      ? { source: err.spn.file.str, namespace: err.spn.file.ns,
-          rootSource: err.spn.file.ns === "" &&
-            err.spn.file.dir === path.dirname(fs.realpathSync(root)) + "/" &&
-            err.spn.file.dir !== path.dirname(fs.realpathSync(Bend.BASE_BEND)) + "/",
-          sha256: crypto.createHash("sha256").update(err.spn.file.str, "utf8").digest("hex"),
-          start: err.spn.beg, end: err.spn.end } : undefined;
-    const named = structured && err.obs?.$ === "Hol" && err.obs.k !== "TODO";
-    report("failed", named ? "incomplete" : "unknown", "unknown", message, [{ message, span }], named ? "named-hole" : undefined);
+    const named = err?.$ === "Err" && err.obs?.$ === "Hol" && err.obs.k !== "TODO";
+    report("failed", named ? "incomplete" : "unknown", "unknown", diagnostic.message,
+      [diagnostic], named ? "named-hole" : undefined);
   }
+}
+
+// Instrument only the orchestration boundary; checker rules and source files are
+// unchanged. Every anchor is checked before publication, in addition to hashes.
+function installRecoveryHooks(dir: string): void {
+  const compiler = path.join(dir, "bend.ts");
+  Bun.plugin({ name: "bend-idea-pinned-recovery", setup(build) {
+    build.onLoad({ filter: /bend\.ts$/ }, args => {
+      if (args.path !== compiler) return;
+      let contents = fs.readFileSync(compiler, "utf8");
+      if (crypto.createHash("sha256").update(contents).digest("hex") !== hashes["bend.ts"])
+        throw new Error("Compiler changed before recovery hook loading");
+      const replace = (anchor: string, replacement: string) => {
+        if (contents.split(anchor).length !== 2) throw new Error("Recovery hook drift");
+        contents = contents.replace(anchor, replacement);
+      };
+      for (const name of ["book_file", "name_hash"]) {
+        replace(`async function ${name}(book: Book, `,
+          `async function idea_native_${name}(book: Book, `);
+      }
+      replace('  const text  = fs.readFileSync(real, "utf8");',
+        '  const text = idea_source(real);');
+      replace('export function book_valid(book: Book, done: number = 0): void {',
+        'export function book_valid(book: Book, done: number = 0, idea: any = null): void {');
+      replace('  for (let i = 0; i < book.order.length; i++) {\n    const k   = book.order[i];',
+        '  idea?.guard?.(book);\n  for (let i = 0; i < book.order.length; i++) {\n    const k   = book.order[i];\n    if (idea?.skip?.has(k)) continue;\n    idea?.enter(k, i);');
+      replace('      continue;\n    }\n    if (i >= done) {',
+        '      idea?.accepted?.(book);\n      continue;\n    }\n    if (i >= done) {');
+      replace('    if (fin) {\n      book.tlds[k] = tld;\n    }\n  }\n}',
+        '    if (fin) {\n      book.tlds[k] = tld;\n    }\n    idea?.accepted?.(book);\n  }\n}');
+      contents += `
+let idea_frozen = false;
+export function idea_freeze(): void { idea_frozen = true; }
+const idea_paths = new Map<string, string>();
+const idea_names = new Map<string, string>();
+async function book_file(book: Book, file: string, spn?: Span): Promise<string> {
+  if (!idea_paths.has(file)) {
+    if (idea_frozen) throw new Error("Uncaptured recovery path");
+    idea_paths.set(file, await idea_native_book_file(book, file, spn));
+  }
+  return idea_paths.get(file)!;
+}
+async function name_hash(book: Book, nv: string, spn?: Span): Promise<string> {
+  if (!idea_names.has(nv)) {
+    if (idea_frozen) throw new Error("Uncaptured recovery package");
+    idea_names.set(nv, await idea_native_name_hash(book, nv, spn));
+  }
+  return idea_names.get(nv)!;
+}
+const idea_sources = new Map<string, string>();
+function idea_source(real: string): string {
+  if (!idea_sources.has(real)) {
+    if (idea_frozen) throw new Error("Uncaptured recovery source");
+    idea_sources.set(real, fs.readFileSync(real, "utf8"));
+  }
+  return idea_sources.get(real)!;
+}
+`;
+      return { contents, loader: "ts" };
+    });
+  }});
+}
+
+class RecoveryBlocked { constructor(readonly dependency: string) {} }
+class RecoveryIncomplete {}
+
+// No modified-source checking and no partial rollback: each retry reparses the
+// captured bytes and validates the entire surviving prefix with done=0.
+async function validateWithRecovery(B: any, initial: any, root: string, originalSeen: Map<string, string | null>): Promise<any[]> {
+  let current = "", index = -1;
+  const hooks = (skip: Set<string>, owners: Map<string, string>) => ({
+    skip,
+    enter(k: string, i: number) { current = k; index = i; },
+    accepted(book: any) { if (book.hols > 0) throw new RecoveryIncomplete(); },
+    guard(book: any) {
+      if (skip.size === 0) return;
+      const guard = (table: any, constructors: boolean) => new Proxy(table, {
+        get(target, key) {
+          if (typeof key === "string" && skip.has(constructors ? owners.get(key) ?? key : key))
+            throw new RecoveryBlocked(String(key));
+          return Reflect.get(target, key);
+        }
+      });
+      book.tlds = guard(book.tlds, false);
+      book.ctrs = guard(book.ctrs, true);
+    }
+  });
+  let first: any;
+  try {
+    // Ordinary validation preserves the exact existing success/TODO behavior.
+    B.book_valid(initial, 0, { enter(k: string, i: number) { current = k; index = i; } });
+    return [];
+  } catch (error) { first = error; }
+  if (first?.$ !== "Err" || initial.hols > 0 || index < 0 || initial.tlds[current]?.b === true)
+    return [first];
+  const order = initial.order.slice();
+  const failed = new Set<string>([current]);
+  const errors = [{ owner: current, error: first }];
+  let frontier = index;
+  try {
+    const load = async () => {
+      const book = B.book_nil(), seen = new Map<string, string | null>();
+      await B.book_load(book, root, "", seen);
+      if (book.order.length !== order.length || book.order.some((k: string, i: number) => k !== order[i]))
+        throw new Error("Recovery loading changed");
+      if (seen.size !== originalSeen.size || [...seen].some(([p, ns]) => originalSeen.get(p) !== ns))
+        throw new Error("Recovery loading identity changed");
+      return { book, seen };
+    };
+    const { book: projection } = await load();
+    const owners = new Map<string, string>();
+    for (const k of order) if (projection.tlds[k].$ === "ADT")
+      for (const c of projection.tlds[k].c) owners.set(c.k, k);
+    const dependencies = new Map<string, Set<string>>();
+    const tags = new Set(["Var", "Ref", "Let", "Typ", "Qnt", "Qua", "Min", "All", "Lam", "App",
+      "ADT", "Ctr", "Lit", "Mat", "Efq", "Eql", "Rfl", "Rwt", "Ann", "None", "Lone", "Many"]);
+    // Native lit_step/word_to_term can expose these constructors even when
+    // the literal's type name belongs to a different declaration table entry.
+    const literalConstructors: Record<string, string[]> = {
+      Nat: ["Zero", "Succ"],
+      U32: ["U32", "WNil", "WCon", "True", "False"],
+      F32: ["F32", "WNil", "WCon", "True", "False"],
+      String: ["SNil", "SCon", "Chr", "U32", "WNil", "WCon", "True", "False"]
+    };
+    let nodes = 0;
+    const collect = (term: any, refs: Set<string>) => {
+      if (typeof term === "function") throw new Error("Unlowered recovery dependency");
+      if (!term || typeof term !== "object") return;
+      if (++nodes > 200000) throw new Error("Recovery dependency limit");
+      if (term.$ && !tags.has(term.$)) throw new Error("Unsupported recovery dependency");
+      if (["Ref", "ADT", "Ctr", "Lit", "Mat"].includes(term.$)) {
+        // Type/definition names and constructor names occupy distinct native
+        // tables, even when their spelling is identical.
+        const k = term.$ === "Ctr" || term.$ === "Mat" ? owners.get(term.k) ?? term.k : term.k;
+        if (projection.tlds[k]) refs.add(k);
+      }
+      if (term.$ === "Lit") {
+        const constructors = literalConstructors[term.k];
+        if (!constructors) throw new Error("Unsupported recovery literal");
+        for (const name of constructors) {
+          const owner = owners.get(name);
+          if (owner !== undefined) refs.add(owner);
+        }
+        if (term.k === "String" && projection.tlds.U32) refs.add("U32");
+      }
+      for (const [key, child] of Object.entries(term)) if (key !== "s") {
+        if (Array.isArray(child)) child.forEach(c => collect(c, refs)); else collect(child, refs);
+      }
+    };
+    for (const k of new Set<string>(order)) {
+      const t = projection.tlds[k], refs = new Set<string>();
+      // Restrict the first recovery pairing: templates, foreign declarations,
+      // named holes and TODOs retain the ordinary first-error result.
+      if (t.b !== true && (t.x > 0 || t.i)) throw new Error("Unsupported recovery declaration");
+      collect(B.term_lower(t.T), refs);
+      if (t.v != null) collect(B.term_lower(t.v), refs);
+      if (t.$ === "ADT") for (const c of t.c) collect(B.term_lower(c.T), refs);
+      refs.delete(k); dependencies.set(k, refs);
+    }
+    const reachable = new Set<string>([...dependencies.keys()].filter(k => projection.tlds[k].b !== true));
+    for (const k of reachable) {
+      if (projection.tlds[k]?.x > 0) throw new Error("Template recovery unavailable");
+      for (const ref of dependencies.get(k) ?? []) reachable.add(ref);
+    }
+    const blocked = new Set<string>();
+    const propagate = () => {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const [k, refs] of dependencies) if (!failed.has(k) && !blocked.has(k) &&
+          [...refs].some(ref => failed.has(ref) || blocked.has(ref))) {
+          blocked.add(k); changed = true;
+        }
+      }
+      // A later failure can invalidate an earlier diagnostic. In that case
+      // publish only the original native first error, never speculative extras.
+      for (const { owner } of errors) if ([...dependencies.get(owner)!].some(k => failed.has(k) || blocked.has(k)))
+        throw new Error("Recovery diagnostic became dependent");
+    };
+    for (let replay = 0; replay < 16; replay++) {
+      propagate();
+      const { book } = await load();
+      current = ""; index = -1;
+      try {
+        B.book_valid(book, 0, hooks(new Set([...failed, ...blocked]), owners));
+        return errors.map(e => e.error);
+      } catch (error) {
+        if (index <= frontier || index < 0 || book.hols > 0) throw error;
+        if (error instanceof RecoveryBlocked) {
+          blocked.add(current);
+        } else if ((error as any)?.$ === "Err" && projection.tlds[current]?.b !== true) {
+          failed.add(current); errors.push({ owner: current, error });
+        } else throw error;
+        frontier = index;
+      }
+    }
+  } catch { /* Fail closed to the unchanged-source native first error. */ }
+  return [first];
+}
+
+function checkDiagnostic(Bend: any, root: string, error: any): any {
+  const structured = error?.$ === "Err";
+  const message = structured ? Bend.err_show(error) : String(error);
+  const err = error;
+  const span = structured && err.spn && typeof err.spn.file.str === "string" &&
+    Number.isInteger(err.spn.beg) && Number.isInteger(err.spn.end) && err.spn.beg >= 0 &&
+    err.spn.end > err.spn.beg && err.spn.end <= err.spn.file.str.length
+    ? { source: err.spn.file.str, namespace: err.spn.file.ns,
+        rootSource: err.spn.file.ns === "" &&
+          err.spn.file.dir === path.dirname(fs.realpathSync(root)) + "/" &&
+          err.spn.file.dir !== path.dirname(fs.realpathSync(Bend.BASE_BEND)) + "/",
+        sha256: crypto.createHash("sha256").update(err.spn.file.str, "utf8").digest("hex"),
+        start: err.spn.beg, end: err.spn.end } : undefined;
+  return { message, span };
 }
 
 main().catch(() => emit({ protocol: 1, kind: "unavailable" }));

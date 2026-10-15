@@ -44,8 +44,41 @@ Compiler identities are opaque installation identities, not a release whitelist.
 The bundled helper advertises no check protocol when compiler-source hashes do not match: it returns a non-JSON unavailable message with a nonzero exit code to capability probing. The launcher then remains eligible for guarded CLI checking. This absence differs from advertising an incompatible JSON protocol, which still blocks fallback. Source-hash checks continue to protect optional private-API operations. CI pins the integration baseline independently of runtime negotiation or plugin release cadence.
 
 1. Use the pinned helper for protocol-backed checking today; ordinary published binaries continue through the guarded text `--check-only` fallback.
-2. During the Bend self-hosting rewrite, agree on the commands, envelope, check-only guarantee, coordinate convention and optional capability names above. The upstream implementation owns genuine compiler judgments and any safe recovery needed for multiple diagnostics (#75).
+2. During the Bend self-hosting rewrite, agree on the commands, envelope, check-only guarantee, coordinate convention and optional capability names above. Native upstream recovery remains preferable. The bundled helper supplies only the restricted private recovery pairing described below; this does not claim upstream adoption.
 3. Add a real compiler pairing to the integration matrix before advertising native protocol support. Exercise complete proofs, TODO/named holes, unsafe/foreign reliance, ordinary failures, source mapping and side-effecting `main`.
 4. Retain older text compatibility while it is explicitly tested. A new compiler release or a passed basic smoke test does not advance the approved pin or establish semantic-helper support.
 
 Upstream coordination/adoption remains outstanding; this repository contains the reviewable proposal and working pinned adapter, not an upstream commitment.
+
+## Restricted pinned recovery (#75)
+
+For the exact hash-pinned 2.0.35 source pairing, the helper instruments native
+validator event hooks in memory. It preserves original source and checker rules;
+no compiler checkout is edited. Loader source bytes, resolved paths and named
+package results are captured on the initial successful load and frozen before
+checking. A fresh Book is parsed for each retry. Native declaration order,
+final law/fill publication and forward-body visibility remain in `book_valid`.
+Rejected declarations and constructor owners are guarded; conservative lowered
+term dependencies transitively block their users. Every surviving prefix is
+revalidated with `done=0`, never trusted because a previous attempt reached it.
+
+Only genuine native errors are reported, in deterministic discovery order, with
+the existing source/namespace/digest coordinates. Any error retains a failed
+verdict and unknown completeness/reliance (the existing single named-hole result
+retains its incomplete classification). Blocked declarations are not reported as
+additional errors or successful checks. No partial coverage is exposed as proof
+success. Successful checks retain the original TODO, law and reliance handling.
+
+Recovery is conservative: parser/loading failures, templates reachable from user
+declarations, user foreign declarations, holes, unknown lowered forms, incomplete
+prefixes, retroactive diagnostic dependencies, changed loading/order, rendering
+failures and exhausted work limits retain the original first error. There are at
+most 16 replay attempts and 200,000 visited dependency objects; the ordinary
+15-second process deadline, 256-KiB output cap and cancellation remain unchanged.
+The invalid-import example in #75 still shows only the duplicate declaration.
+Other compiler versions retain the existing first-error CLI fallback.
+
+This adapts the native orchestration-hook/reconstruction approach investigated in
+[the readiness note](../../research/issue-75-recovery-readiness-2026-10-15.md).
+[Provenance and notices](../comparison-provenance.md) distinguish this private
+adaptation from official compiler support.

@@ -8,7 +8,7 @@ Compatibility still requires genuine check-only behavior, matching Base, support
 
 | Pairing | Evidence and scope | Checking transport | Semantic operations |
 | --- | --- | --- | --- |
-| Bend 2.0.35, `79df8d9c40722ee9507a1e253f283b51025f9d6c`, Bun 1.4.2 (`744846f84`) | Reproducible full-suite test baseline | Guarded text CLI; optional check protocol 1 helper | Independently negotiated helper operations and their documented location limits |
+| Bend 2.0.35, `79df8d9c40722ee9507a1e253f283b51025f9d6c`, Bun 1.4.2 (`744846f84`) | Reproducible full-suite test baseline | Guarded text CLI; optional check protocol 1 helper with [restricted independent-error recovery](check-protocol.md#restricted-pinned-recovery-75) | Independently negotiated helper operations and their documented location limits |
 | Published Bend 2.0.26–2.0.34 | Historical basic Linux release smoke passes, recorded on `bend-release-results`; these predate the broader editor corpus | Guarded text CLI | No claim of pinned-helper compatibility |
 | Published releases passing `editor-compatibility-v2` | Candidate compatibility evidence for the recorded plugin commit, archive digest and source commit; inspect result records | Negotiated protocol when supplied, otherwise guarded text CLI | No new semantic capability implied |
 | Unseen/failed releases, compiler development branches, rewritten compiler | Untested or failed, according to the result record | Unsupported assumptions remain unavailable | Unavailable until a compatible implementation is demonstrated |
