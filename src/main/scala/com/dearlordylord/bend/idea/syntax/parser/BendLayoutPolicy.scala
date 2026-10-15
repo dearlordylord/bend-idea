@@ -310,11 +310,13 @@ object BendLayoutPolicy:
     significant.indices.foreach { index =>
       val text = significant(index).text
       val gap = if index == 0 then ""
-      else source.substring(significant(index - 1).end, significant(index).start)
+      else
+        source.substring(significant(index - 1).end, significant(index).start)
       multilinePrefix(index + 1) = multilinePrefix(index) +
         (if text.exists(c => c == '\n' || c == '\r') ||
-            gap.exists(c => c == '\n' || c == '\r')
-         then 1 else 0)
+           gap.exists(c => c == '\n' || c == '\r')
+         then 1
+         else 0)
     }
     structure.reverseIterator.foreach { list =>
       if list.children.exists(child =>
@@ -323,7 +325,9 @@ object BendLayoutPolicy:
         )
       then atomicDescendants += list.open
     }
-    def multilineAtomic(list: LayoutList): Boolean = atomicDescendants(list.open)
+    def multilineAtomic(list: LayoutList): Boolean = atomicDescendants(
+      list.open
+    )
     def firstTokenAt(offset: Int): Int =
       var low = 0
       var high = significant.length
@@ -667,10 +671,10 @@ object BendLayoutPolicy:
       all += list
       list.children.foreach(collect)
     roots.result().foreach { open =>
-        build(open) match
-          case Left(reason) => scala.util.boundary.break(Left(reason))
-          case Right(list)  => collect(list)
-      }
+      build(open) match
+        case Left(reason) => scala.util.boundary.break(Left(reason))
+        case Right(list)  => collect(list)
+    }
     Right(LayoutStructure(all.result(), declarationBodies.toMap))
 
   private def scan(source: String): Either[String, Vector[Token]] =
