@@ -253,6 +253,10 @@ object BendWrappingFixtures:
       |def split_proof(+value: Nat) ->
       |  {value == value : Nat}:
       |  {==}
+      |def split_pair(+value: Nat) ->
+      |  {value == value : Nat}
+      |  & {value == value : Nat}:
+      |  ({==}, {==})
       |def literal() -> String:
       |  "(a,b) [c,d]"
       |""".stripMargin
@@ -294,6 +298,10 @@ object BendWrappingFixtures:
       |def split_proof(+value: Nat) ->
       |  {value == value : Nat}:
       |  {==}
+      |def split_pair(+value: Nat) ->
+      |  {value == value : Nat}
+      |  & {value == value : Nat}:
+      |  ({==}, {==})
       |def literal() -> String:
       |  "(a,b) [c,d]"
       |""".stripMargin

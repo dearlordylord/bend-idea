@@ -557,6 +557,7 @@ object BendLayoutPolicy:
           then scala.util.boundary.break(Left("Unsupported definition header"))
           var index = first + 1
           var found = false
+          var resultStarted = false
           while index < tokens.length && !found do
             if tokens(index).text == ":" then
               if index > 0 && tokens(index - 1).text == "->" then
@@ -579,13 +580,14 @@ object BendLayoutPolicy:
               scala.util.boundary.break(
                 Left("Comment-sensitive declaration header")
               )
+            else if tokens(index).text == "->" then resultStarted = true
             else if pairs.contains(index) then index = pairs(index)
             if !found && index + 1 < tokens.length && source
                 .substring(tokens(index).end, tokens(index + 1).start)
                 .exists(c => c == '\n' || c == '\r')
             then
-              // A result may continue before or after its arrow. Require an
-              // indented continuation at that boundary; a missing colon must
+              // A result may continue at its arrow or a conjunction operator.
+              // Require an indented result continuation; a missing colon must
               // never absorb the next declaration or arbitrary body lines.
               val next = tokens(index + 1)
               val lineStart = source.lastIndexOf('\n', next.start - 1) + 1
@@ -595,7 +597,9 @@ object BendLayoutPolicy:
                   (tokens(index).text == "->" &&
                     !Set("def", "law", "type", "import", "case", "match", "do")
                       .contains(next.text) &&
-                    !next.text.startsWith("#"))) &&
+                    !next.text.startsWith("#")) ||
+                  (resultStarted && next.text == "&" &&
+                    tokens(index).text != "->" && tokens(index).text != "&")) &&
                 source.substring(lineStart, next.start).nonEmpty &&
                 source
                   .substring(lineStart, next.start)
