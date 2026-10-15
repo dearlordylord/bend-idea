@@ -36,6 +36,16 @@ final class BendLayoutPolicyTest:
       BendLayoutPolicy.format(formatted, settings)
     )
 
+  @Test def blockReflowDoesNotSilentlyAdmitMultilineAtomicSyntax(): Unit =
+    val settings = twoSpaces.copy(maxLineLength = Some(25))
+    for atomic <- List(
+      "{input\n    : TypeName}",
+      "Family<First,\n    Second>",
+      "[input\n    : Nat*4]"
+    ) do
+      val source = "def f():\n  consume_really_long_name(value => value, " + atomic + ")\n"
+      assertEquals(Left("Unsupported multiline atomic expression"), BendLayoutPolicy.edits(source, settings))
+
   @Test def ambiguousTabBlockIndentationRemainsUnavailable(): Unit =
     val source =
       "def f():\n  consume_really_long_name(value =>\n\tfinish(value), omega)\n"

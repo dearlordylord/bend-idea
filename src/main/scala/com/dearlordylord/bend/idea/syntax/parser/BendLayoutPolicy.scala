@@ -303,6 +303,18 @@ object BendLayoutPolicy:
               }
         }
         gaps(list.close) = newline + indent(base)
+    def multilineAtomic(list: LayoutList): Boolean =
+      structure.exists(group =>
+        atomic(
+          group
+        ) && group.open > list.open && group.close < list.close &&
+          source
+            .substring(
+              significant(group.open).start,
+              significant(group.close).end
+            )
+            .exists(c => c == '\n' || c == '\r')
+      )
     def select(list: LayoutList): Unit =
       val start = source.lastIndexOf('\n', significant(list.open).start - 1) + 1
       val end = source.indexOf('\n', significant(list.close).end) match
@@ -322,7 +334,9 @@ object BendLayoutPolicy:
         .getOrElse(source.substring(start, significant(from).start))
       val region = prefix + spelling(from, until)
       if list.items.nonEmpty && overlong(region, 0) then
-        if containsBlock(list) then
+        if containsBlock(list) && multilineAtomic(list) then
+          unsafe = Some("Unsupported multiline atomic expression")
+        else if containsBlock(list) then
           if source.contains("\r") && source
               .replace("\r\n", "")
               .exists(c => c == '\n' || c == '\r')
@@ -332,18 +346,8 @@ object BendLayoutPolicy:
             .slice(list.open, list.close + 1)
             .exists(_.text.startsWith("#"))
         then unsafe = Some("Comment-sensitive list layout")
-        else if structure.exists(group =>
-            atomic(
-              group
-            ) && group.open > list.open && group.close < list.close &&
-              source
-                .substring(
-                  significant(group.open).start,
-                  significant(group.close).end
-                )
-                .exists(c => c == '\n' || c == '\r')
-          )
-        then unsafe = Some("Unsupported multiline atomic expression")
+        else if multilineAtomic(list) then
+          unsafe = Some("Unsupported multiline atomic expression")
         else if source.contains("\r") && source
             .replace("\r\n", "")
             .exists(c => c == '\n' || c == '\r')
