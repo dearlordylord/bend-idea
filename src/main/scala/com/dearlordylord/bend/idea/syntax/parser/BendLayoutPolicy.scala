@@ -177,6 +177,16 @@ object BendLayoutPolicy:
           source.substring(beginning, at).takeWhile(c => c == ' ' || c == '\t')
         )
       )
+    val plannedClosingIndent = scala.collection.mutable.Map.empty[Int, Int]
+    def precedingClosingIndent(open: Int): Option[Int] =
+      if open > 0 && !source
+          .substring(significant(open - 1).end, significant(open).start)
+          .exists(c => c == '\n' || c == '\r')
+      then plannedClosingIndent.get(open - 1)
+      else None
+    def listIndent(list: LayoutList): Int =
+      precedingClosingIndent(list.open)
+        .getOrElse(indentation(significant(list.open).start))
     var unsafe = Option.empty[String]
     def indent(columns: Int): String = settings.indent(columns) match
       case Some(value) => value
@@ -238,6 +248,7 @@ object BendLayoutPolicy:
             }
         }
         gaps(list.close) = newline + indent(base)
+        plannedClosingIndent(list.close) = base
     val blockWords = Set(
       "do",
       "match",
@@ -295,7 +306,8 @@ object BendLayoutPolicy:
               .flatMap(candidates)
               .filter(child => child.open >= from && child.close <= until)
               .foreach { child =>
-                val childBase = linePrefix(child.open).length + delta
+                val childBase = precedingClosingIndent(child.open)
+                  .getOrElse(linePrefix(child.open).length + delta)
                 if childBase < 0 then
                   unsafe = Some("Unrepresentable block item indentation")
                 else if overlong(spelling(child.open, child.close), childBase)
@@ -303,6 +315,7 @@ object BendLayoutPolicy:
               }
         }
         gaps(list.close) = newline + indent(base)
+        plannedClosingIndent(list.close) = base
     // The recognized delimiter forest is preorder. Cache descendant facts once;
     // querying a list must not rescan every unrelated delimiter in the file.
     val atomicDescendants = scala.collection.mutable.Set.empty[Int]
@@ -370,7 +383,7 @@ object BendLayoutPolicy:
               .replace("\r\n", "")
               .exists(c => c == '\n' || c == '\r')
           then unsafe = Some("Mixed line endings")
-          else expandBlocks(list, indentation(significant(list.open).start))
+          else expandBlocks(list, listIndent(list))
         else if significant
             .slice(list.open, list.close + 1)
             .exists(_.text.startsWith("#"))
@@ -386,7 +399,7 @@ object BendLayoutPolicy:
             originalGap(from).contains('\n')
           ) && originalGap(list.close).contains('\n')
           if separated then list.children.flatMap(candidates).foreach(select)
-          else expand(list, indentation(significant(list.open).start))
+          else expand(list, listIndent(list))
     if settings.maxLineLength.nonEmpty then
       var coveredThrough = -1
       structure.foreach { list =>

@@ -22,6 +22,21 @@ final class BendLayoutPolicyTest:
       BendLayoutPolicy.format(expected, settings)
     )
 
+  @Test def curriedBlockCallsUseThePlannedClosingLineAnchor(): Unit =
+    val settings = twoSpaces.copy(maxLineLength = Some(35))
+    for source <- List(
+        "def f():\n  choose_really_long_function(alpha, beta)(value =>\n    copied = value\n    finish(copied), omega)\n",
+        "def f():\n  outer_really_long_function(alpha, choose_really_long_function(beta, gamma)(value =>\n    copied = value\n    finish(copied), omega))\n"
+      )
+    do
+      val formatted = BendLayoutPolicy.format(source, settings) match
+        case BendLayoutPolicy.Outcome.Formatted(value) => value
+        case other => fail(s"Expected curried block formatting: $other"); source
+      assertEquals(
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(formatted, settings)
+      )
+
   @Test def blockReflowNeverRewritesNewlinesInsideStringTokens(): Unit =
     val literal = "\"first\n  unchanged literal indentation\nlast\""
     val source =
