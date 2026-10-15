@@ -257,6 +257,10 @@ object BendWrappingFixtures:
       |  {value == value : Nat}
       |  & {value == value : Nat}:
       |  ({==}, {==})
+      |def shifted_result(
+      |  +value: Nat, other: Nat
+      |  ) -> Exists(Nat, witness => {a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(0) == 0 : U32}):
+      |  (value, {==})
       |def literal() -> String:
       |  "(a,b) [c,d]"
       |""".stripMargin
@@ -302,6 +306,18 @@ object BendWrappingFixtures:
       |  {value == value : Nat}
       |  & {value == value : Nat}:
       |  ({==}, {==})
+      |def shifted_result(
+      |  +value: Nat,
+      |  other: Nat
+      |) -> Exists(
+      |  Nat,
+      |  witness => {
+      |    a_deliberately_long_identity_function_for_tuple_and_list_layout_regressions(0)
+      |    == 0
+      |    : U32
+      |  }
+      |):
+      |  (value, {==})
       |def literal() -> String:
       |  "(a,b) [c,d]"
       |""".stripMargin

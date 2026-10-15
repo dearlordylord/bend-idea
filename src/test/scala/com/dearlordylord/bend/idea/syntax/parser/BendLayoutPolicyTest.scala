@@ -25,6 +25,18 @@ final class BendLayoutPolicyTest:
       )
     do assertTrue(BendLayoutPolicy.edits(source, twoSpaces).isLeft)
 
+  @Test def resultCallsUseThePlannedParameterClosingLine(): Unit =
+    val source =
+      "def retain(\n  value: Nat, other: Nat\n  ) -> Exists(Nat, witness => very_long_predicate_name_that_forces_the_result_list_to_wrap(witness, value, other)):\n  result\n"
+    val formatted = BendLayoutPolicy.format(source, twoSpaces) match
+      case BendLayoutPolicy.Outcome.Formatted(value) => value
+      case other => fail(s"Expected result-list wrapping: $other"); source
+    assertTrue(formatted.contains(") -> Exists(\n  Nat,\n"))
+    assertEquals(
+      BendLayoutPolicy.Outcome.Unchanged,
+      BendLayoutPolicy.format(formatted, twoSpaces)
+    )
+
   @Test def blockItemsKeepPhysicalOffsideLinesCommentsAndArgumentBoundaries()
       : Unit =
     val source =

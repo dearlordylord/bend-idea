@@ -179,10 +179,15 @@ object BendLayoutPolicy:
       )
     val plannedClosingIndent = scala.collection.mutable.Map.empty[Int, Int]
     def precedingClosingIndent(open: Int): Option[Int] =
-      if open > 0 && !source
-          .substring(significant(open - 1).end, significant(open).start)
+      // A result call can follow a parameter closer through its arrow. Use the
+      // closer's planned line just as for an adjacent curried call.
+      val previous = if open >= 3 && significant(open - 2).text == "->" then
+        open - 3
+      else open - 1
+      if previous >= 0 && !source
+          .substring(significant(previous).end, significant(open).start)
           .exists(c => c == '\n' || c == '\r')
-      then plannedClosingIndent.get(open - 1)
+      then plannedClosingIndent.get(previous)
       else None
     def listIndent(list: LayoutList): Int =
       precedingClosingIndent(list.open)

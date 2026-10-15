@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Anchor a wrapped result call to the planned definition parameter closing line, preserving one-pass layout when the original closing parenthesis is indented.
+
 - Recognize indented definition result types after a newline following `->`, including proof result types and continued conjunctions; retain refusal of missing colons and unindented or interrupted headers.
 
 ## 0.1.23
