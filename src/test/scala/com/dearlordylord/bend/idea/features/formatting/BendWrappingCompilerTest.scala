@@ -30,6 +30,11 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
       |    copied = argument
       |    # This comment stays inside the lambda body.
       |    copied, value)
+      |def retain_match_block(value: Nat) -> Nat:
+      |  apply_ownership_preserving_function(argument =>
+      |    match argument:
+      |      case 0n: 0n
+      |      case 1n+tail: tail, value)
       |def retain_rewrite_block(+value: Nat, +evidence: {value == value : Nat}) -> {value == value : Nat}:
       |  Equal.trans(Nat, value, value, value,
       |    %evidence : {_ == value : Nat}
@@ -99,6 +104,7 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
     assertFalse("Every fixture definition must be in scope", diagnostics.contains("out of scope"))
     val emitted = Files.readString(output)
     assertTrue("Complete textual terms must retain the local block", emitted.contains("retain_local_block"))
+    assertTrue("Complete textual terms must retain the match block", emitted.contains("retain_match_block"))
     assertTrue("Complete textual terms must retain the rewrite block", emitted.contains("retain_rewrite_block"))
     assertFalse("A native executable is not BendTT evidence", emitted.startsWith("\u007fELF"))
     Files.readAllBytes(output)
