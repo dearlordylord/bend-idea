@@ -2,6 +2,17 @@
 
 Assessed 2026-10-14. Upstream HEAD: [`02ef84b38b8c06cbd607e270c4930e633e9dab0f`](https://github.com/MattCozendey/bend-lint/tree/02ef84b38b8c06cbd607e270c4930e633e9dab0f), latest commit dated 2026-10-14. Baseline: the existing [2026-10-07 assessment](bend-lint-architecture-and-features.md), which inspected `c5e950cdcb0024b9ffe66caf730301ed98a99a8d`. This note preserves that earlier assessment and updates its temporal claims. Research only; no dependency or implementation adopted.
 
+## Follow-up status (2026-10-15)
+
+The assessment below records the pre-implementation investigation. Release 0.1.22
+subsequently delivered original native naming, unused-alias and canonical-path
+inspections; the canonical-path fix is guarded and undoable, and unused aliases
+have no import-removal fix. See the [implementation and validation record](upstream-update-assessment-2026-10-14.md#authorized-implementation-follow-up).
+The external bend-lint engine/prototype has not been merged or released. Its
+managed-installation handoff (#89) predates the rewritten engine and current MIT
+license and requires a refreshed compatibility/distribution design before pickup.
+Upstream HEAD and release status were rechecked on 2026-10-15 and are unchanged.
+
 ## Decision
 
 Take selected inspection ideas and explicit capability/edit contracts. Do not replace Bend IDEA's Scala syntax, resolver, formatter or compiler adapter with the new engine. The update is substantial enough to revisit feature selection, but does not establish compatibility with our compiler pin or provide an official resource-observation capability.
