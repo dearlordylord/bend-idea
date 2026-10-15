@@ -17,6 +17,13 @@ version. Use the versioned entry when writing GitHub release notes.
 
 - Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter.
 
+- Format block-bearing argument lists while preserving significant newlines,
+  physical relative indentation, comments and multiline-string contents. Keep
+  adjacent curried calls stable in one pass. Ambiguous tab-sensitive layouts and
+  multiline atomic descendants remain unavailable.
+- Index delimiter nesting and layout lookups once per source to avoid repeated
+  whole-file scans when formatting large, deeply nested files.
+
 ## 0.1.22
 
 - Show imported compiler failures on affected import paths, including transitive imports, with a **Go to original compiler error** action. Stale root results cannot restore highlights or navigate to an outdated cause.

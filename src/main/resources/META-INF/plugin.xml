@@ -23,6 +23,9 @@ compiler-backed features. See the
 <p>Version 0.1.23:</p>
 <ul>
   <li>Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter, including bodies containing multiline strings.</li>
+
+  <li>Format block-bearing argument lists while preserving significant newlines, relative indentation, comments and multiline strings; keep adjacent curried calls stable in one pass.</li>
+  <li>Index delimiter nesting and layout lookups once per source for large, deeply nested files. Ambiguous tab-sensitive layouts and multiline atomic descendants remain unavailable.</li>
 </ul>
 ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

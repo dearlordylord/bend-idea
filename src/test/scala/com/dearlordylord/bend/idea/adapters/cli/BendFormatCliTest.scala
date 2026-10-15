@@ -84,6 +84,30 @@ final class BendFormatCliTest:
         assertEquals(after._2, 0, after._1)
     }
 
+  @Test def blockArgumentsKeepBodiesAcrossCheckFixAndRepeatedFix(): Unit =
+    temporary { dir =>
+      val source =
+        "def f():\n  consume_really_long_name(alpha, value =>\n    first = use(value)\n    # keep attached comment\n    finish(first), omega)\n"
+      val _ = Files.writeString(
+        dir.resolve(".editorconfig"),
+        "root = true\n[*.bend]\nindent_size = 2\nbend_max_line_length = 40\n"
+      )
+      val file = dir.resolve("blocks.bend")
+      val _ = Files.writeString(file, source)
+      assertEquals(1, tool(dir, "check", file.toString)._1)
+      assertEquals(source, Files.readString(file))
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      val formatted = Files.readString(file)
+      assertTrue(
+        formatted.contains(
+          "value =>\n      first = use(value)\n      # keep attached comment\n      finish(first),"
+        )
+      )
+      assertEquals(0, tool(dir, "check", file.toString)._1)
+      assertEquals(0, tool(dir, "fix", file.toString)._1)
+      assertEquals(formatted, Files.readString(file))
+    }
+
   @Test def fileErrorsExplainHowInputsAreUnavailable(): Unit = temporary {
     dir =>
       val missing = tool(dir, "check", "missing.bend")

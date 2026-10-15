@@ -288,3 +288,17 @@ GitHub Release v0.1.22 is published stable and non-latest with exactly the four 
 On 2026-10-15 the maintainer reported that GitHub prominently displayed the old release. The cause was the previous deliberate `--latest=false` policy, which coupled plugin visibility to native formatter availability. Promoted the existing verified v0.1.22 release to Latest without changing its tag or assets; GitHub's `/releases/latest` now returns v0.1.22. Updated release notes and `docs/releasing.md`: every verified stable plugin release, including custom-only releases, must become Latest and the endpoint must be checked before completion. Native formatter links now use the explicit v0.1.19 tag. This supersedes the non-latest policy recorded above. Source Verify run 38676902231 completed successfully. Marketplace upload/approval remains unconfirmed.
 
 Implementer self-review under REVIEWER.md checked documentation consistency, actual Latest API response and unchanged distribution scope; no runtime contracts changed and no further tests were needed for these documentation/release-metadata edits.
+
+## 0.1.23 prepared candidate — not published
+
+The block-list formatter fix is prepared at source commit `bd55558e13911adefd324c0603a53d2000a1dbe7`, including master `a54400571f1bf14ebc69bc2db8dd8f0b948030ff`. Version metadata and change notes agree on 0.1.23. Source self-review under `REVIEWER.md` found no actionable findings; the pure layout owner and qualified regression fixtures are unchanged from the reviewed fix.
+
+Local qualification on JDK 21 used a clean compilation followed by successful `check buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration signPlugin verifyPluginSignature buildFormatTool`. All 654 main-suite cases completed: 653 passed, one optional current-release compiler smoke skipped, zero failures/errors. Two architecture tests passed. Pinned real subprocess inputs were Bend 2.0.35 `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2; each Bend call was bounded to ten seconds on CPU10. An initial four-minute invocation expired during tests. A subsequent test exposed the temporary deadline wrapper's PATH lookup in the deliberately missing-native-backend fixture; absolute utility paths fixed the wrapper, the specific test passed, and the complete final gate passed in 11m51s. No production change was needed for that fixture.
+
+Plugin Verifier reports Compatible for IC 2025.1 and IU 2026.1, retaining API usage notices. The signed ZIP's packaged metadata has ID `com.dearlordylord.bend.idea`, version 0.1.23 and since-build 251 with no upper bound; its change notes match the versioned changelog. The built JAR also accepts Hapsland's complete formatted attachment proof as conforming. Earlier complete pinned BendTT before/after formatting is byte-identical; this is not a passing full attachment verdict.
+
+- Signed ZIP SHA-256: `a6871135f7765aac17a22b589a08ac64f6fcc6861938ffbf7cd6cb391670cf4d`.
+- Portable JAR SHA-256: `6ec0374330f9afa3853c5da911520985e607bfac0ace90a290f2184f53accb32`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
+
+Publication is awaiting the owner's requested authorization. No release tag, GitHub Release, platform-archive workflow, Homebrew update, custom-feed update or Marketplace submission is claimed. Installation links and the live feed retain their published versions. These local results do not establish archive distribution, installation or manual IDE update behavior.

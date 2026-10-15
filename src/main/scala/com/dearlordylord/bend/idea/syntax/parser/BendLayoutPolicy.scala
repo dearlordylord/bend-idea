@@ -177,6 +177,16 @@ object BendLayoutPolicy:
           source.substring(beginning, at).takeWhile(c => c == ' ' || c == '\t')
         )
       )
+    val plannedClosingIndent = scala.collection.mutable.Map.empty[Int, Int]
+    def precedingClosingIndent(open: Int): Option[Int] =
+      if open > 0 && !source
+          .substring(significant(open - 1).end, significant(open).start)
+          .exists(c => c == '\n' || c == '\r')
+      then plannedClosingIndent.get(open - 1)
+      else None
+    def listIndent(list: LayoutList): Int =
+      precedingClosingIndent(list.open)
+        .getOrElse(indentation(significant(list.open).start))
     var unsafe = Option.empty[String]
     def indent(columns: Int): String = settings.indent(columns) match
       case Some(value) => value
@@ -238,14 +248,123 @@ object BendLayoutPolicy:
             }
         }
         gaps(list.close) = newline + indent(base)
+        plannedClosingIndent(list.close) = base
+    val blockWords = Set(
+      "do",
+      "match",
+      "case",
+      "return",
+      "for",
+      "exs",
+      "=>",
+      "=",
+      ";",
+      "%",
+      "\\"
+    )
+    def containsBlock(list: LayoutList): Boolean =
+      significant
+        .slice(list.open + 1, list.close)
+        .exists(token => blockWords(token.text))
+    def linePrefix(index: Int): String =
+      val at = significant(index).start
+      val beginning = source.lastIndexOf('\n', at - 1) + 1
+      source.substring(beginning, at).takeWhile(c => c == ' ' || c == '\t')
+    // A block item is a layout island. Its anchor is its original physical LINE
+    // prefix, never the inline token column after an application head. Shift
+    // every continuation prefix equally; keep significant newlines and string
+    // token bytes untouched. Tabs are not safely interchangeable with columns.
+    def expandBlocks(list: LayoutList, base: Int): Unit =
+      if settings.useTabs then
+        unsafe = Some("Tab-sensitive block expression in list")
+      else if list.items.nonEmpty then
+        list.items.foreach { (from, until) =>
+          val original = linePrefix(from)
+          val target = base + settings.indentSize
+          val delta = target - original.length
+          if original.contains('\t') then
+            unsafe = Some("Tab-sensitive block expression in list")
+          else
+            (from + 1 to until).foreach { index =>
+              val gap = source.substring(
+                significant(index - 1).end,
+                significant(index).start
+              )
+              val lastBreak = gap.lastIndexOf('\n')
+              if lastBreak >= 0 then
+                val prefix = gap.substring(lastBreak + 1)
+                if prefix.exists(_ != ' ') || prefix.length + delta < 0 then
+                  unsafe = Some("Unrepresentable block item indentation")
+                else
+                  gaps(index) = gap.substring(
+                    0,
+                    lastBreak + 1
+                  ) + (" " * (prefix.length + delta))
+            }
+            gaps(from) = newline + indent(target)
+            list.children
+              .flatMap(candidates)
+              .filter(child => child.open >= from && child.close <= until)
+              .foreach { child =>
+                val childBase = precedingClosingIndent(child.open)
+                  .getOrElse(linePrefix(child.open).length + delta)
+                if childBase < 0 then
+                  unsafe = Some("Unrepresentable block item indentation")
+                else if overlong(spelling(child.open, child.close), childBase)
+                then expandBlocks(child, childBase)
+              }
+        }
+        gaps(list.close) = newline + indent(base)
+        plannedClosingIndent(list.close) = base
+    // The recognized delimiter forest is preorder. Cache descendant facts once;
+    // querying a list must not rescan every unrelated delimiter in the file.
+    val atomicDescendants = scala.collection.mutable.Set.empty[Int]
+    val multilinePrefix = Array.fill(significant.length + 1)(0)
+    significant.indices.foreach { index =>
+      val text = significant(index).text
+      val gap = if index == 0 then ""
+      else
+        source.substring(significant(index - 1).end, significant(index).start)
+      multilinePrefix(index + 1) = multilinePrefix(index) +
+        (if text.exists(c => c == '\n' || c == '\r') ||
+           gap.exists(c => c == '\n' || c == '\r')
+         then 1
+         else 0)
+    }
+    structure.reverseIterator.foreach { list =>
+      if list.children.exists(child =>
+          atomicDescendants(child.open) || atomic(child) &&
+            multilinePrefix(child.close + 1) > multilinePrefix(child.open + 1)
+        )
+      then atomicDescendants += list.open
+    }
+    def multilineAtomic(list: LayoutList): Boolean = atomicDescendants(
+      list.open
+    )
+    def firstTokenAt(offset: Int): Int =
+      var low = 0
+      var high = significant.length
+      while low < high do
+        val middle = low + (high - low) / 2
+        if significant(middle).start < offset then low = middle + 1
+        else high = middle
+      low
+    def lastTokenThrough(offset: Int): Int =
+      var low = 0
+      var high = significant.length
+      while low < high do
+        val middle = low + (high - low) / 2
+        if significant(middle).end <= offset then low = middle + 1
+        else high = middle
+      low - 1
     def select(list: LayoutList): Unit =
       val start = source.lastIndexOf('\n', significant(list.open).start - 1) + 1
       val end = source.indexOf('\n', significant(list.close).end) match
         case -1    => source.length
         case value => value
-      val from = significant.indexWhere(_.start >= start)
+      val from = firstTokenAt(start)
       val signature = list.open >= 2 && significant(list.open - 2).text == "def"
-      val until = if signature then significant.lastIndexWhere(_.end <= end)
+      val until = if signature then lastTokenThrough(end)
       else if list.close + 1 < significant.length && significant(
           list.close + 1
         ).text == ":"
@@ -257,41 +376,20 @@ object BendLayoutPolicy:
         .getOrElse(source.substring(start, significant(from).start))
       val region = prefix + spelling(from, until)
       if list.items.nonEmpty && overlong(region, 0) then
-        if significant
+        if containsBlock(list) && multilineAtomic(list) then
+          unsafe = Some("Unsupported multiline atomic expression")
+        else if containsBlock(list) then
+          if source.contains("\r") && source
+              .replace("\r\n", "")
+              .exists(c => c == '\n' || c == '\r')
+          then unsafe = Some("Mixed line endings")
+          else expandBlocks(list, listIndent(list))
+        else if significant
             .slice(list.open, list.close + 1)
             .exists(_.text.startsWith("#"))
         then unsafe = Some("Comment-sensitive list layout")
-        else if significant
-            .slice(list.open + 1, list.close)
-            .exists(token =>
-              Set(
-                "do",
-                "match",
-                "case",
-                "return",
-                "for",
-                "exs",
-                "=>",
-                "=",
-                ";",
-                "%",
-                "\\"
-              )
-                .contains(token.text)
-            )
-        then unsafe = Some("Unsupported block expression in list")
-        else if structure.exists(group =>
-            atomic(
-              group
-            ) && group.open > list.open && group.close < list.close &&
-              source
-                .substring(
-                  significant(group.open).start,
-                  significant(group.close).end
-                )
-                .exists(c => c == '\n' || c == '\r')
-          )
-        then unsafe = Some("Unsupported multiline atomic expression")
+        else if multilineAtomic(list) then
+          unsafe = Some("Unsupported multiline atomic expression")
         else if source.contains("\r") && source
             .replace("\r\n", "")
             .exists(c => c == '\n' || c == '\r')
@@ -301,17 +399,14 @@ object BendLayoutPolicy:
             originalGap(from).contains('\n')
           ) && originalGap(list.close).contains('\n')
           if separated then list.children.flatMap(candidates).foreach(select)
-          else expand(list, indentation(significant(list.open).start))
+          else expand(list, listIndent(list))
     if settings.maxLineLength.nonEmpty then
-      structure
-        .filter(_.eligible)
-        .filter { list =>
-          !structure.exists(parent =>
-            parent.open < list.open && parent.close > list.close &&
-              (parent.eligible || atomic(parent))
-          )
-        }
-        .foreach(select)
+      var coveredThrough = -1
+      structure.foreach { list =>
+        if list.open > coveredThrough then
+          if list.eligible then select(list)
+          if list.eligible || atomic(list) then coveredThrough = list.close
+      }
     unsafe match
       case Some(reason) => return Left(reason)
       case None         => ()
@@ -386,6 +481,9 @@ object BendLayoutPolicy:
     val pairs = scala.collection.mutable.Map.empty[Int, Int]
     val declarationBodies = scala.collection.mutable.Map.empty[Int, Int]
     val stack = scala.collection.mutable.ArrayBuffer.empty[(Int, String)]
+    val nested = Array.fill(tokens.length)(false)
+    val roots = Vector.newBuilder[Int]
+    val closingIndexes = scala.collection.mutable.Set.empty[Int]
     val openings = Set("(", "[", "{")
     val closings = Map(")" -> "(", "]" -> "[", "}" -> "{")
     def name(text: String): Boolean = text.matches("[A-Za-z_][A-Za-z0-9_.]*")
@@ -406,6 +504,7 @@ object BendLayoutPolicy:
       false
     tokens.indices.foreach { index =>
       val token = tokens(index)
+      nested(index) = stack.nonEmpty
       val declarationParameters = index >= 2 && tokens(index - 2).text == "type"
       val sameLineHead = index > 0 && !source
         .substring(tokens(index - 1).end, token.start)
@@ -419,7 +518,9 @@ object BendLayoutPolicy:
         !operatorSuffix && (declarationParameters || sameLineHead && angleSyntax(
           index
         ))
-      if openings(token.text) || angle then stack += ((index, token.text))
+      if openings(token.text) || angle then
+        if stack.isEmpty then roots += index
+        stack += ((index, token.text))
       else if closings.contains(
           token.text
         ) || token.text == ">" && stack.lastOption.exists(_._2 == "<")
@@ -428,6 +529,7 @@ object BendLayoutPolicy:
         if stack.lastOption.exists(_._2 == expected) then
           val (open, _) = stack.remove(stack.size - 1)
           pairs(open) = index
+          closingIndexes += index
         else scala.util.boundary.break(Left("Unrecognized delimiter context"))
     }
     if stack.nonEmpty then
@@ -437,7 +539,7 @@ object BendLayoutPolicy:
     tokens.indices
       .filter(index =>
         Set("def", "law", "type").contains(tokens(index).text) &&
-          !pairs.exists((open, close) => open < index && close > index)
+          !nested(index)
       )
       .foreach { first =>
         val prefix = source.substring(
@@ -610,9 +712,7 @@ object BendLayoutPolicy:
             "==",
             "!=",
             "~"
-          ).contains(tokens(until).text) && !pairs.valuesIterator.contains(
-            until
-          )
+          ).contains(tokens(until).text) && !closingIndexes(until)
         )
       then scala.util.boundary.break(Left("Incomplete list item"))
       Right(LayoutList(open, close, eligible, items, children.result()))
@@ -620,15 +720,11 @@ object BendLayoutPolicy:
     def collect(list: LayoutList): Unit =
       all += list
       list.children.foreach(collect)
-    pairs.keys.toVector.sorted
-      .filter(open =>
-        !pairs.exists((parent, close) => parent < open && close > open)
-      )
-      .foreach { open =>
-        build(open) match
-          case Left(reason) => scala.util.boundary.break(Left(reason))
-          case Right(list)  => collect(list)
-      }
+    roots.result().foreach { open =>
+      build(open) match
+        case Left(reason) => scala.util.boundary.break(Left(reason))
+        case Right(list)  => collect(list)
+    }
     Right(LayoutStructure(all.result(), declarationBodies.toMap))
 
   private def scan(source: String): Either[String, Vector[Token]] =

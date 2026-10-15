@@ -6,6 +6,75 @@ import org.junit.Test
 final class BendLayoutPolicyTest:
   private val twoSpaces = BendLayoutPolicy.Settings(2, false, 8)
 
+  @Test def blockItemsKeepPhysicalOffsideLinesCommentsAndArgumentBoundaries()
+      : Unit =
+    val source =
+      "def f():\n  consume_really_long_name(alpha, value =>\n    first = use(value)\n    # keep attached comment\n    finish(first), omega)\n"
+    val expected =
+      "def f():\n  consume_really_long_name(\n    alpha,\n    value =>\n      first = use(value)\n      # keep attached comment\n      finish(first),\n    omega\n  )\n"
+    val settings = twoSpaces.copy(maxLineLength = Some(40))
+    assertEquals(
+      BendLayoutPolicy.Outcome.Formatted(expected),
+      BendLayoutPolicy.format(source, settings)
+    )
+    assertEquals(
+      BendLayoutPolicy.Outcome.Unchanged,
+      BendLayoutPolicy.format(expected, settings)
+    )
+
+  @Test def curriedBlockCallsUseThePlannedClosingLineAnchor(): Unit =
+    val settings = twoSpaces.copy(maxLineLength = Some(35))
+    for source <- List(
+        "def f():\n  choose_really_long_function(alpha,\n      beta)(value =>\n        copied = value\n        finish(copied), omega)\n",
+        "def f():\n  outer_really_long_function(alpha, choose_really_long_function(beta,\n      gamma)(value =>\n        copied = value\n        finish(copied), omega))\n"
+      )
+    do
+      val formatted = BendLayoutPolicy.format(source, settings) match
+        case BendLayoutPolicy.Outcome.Formatted(value) => value
+        case other => fail(s"Expected curried block formatting: $other"); source
+      assertEquals(
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(formatted, settings)
+      )
+
+  @Test def blockReflowNeverRewritesNewlinesInsideStringTokens(): Unit =
+    val literal = "\"first\n  unchanged literal indentation\nlast\""
+    val source =
+      "def f():\n  consume_really_long_name(" + literal + ", value => value)\n"
+    val settings = twoSpaces.copy(maxLineLength = Some(25))
+    val formatted = BendLayoutPolicy.format(source, settings) match
+      case BendLayoutPolicy.Outcome.Formatted(value) => value
+      case other => fail(s"Expected block list formatting: $other"); source
+    assertTrue(formatted.contains(literal))
+    assertEquals(
+      BendLayoutPolicy.Outcome.Unchanged,
+      BendLayoutPolicy.format(formatted, settings)
+    )
+
+  @Test def blockReflowDoesNotSilentlyAdmitMultilineAtomicSyntax(): Unit =
+    val settings = twoSpaces.copy(maxLineLength = Some(25))
+    for atomic <- List(
+        "{input\n    : TypeName}",
+        "Family<First,\n    Second>",
+        "[input\n    : Nat*4]"
+      )
+    do
+      val source =
+        "def f():\n  consume_really_long_name(value => value, " + atomic + ")\n"
+      assertEquals(
+        Left("Unsupported multiline atomic expression"),
+        BendLayoutPolicy.edits(source, settings)
+      )
+
+  @Test def ambiguousTabBlockIndentationRemainsUnavailable(): Unit =
+    val source =
+      "def f():\n  consume_really_long_name(value =>\n\tfinish(value), omega)\n"
+    assertTrue(
+      BendLayoutPolicy
+        .edits(source, twoSpaces.copy(maxLineLength = Some(25)))
+        .isLeft
+    )
+
   @Test def equalityOperandsTypeAndNestedCallsWrapIdempotently(): Unit =
     val before =
       "law identity:\n  for evidence: {combine(alpha,beta,gamma) == (combine(alpha,beta,gamma)) : Nat}\n  {combine(alpha,beta,gamma) != (other(alpha,beta,gamma)) : Nat}\n"
@@ -55,7 +124,6 @@ final class BendLayoutPolicyTest:
         "law same:\n  {alpha == beta : # attachment\n    Nat}\n",
         "law same:\n  {combine(alpha\n    (beta),gamma) == beta : Nat}\n",
         "law same:\n  {combine(alpha\n    [beta],gamma) == beta : Nat}\n",
-        "law same:\n  {alpha == beta => beta : Nat}\n",
         "law same:\n  {alpha == [beta\n    : Nat*4] : Nat}\n",
         "law same:\r\n  {alpha == beta : Nat}\n"
       )
