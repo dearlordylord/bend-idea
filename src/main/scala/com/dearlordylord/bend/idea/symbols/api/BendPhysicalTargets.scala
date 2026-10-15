@@ -1,6 +1,7 @@
 package com.dearlordylord.bend.idea.symbols.api
 
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -13,17 +14,21 @@ import com.dearlordylord.bend.idea.syntax.psi.*
   */
 object BendPhysicalTargets:
   def file(project: Project, id: FileId): Option[PsiFile] =
-    val local = Option(LocalFileSystem.getInstance().findFileByPath(id.value))
+    val path = project
+      .getService(classOf[BendSourceCatalog])
+      .currentSourcePath(id.value)
+      .getOrElse(id.value)
+    val local = Option(LocalFileSystem.getInstance().findFileByPath(path))
     val projectFile = ProjectRootManager
       .getInstance(project)
       .getContentRoots
       .iterator
       .flatMap { root =>
         val rootPath = root.getPath.stripSuffix("/")
-        if id.value == rootPath then Some(root)
-        else if id.value.startsWith(rootPath + "/") then
+        if path == rootPath then Some(root)
+        else if path.startsWith(rootPath + "/") then
           Option(
-            root.findFileByRelativePath(id.value.drop(rootPath.length + 1))
+            root.findFileByRelativePath(path.drop(rootPath.length + 1))
           )
         else None
       }

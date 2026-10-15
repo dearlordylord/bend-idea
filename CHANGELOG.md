@@ -20,6 +20,25 @@ version. Use the versioned entry when writing GitHub release notes.
 - Index delimiter nesting and layout lookups once per source to avoid repeated
   whole-file scans when formatting large, deeply nested files.
 
+## 0.1.22
+
+- Show imported compiler failures on affected import paths, including transitive imports, with a **Go to original compiler error** action. Stale root results cannot restore highlights or navigate to an outdated cause.
+- Distinguish identical dependency source texts in negotiated structured checks using compiler namespace and source digest, while retaining conservative mapping for older providers.
+- Add optional inspections for type/constructor/import-alias naming, unused import aliases, and canonical local import paths. Canonical path fixes preserve the resolved loading graph and support undo; unused-alias hints never remove imports.
+- Reuse one request-local source snapshot per candidate file during Find Usages instead of loading a graph for each reference. Native binding, alias and law/fill identities remain authoritative.
+
+## 0.1.21
+
+- Preserve unsaved imported source and its revision after closing an editor opened through a symlink or another path alias; checks and navigation through the canonical path keep using the modified document.
+
+- Preserve cached law/proof source links when unchanged files switch between closed disk sources and editor documents. Validate source contents and import/package identities per use, skip project-wide proof discovery when roots are already selected, and keep routine gutter navigation in the background without showing a progress task for every switch.
+
+## 0.1.20
+
+- Reuse bounded root source-link inventories when navigating between laws and candidate proofs. Edits, import changes, external source/package changes and loading settings invalidate cached links; root check status stays current. Reject inconsistent or canceled captures, release cached sources on project disposal, and preserve valid cached roots when an oversized entry is rejected.
+
+- Navigate Quick Documentation Declaration and Implementation links to their source file and offset, instead of reloading the same documentation page; stale links stay inside IDEA without navigating.
+
 ## 0.1.19
 
 - Keep Quick Documentation Declaration and Implementation links inside IntelliJ's native PSI documentation navigation instead of opening them as external URLs.

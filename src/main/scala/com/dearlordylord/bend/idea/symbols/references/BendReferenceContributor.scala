@@ -136,10 +136,28 @@ final class BendNameReference(
     else navigationResolution.eligible
 
   override def multiResolve(incompleteCode: Boolean): Array[ResolveResult] =
-    val targets = alias match
-      case Some(_) => aliasTarget.toList
+    val targets = resolvedTargets(None)
+    targets
+      .map(target => new PsiElementResolveResult(target): ResolveResult)
+      .toArray
+
+  override def resolvePhysicalAgainst(
+      snapshot: BendSourceNavigationSnapshot
+  ): PsiElement =
+    resolvedTargets(Some(snapshot)) match
+      case target :: Nil => target
+      case _             => null
+
+  private def resolvedTargets(
+      snapshot: Option[BendSourceNavigationSnapshot]
+  ): List[PsiElement] =
+    alias match
+      case Some(_) => aliasTarget(snapshot).toList
       case None    =>
-        navigationResolution.target match
+        snapshot
+          .map(resolveAgainst)
+          .getOrElse(navigationResolution)
+          .target match
           case BendSourceResolution.Resolved(symbol) =>
             physicalDeclaration(symbol).toList
           case BendSourceResolution.ResolvedBinder(binding) =>
@@ -161,9 +179,6 @@ final class BendNameReference(
           case BendSourceResolution.Ambiguous(candidates) =>
             candidates.flatMap(physicalDeclaration)
           case _ => Nil
-    targets
-      .map(target => new PsiElementResolveResult(target): ResolveResult)
-      .toArray
 
   /** Resolve a lexical application using a captured source snapshot. Dependency
     * inspection uses this same native reference implementation so it does not
@@ -265,13 +280,19 @@ final class BendNameReference(
     val snapshot = catalog.navigationSnapshot(file, basePath, packageCache)
     resolveAgainst(snapshot)
 
-  private def aliasTarget: Option[PsiElement] =
+  private def aliasTarget(
+      snapshot: Option[BendSourceNavigationSnapshot]
+  ): Option[PsiElement] =
     val file = getElement.getContainingFile
     val (basePath, packageCache) =
       file.getProject.getService(classOf[BendLoadingConfiguration]).paths
-    val graph = file.getProject
-      .getService(classOf[BendImportedSymbolCatalog])
-      .loaded(file, basePath, packageCache)
+    val graph = snapshot
+      .map(_.graph)
+      .getOrElse(
+        file.getProject
+          .getService(classOf[BendImportedSymbolCatalog])
+          .loaded(file, basePath, packageCache)
+      )
     graph.edges.reverse
       .find(e => e.from == graph.root && e.importLine.alias.contains(spelling))
       .flatMap { edge =>

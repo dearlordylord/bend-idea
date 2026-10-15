@@ -8,6 +8,8 @@ Researched 2026-09-27 against Bend commit `ff7a40cc9070a34c78399ecd2bbe46a044ad9
 
 Issue #73's explicit no-go branch asks for this evidence and an upstream contract. It does **not** unblock #45's general resource explanation.
 
+Follow-up, 2026-10-07: [MattCozendey/bend-lint](https://github.com/MattCozendey/bend-lint) collects demand and outward-use observations by instrumenting private checker functions at module load time. See the [architecture and feature comparison](bend-lint-architecture-and-features.md) for its mechanism and compatibility evidence. This is useful prior art for an upstream observation contract, but does not establish a supported resource API or remaining-resource information at incomplete holes; the historical no-go above remains scoped to its pinned exported interface.
+
 ## Source evidence
 
 - [`bend2/bend.ts`](https://github.com/bendlang/bend/blob/ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b/bend2/bend.ts#L3318-L3335) defines `qt` as demand (`None` dead, `Lone` live) and `us` as measured use. [`Infer`/`Check`](https://github.com/bendlang/bend/blob/ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b/bend2/bend.ts#L347-L353) return `us`; [`Check()`](https://github.com/bendlang/bend/blob/ff7a40cc9070a34c78399ecd2bbe46a044ad9b4b/bend2/bend.ts#L474-L480) wraps the typed term with an annotation but does not attach `us` to that term.

@@ -3,6 +3,7 @@ package com.dearlordylord.bend.idea.workspace
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.workspace.api.BendImportLines
 import com.dearlordylord.bend.idea.workspace.api.BendSourceCatalog
+import com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph
 import com.dearlordylord.bend.idea.workspace.loading.BendGraphLoader
 import com.dearlordylord.bend.idea.workspace.model.*
 import org.junit.Assert.*
@@ -10,6 +11,63 @@ import org.junit.Test
 import java.nio.file.{Files, Path}
 
 final class BendGraphLoaderTest:
+  @Test def freshnessObservesMissingTargetsRetargetingAndCancellation(): Unit =
+    val root = record("/p/main.bend", "import ./missing.bend as M\n")
+    val absent = mapCatalog(root)
+    val graph =
+      BendGraphLoader.load(root, BendGraphLoader.Config("", ""), absent)
+    assertTrue(BendWorkspaceGraph.current(graph, "", absent))
+    val created = record("/p/missing.bend", "law claim:\n  Type\n")
+    assertFalse(
+      "Creating a formerly missing source changes loading inputs",
+      BendWorkspaceGraph.current(graph, "", mapCatalog(root, created))
+    )
+    val complete = BendGraphLoader.load(
+      root,
+      BendGraphLoader.Config("", ""),
+      mapCatalog(root, created)
+    )
+    val retargeted = record("/p/missing.bend", created.text, "/p/other.bend")
+    assertFalse(
+      "Same text at a new canonical target is a different graph",
+      BendWorkspaceGraph.current(complete, "", mapCatalog(root, retargeted))
+    )
+    assertFalse(
+      "Canceled observation validation cannot accept a cache hit",
+      BendWorkspaceGraph.current(
+        complete,
+        "",
+        mapCatalog(root, created),
+        () => true
+      )
+    )
+
+  @Test def contentFreshnessAcceptsReopenedRevisionButRejectsChangedText()
+      : Unit =
+    val root = record("/p/main.bend", "law claim:\n  Type\n")
+    val graph = BendGraphLoader.load(
+      root,
+      BendGraphLoader.Config("", ""),
+      mapCatalog(root)
+    )
+    val reopened = mapCatalog(root.copy(revision = 2))
+    assertFalse(
+      "Compiler snapshots retain strict revision provenance",
+      BendWorkspaceGraph.current(graph, "", reopened)
+    )
+    assertTrue(
+      "Unchanged source links survive switching disk/document revisions",
+      BendWorkspaceGraph.contentsCurrent(graph, "", reopened)
+    )
+    assertFalse(
+      "A source edit must still reject the inventory",
+      BendWorkspaceGraph.contentsCurrent(
+        graph,
+        "",
+        mapCatalog(root.copy(revision = 2, text = "law changed:\n  Type\n"))
+      )
+    )
+
   private def record(
       path: String,
       text: String,

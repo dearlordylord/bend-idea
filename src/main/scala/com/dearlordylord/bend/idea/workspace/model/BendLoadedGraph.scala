@@ -53,27 +53,34 @@ final case class BendLoadedGraph(
   def source(id: FileId): Option[BendSourceRecord] =
     files.find(_.source.id == id).map(_.source)
 
+  private lazy val invalidImports = problems.map {
+    case BendGraphProblem.InvalidImport(file, imp, _) => (file, imp.offset)
+    case BendGraphProblem.Missing(file, imp, _)       => (file, imp.offset)
+    case BendGraphProblem.Cycle(file, imp, _)         => (file, imp.offset)
+  }.toSet
+
+  private lazy val loadedIdentities =
+    files.map(file => (file.source.id, file.namespace)).toSet
+
+  private def validatedTarget(edge: BendLoadedEdge): Option[FileId] =
+    if invalidImports.contains((edge.from, edge.importLine.offset)) then None
+    else
+      edge.target.filter(id => loadedIdentities.contains((id, edge.namespace)))
+
+  /** Bulk equivalent of importTarget. Indexes each validation fact once and
+    * preserves the first written edge at a source offset, including an invalid
+    * first edge. Canonical source identity and namespace must both match.
+    */
+  def validImportEdges: List[(BendLoadedEdge, FileId)] =
+    edges.distinctBy(edge => (edge.from, edge.importLine.offset)).flatMap {
+      edge =>
+        validatedTarget(edge).map(target => (edge, target))
+    }
+
   /** A written import can navigate only when its own edge passed loader
     * validation.
     */
   def importTarget(from: FileId, offset: Int): Option[FileId] =
-    val invalid = problems.exists {
-      case BendGraphProblem.InvalidImport(file, imp, _) =>
-        file == from && imp.offset == offset
-      case BendGraphProblem.Missing(file, imp, _) =>
-        file == from && imp.offset == offset
-      case BendGraphProblem.Cycle(file, imp, _) =>
-        file == from && imp.offset == offset
-
-    }
-    if invalid then None
-    else
-      edges
-        .find(edge => edge.from == from && edge.importLine.offset == offset)
-        .flatMap(edge =>
-          edge.target.filter(id =>
-            files.exists(file =>
-              file.source.id == id && file.namespace == edge.namespace
-            )
-          )
-        )
+    edges
+      .find(edge => edge.from == from && edge.importLine.offset == offset)
+      .flatMap(validatedTarget)

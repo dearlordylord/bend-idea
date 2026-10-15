@@ -24,6 +24,7 @@ import com.dearlordylord.bend.idea.workspace.api.BendWorkspaceGraph
 import com.dearlordylord.bend.idea.workspace.model.BendSourceRecord
 import java.lang.management.ManagementFactory
 import java.nio.file.{Files, Path, StandardOpenOption}
+import java.util.concurrent.atomic.AtomicLong
 import org.junit.Assert.*
 
 /** Opt-in native API measurements. No unstable timing threshold in CI. */
@@ -32,10 +33,36 @@ final class BendSourceQueryProfileTest extends BasePlatformTestCase:
   private var dependency: PsiFile = null
   private var importer: PsiFile = null
   private var unrelated: PsiFile = null
-  private val importers = 24
-  private val callsPerImporter = 8
-  private val samples = 5
+  private val importers = parameter("importers", 24, 1, 256)
+  private val unrelatedCount = parameter("unrelated", 24, 1, 2048)
+  private val callsPerImporter = parameter("calls", 8, 1, 32)
+  private val samples = parameter("samples", 5, 1, 50)
+  private val shadowed = System
+    .getProperty("bend.source.profile.shadowed", "false")
+    .toBoolean
+  private val run = parameter("run", 1, 1, 100)
+  private val graphLoads = new AtomicLong
+  @volatile private var measuredThread: Thread = null
   private val rows = scala.collection.mutable.ListBuffer.empty[String]
+
+  private def parameter(name: String, default: Int, min: Int, max: Int): Int =
+    val value =
+      System.getProperty(s"bend.source.profile.$name", default.toString).toInt
+    require(
+      value >= min && value <= max,
+      s"$name must be between $min and $max"
+    )
+    value
+
+  private def row(
+      phase: String,
+      sample: Int,
+      duration: Long,
+      bytes: Long,
+      count: Int,
+      loads: Long
+  ): String =
+    s"${getName},$phase,$sample,$duration,$bytes,$count,$loads,$importers,$unrelatedCount,$callsPerImporter,$shadowed,$run"
 
   override def setUp(): Unit =
     super.setUp()
@@ -57,14 +84,42 @@ final class BendSourceQueryProfileTest extends BasePlatformTestCase:
       )
     }
     importer = callers.head
-    unrelated = (0 until importers).map { file =>
+    unrelated = (0 until unrelatedCount).map { file =>
+      val text = if shadowed then
+        s"def unrelated$file(answer: Type):\n  answer\n"
+      else s"def unrelated$file():\n  Type\n"
       myFixture.addFileToProject(
         s"unrelated$file.bend",
-        s"def unrelated$file():\n  Type\n"
+        text
       )
     }.head
     PsiDocumentManager.getInstance(getProject).commitAllDocuments()
-    rows += s"${getName},fixture-build,0,${System.nanoTime() - start},-1,${1 + importers * 2}"
+    rows += row(
+      "fixture-build",
+      0,
+      System.nanoTime() - start,
+      -1,
+      1 + importers + unrelatedCount,
+      0
+    )
+    val delegate = getProject.getService(classOf[BendWorkspaceGraph])
+    val counted = new BendWorkspaceGraph:
+      override def load(
+          root: BendSourceRecord,
+          base: String,
+          cache: String,
+          canceled: () => Boolean
+      ) =
+        if Thread.currentThread() == measuredThread then
+          val _ = graphLoads.incrementAndGet()
+        delegate.load(root, base, cache, canceled)
+      override def siblingLaws(path: String) = delegate.siblingLaws(path)
+    ServiceContainerUtil.replaceService(
+      getProject,
+      classOf[BendWorkspaceGraph],
+      counted,
+      getTestRootDisposable
+    )
 
   override def tearDown(): Unit =
     try
@@ -73,6 +128,26 @@ final class BendSourceQueryProfileTest extends BasePlatformTestCase:
         .update(original)
       val output = Path.of(System.getProperty("bend.source.profile.output"))
       Files.createDirectories(output.getParent)
+      val metadata = new java.util.Properties
+      List(
+        "java.runtime.version",
+        "java.vm.name",
+        "os.name",
+        "os.version",
+        "os.arch"
+      )
+        .foreach(name => {
+          val _ = metadata.setProperty(name, System.getProperty(name))
+        })
+      val metadataOutput = Files.newOutputStream(
+        output.resolveSibling("source-query-profile.properties")
+      )
+      try
+        metadata.store(
+          metadataOutput,
+          "Fixture JVM; timings exclude fixture construction"
+        )
+      finally metadataOutput.close()
       val _ = Files.writeString(
         output,
         rows.mkString("", "\n", "\n"),
@@ -154,7 +229,7 @@ final class BendSourceQueryProfileTest extends BasePlatformTestCase:
           )
     )
     assertNotNull(canceled)
-    rows += s"${getName},pre-canceled-request,0,${System.nanoTime() - start},-1,0"
+    rows += row("pre-canceled-request", 0, System.nanoTime() - start, -1, 0, 0)
     if getName != "testNavigationSnapshotMeasurements" then
       var canceledAt = 0L
       val duringScan = new ProgressIndicatorBase
@@ -195,7 +270,14 @@ final class BendSourceQueryProfileTest extends BasePlatformTestCase:
         "Query canceled after its first actual graph capture",
         canceledAt > 0L
       )
-      rows += s"${getName},scan-cancel-after-first-capture,0,${System.nanoTime() - canceledAt},-1,0"
+      rows += row(
+        "scan-cancel-after-first-capture",
+        0,
+        System.nanoTime() - canceledAt,
+        -1,
+        0,
+        1
+      )
 
   private def edit(file: PsiFile): Unit =
     val manager = PsiDocumentManager.getInstance(getProject)
@@ -223,6 +305,8 @@ final class BendSourceQueryProfileTest extends BasePlatformTestCase:
       case _ => None
     val thread = Thread.currentThread().threadId()
     val allocated = bean.map(_.getThreadAllocatedBytes(thread))
+    measuredThread = Thread.currentThread()
+    val loadsBefore = graphLoads.get()
     val start = System.nanoTime()
     val count = query()
     val duration = System.nanoTime() - start
@@ -230,4 +314,11 @@ final class BendSourceQueryProfileTest extends BasePlatformTestCase:
       .flatMap(before => bean.map(_.getThreadAllocatedBytes(thread) - before))
       .getOrElse(-1L)
     assertEquals(expected, count)
-    rows += s"${getName},$phase,$sample,$duration,$bytes,$count"
+    rows += row(
+      phase,
+      sample,
+      duration,
+      bytes,
+      count,
+      graphLoads.get() - loadsBefore
+    )

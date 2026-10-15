@@ -3,6 +3,13 @@ package com.dearlordylord.bend.idea.adapters.intellij
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
+import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.search.searches.ReferencesSearch
+import com.intellij.psi.search.LocalSearchScope
 import com.dearlordylord.bend.idea.toolchain.api.BendToolchainSettings
 import com.dearlordylord.bend.idea.model.FileId
 import com.dearlordylord.bend.idea.workspace.api.{
@@ -20,6 +27,127 @@ import java.nio.file.Files
 import java.util.concurrent.{Callable, FutureTask, TimeUnit}
 
 final class BendExplicitCheckRunnerServiceTest extends BasePlatformTestCase:
+  def testDiskWatchNotificationPreservesUnsavedImportEdgesAfterCloseAndReopen()
+      : Unit =
+    com.dearlordylord.bend.idea.test.VfsTestRoots
+      .allowSystemTemporaryDirectory(getTestRootDisposable)
+    val directory = Files.createTempDirectory("bend-watch-current-buffer-")
+    val editors = FileEditorManager.getInstance(getProject)
+    var opened = List.empty[com.intellij.openapi.vfs.VirtualFile]
+    try
+      for name <- List("saved", "live", "external") do
+        Files.writeString(
+          directory.resolve(s"$name.bend"),
+          "def answer():\n  Type\n"
+        )
+      def bridgeText(name: String): String =
+        s"import ./$name.bend as Chosen\ndef item():\n  Chosen.answer()\n"
+      val bridgePath = directory.resolve("bridge.bend")
+      Files.writeString(bridgePath, bridgeText("saved"))
+      val rootPath = directory.resolve("main.bend")
+      Files.writeString(
+        rootPath,
+        "import ./bridge.bend as Bridge\ndef main():\n  Bridge.item()\n"
+      )
+      val bridge =
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(bridgePath)
+      val root =
+        LocalFileSystem.getInstance().refreshAndFindFileByNioFile(rootPath)
+      assertNotNull(bridge)
+      assertNotNull(root)
+      opened = List(bridge, root)
+      myFixture.configureFromExistingVirtualFile(bridge)
+      val document = myFixture.getEditor.getDocument
+      WriteCommandAction.runWriteCommandAction(
+        getProject,
+        new Runnable:
+          override def run(): Unit = document.setText(bridgeText("live"))
+      )
+      PsiDocumentManager.getInstance(getProject).commitDocument(document)
+      assertTrue(FileDocumentManager.getInstance().isFileModified(bridge))
+      val capture = new BendRootSnapshotCapture(getProject)
+      val selected = ApplicationManager.getApplication
+        .getService(classOf[BendToolchainSettings])
+        .selection
+      val before = capture.capture(rootPath.toString, selected, () => false).get
+      assertEquals(before.graph.toString, 3, before.graph.get.files.size)
+      assertTrue(capture.current(before))
+
+      // A watcher reports an external write. Deliver only its notification:
+      // IntelliJ's conflict/reload UI is outside this source-capture contract.
+      Files.writeString(bridgePath, bridgeText("external"))
+      val event = new VFileContentChangeEvent(
+        this,
+        bridge,
+        bridge.getModificationStamp,
+        -1L
+      )
+      WriteCommandAction.runWriteCommandAction(
+        getProject,
+        new Runnable:
+          override def run(): Unit =
+            ApplicationManager.getApplication.getMessageBus
+              .syncPublisher(VirtualFileManager.VFS_CHANGES)
+              .after(java.util.List.of(event))
+      )
+      editors.closeFile(bridge)
+      assertFalse(editors.isFileOpen(bridge))
+      assertEquals(bridgeText("external"), Files.readString(bridgePath))
+      assertEquals(bridgeText("live"), document.getText)
+      assertTrue(
+        "Closing an IntelliJ editor does not discard its modified document",
+        capture.current(before)
+      )
+      val closed = capture.capture(rootPath.toString, selected, () => false).get
+      val paths = closed.graph.get.files.map(_.source.id.value).toSet
+      assertTrue(
+        closed.graph.toString,
+        paths.contains(directory.resolve("live.bend").toRealPath().toString)
+      )
+      assertFalse(
+        paths.contains(directory.resolve("saved.bend").toRealPath().toString)
+      )
+      assertFalse(
+        paths.contains(directory.resolve("external.bend").toRealPath().toString)
+      )
+      assertTrue(
+        closed.graph.get.files.exists(_.source.text == bridgeText("live"))
+      )
+
+      // configureFromExistingVirtualFile rewrites VFS bytes. Use the actual
+      // editor open operation to preserve this modified document on reopen.
+      myFixture.openFileInEditor(bridge)
+      assertEquals(bridgeText("live"), myFixture.getEditor.getDocument.getText)
+      myFixture.getEditor.getCaretModel.moveToOffset(
+        document.getText.lastIndexOf("answer") + 2
+      )
+      val target = GotoDeclarationAction.findTargetElement(
+        getProject,
+        myFixture.getEditor,
+        myFixture.getCaretOffset
+      )
+      assertNotNull(
+        "Navigation follows the unsaved import after reopen",
+        target
+      )
+      assertEquals("live.bend", target.getContainingFile.getName)
+      val found = ReferencesSearch
+        .search(target, new LocalSearchScope(myFixture.getFile), true)
+        .findAll()
+      assertEquals(1, found.size())
+      assertEquals(
+        bridge,
+        found.iterator().next().getElement.getContainingFile.getVirtualFile
+      )
+    finally
+      opened.foreach(editors.closeFile)
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(path => { val _ = Files.deleteIfExists(path) })
+      finally paths.close()
+
   def testSharedCaptureRejectsRetargetedNamedPackageAndMissingNameAppearance()
       : Unit =
     val settings = ApplicationManager.getApplication.getService(

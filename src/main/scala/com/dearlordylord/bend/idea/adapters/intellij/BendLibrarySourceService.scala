@@ -232,53 +232,70 @@ final class BendLibrarySourceService(project: Project)
         case _: java.nio.file.InvalidPathException => None
         case _: SecurityException                  => None
 
+  private def currentVirtual(path: String) =
+    ReadAction.compute(() => {
+      val local =
+        LocalFileSystem.getInstance().findFileByNioFile(Path.of(path))
+      val projectFile = ProjectRootManager
+        .getInstance(project)
+        .getContentRoots
+        .iterator
+        .flatMap { root =>
+          Option
+            .when(path.startsWith(root.getPath.stripSuffix("/") + "/"))(
+              path.drop(root.getPath.stripSuffix("/").length + 1)
+            )
+            .flatMap(relative => Option(root.findFileByRelativePath(relative)))
+        }
+        .take(1)
+        .toList
+        .headOption
+      val resolved = projectFile.orElse(Option(local))
+      // Closing an editor does not discard a modified document. A canonical
+      // check path can have a different VFS handle from that document's alias.
+      val documents = FileDocumentManager.getInstance()
+      val identity = resolved
+        .flatMap(candidate => Option(candidate.getCanonicalPath))
+        .getOrElse(path)
+      val modified = resolved.filter(documents.isFileModified).orElse {
+        documents.getUnsavedDocuments.iterator
+          .flatMap(document => Option(documents.getFile(document)))
+          .find(file =>
+            file.isValid && file.getCanonicalPath != null &&
+              file.getCanonicalPath == identity
+          )
+      }
+      // Unmodified open documents still retain their current editor revision.
+      val open = FileEditorManager
+        .getInstance(project)
+        .getOpenFiles
+        .find(openFile =>
+          openFile.isValid && openFile.getCanonicalPath != null &&
+            openFile.getCanonicalPath == identity
+        )
+      val file = modified.orElse(open).orElse(resolved).orNull
+      if file == null || !file.isValid then None
+      else
+        Some(
+          (
+            file,
+            file.isDirectory,
+            file.isInLocalFileSystem,
+            file.getCharset,
+            file.getPath
+          )
+        )
+    })
+
+  override def currentSourcePath(path: String): Option[String] =
+    try currentVirtual(path).map(_._5)
+    catch
+      case _: java.nio.file.InvalidPathException => None
+      case _: SecurityException                  => None
+
   override def source(path: String): Option[BendSourceRecord] =
     try
-      // VFS/document access stays in a short read action; disk reads follow it.
-      val virtual = ReadAction.compute(() => {
-        val local =
-          LocalFileSystem.getInstance().findFileByNioFile(Path.of(path))
-        val projectFile = ProjectRootManager
-          .getInstance(project)
-          .getContentRoots
-          .iterator
-          .flatMap { root =>
-            Option
-              .when(path.startsWith(root.getPath.stripSuffix("/") + "/"))(
-                path.drop(root.getPath.stripSuffix("/").length + 1)
-              )
-              .flatMap(relative =>
-                Option(root.findFileByRelativePath(relative))
-              )
-          }
-          .take(1)
-          .toList
-          .headOption
-        val resolved = projectFile.orElse(Option(local))
-        // A checked path and an open editor can use different VFS aliases for
-        // the same physical file. The editor document owns its live revision.
-        val open = resolved.flatMap(candidate =>
-          FileEditorManager
-            .getInstance(project)
-            .getOpenFiles
-            .find(openFile =>
-              openFile.getCanonicalPath != null &&
-                openFile.getCanonicalPath == candidate.getCanonicalPath
-            )
-        )
-        val file = open.orElse(resolved).orNull
-        if file == null || !file.isValid then None
-        else
-          Some(
-            (
-              file,
-              file.isDirectory,
-              file.isInLocalFileSystem,
-              file.getCharset,
-              file.getPath
-            )
-          )
-      })
+      val virtual = currentVirtual(path)
       if virtual.isEmpty then
         val disk = Path.of(path)
         if !Files.isRegularFile(disk) then None

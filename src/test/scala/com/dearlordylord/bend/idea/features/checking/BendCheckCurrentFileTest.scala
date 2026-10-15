@@ -30,6 +30,8 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.openapi.editor.event.{DocumentEvent, DocumentListener}
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.junit.Assert.*
@@ -466,6 +468,67 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
         .SourceLine(depId, 2),
       result.diagnostics.head.location
     )
+    val projected = result.diagnostics
+      .find(_.related.nonEmpty)
+      .getOrElse(
+        throw new AssertionError(
+          "Dependency failure must project onto the root import"
+        )
+      )
+    val importStart = myFixture.getFile.getText.indexOf("./math.bend")
+    assertEquals(
+      BendLocation.SourceRange(
+        rootId,
+        BendTextRange(importStart, importStart + "./math.bend".length)
+      ),
+      projected.location
+    )
+    assertTrue(
+      "Root import path must show the imported compiler failure",
+      myFixture
+        .doHighlighting()
+        .asScala
+        .exists(info =>
+          info.getStartOffset == importStart && info.getEndOffset == importStart + "./math.bend".length &&
+            Option(info.getDescription)
+              .exists(_.contains("Imported dependency failed"))
+        )
+    )
+    myFixture.getEditor.getCaretModel.moveToOffset(importStart)
+    assertTrue(
+      myFixture.getAvailableIntentions.asScala.exists(
+        _.getText == "Go to original compiler error"
+      )
+    )
+    val navigate =
+      new BendNavigateDiagnosticCause(result, projected.related.get)
+    assertTrue(
+      navigate.isAvailable(getProject, myFixture.getEditor, myFixture.getFile)
+    )
+    assertEquals(
+      Some((dep, dependencyDocument.getLineStartOffset(2))),
+      navigate.target(getProject)
+    )
+    navigate.invoke(getProject, myFixture.getEditor, myFixture.getFile)
+    assertEquals(
+      dep,
+      FileDocumentManager
+        .getInstance()
+        .getFile(
+          FileEditorManager
+            .getInstance(getProject)
+            .getSelectedTextEditor
+            .getDocument
+        )
+    )
+    assertEquals(
+      dependencyDocument.getLineStartOffset(2),
+      FileEditorManager
+        .getInstance(getProject)
+        .getSelectedTextEditor
+        .getCaretModel
+        .getOffset
+    )
     val checkedDependency = result.sources.find(_.id == depId).get
     assertTrue("Published graph result must remain current", result.fresh)
     assertEquals(
@@ -504,11 +567,73 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     )
     assertFalse(service.result(rootId).get.fresh)
     assertFalse(
+      "Stale cause navigation must disappear",
+      navigate.isAvailable(getProject, myFixture.getEditor, myFixture.getFile)
+    )
+    assertFalse(
       myFixture
         .doHighlighting()
         .toArray
         .exists(_.toString.contains("unknown_value"))
     )
+
+  def testTransitiveImportCausesRemainIsolatedAcrossTwoRoots(): Unit =
+    val bad = myFixture.addFileToProject(
+      "cause.bend",
+      "def broken() -> Type:\n  absent\n"
+    )
+    val middle = myFixture.addFileToProject(
+      "middle.bend",
+      "import ./cause.bend as C\ndef value() -> Type:\n  C.broken()\n"
+    )
+    val roots = List("first.bend", "second.bend").map(name =>
+      myFixture.addFileToProject(
+        name,
+        "import ./middle.bend as M\ndef value() -> Type:\n  M.value()\n"
+      )
+    )
+    val runner = getProject.getService(classOf[BendExplicitCheckRunner])
+    val results = roots.map { root =>
+      val completed = new CountDownLatch(1)
+      var outcome: Option[BendExplicitCheckOutcome] = None
+      runner.check(root.getVirtualFile.getPath, "Checking import chain") {
+        value =>
+          outcome = Some(value)
+          completed.countDown()
+      }
+      assertTrue(completed.await(30, TimeUnit.SECONDS))
+      outcome.get match
+        case BendExplicitCheckOutcome.Published(result) => result
+        case other                                      =>
+          throw new AssertionError(s"Expected published result, got $other")
+    }
+    def id(file: com.intellij.psi.PsiFile): FileId =
+      val virtual = file.getVirtualFile
+      new FileId(
+        Option(virtual.getCanonicalPath).getOrElse(virtual.getPath),
+        virtual.getCanonicalPath != null
+      )
+    results.zip(roots).foreach { case (result, root) =>
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      val projections = result.diagnostics.filter(_.related.nonEmpty)
+      assertEquals(
+        Set(id(root), id(middle)),
+        projections
+          .map(_.location)
+          .collect { case BendLocation.SourceRange(source, _) =>
+            source
+          }
+          .toSet
+      )
+      assertTrue(
+        projections
+          .forall(_.related.get.location == BendLocation.SourceLine(id(bad), 1))
+      )
+    }
+    assertNotEquals(results.head.key.root, results.last.key.root)
+    val service = getProject.getService(classOf[BendCheckService])
+    assertTrue(results.forall(service.isCurrent))
+    assertEquals(2, service.resultsFor(id(bad)).size)
 
   def testMissingImportCreationStalesRootResult(): Unit =
     myFixture.configureByText("main.bend", "import ./later.bend as Later\n")
@@ -567,6 +692,79 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       "Document opened after publication must invalidate its root",
       service.resultsFor(depId).head.fresh
     )
+
+  def testCheckUsesClosedModifiedAliasOfCanonicalDependency(): Unit =
+    val target = directory.resolve("closed-module.bend").toAbsolutePath
+    val alias = directory.resolve("closed-alias.bend")
+    val saved = "def value() -> Type:\n  Type\n"
+    val broken = "def value() -> Type:\n  unknown_closed_alias\n"
+    Files.writeString(target, saved)
+    Files.createSymbolicLink(alias, target.getFileName)
+    val aliasFile =
+      LocalFileSystem.getInstance().refreshAndFindFileByNioFile(alias)
+    assertNotNull(aliasFile)
+    myFixture.configureFromExistingVirtualFile(aliasFile)
+    val document = myFixture.getEditor.getDocument
+    def edit(text: String): Unit =
+      WriteCommandAction.runWriteCommandAction(
+        getProject,
+        new Runnable:
+          override def run(): Unit = document.setText(text)
+      )
+      PsiDocumentManager.getInstance(getProject).commitDocument(document)
+    edit(broken)
+    val editors = FileEditorManager.getInstance(getProject)
+    editors.closeFile(aliasFile)
+    assertFalse(editors.isFileOpen(aliasFile))
+    assertTrue(FileDocumentManager.getInstance().isFileModified(aliasFile))
+    val canonical = target.toRealPath()
+    myFixture.configureByText(
+      "closed-alias-root.bend",
+      s"import $canonical as Module\ndef main() -> Type:\n  Module.value()\n"
+    )
+    val rootFile = myFixture.getFile.getVirtualFile
+    val root = new FileId(rootFile.getCanonicalPath, true)
+    val dependency = new FileId(canonical.toString, true)
+    val service = getProject.getService(classOf[BendCheckService])
+    def checkCurrent(text: String): BendCheckResult =
+      myFixture.performEditorAction("Bend.CheckCurrentFile")
+      val deadline = System.nanoTime() + 15_000_000_000L
+      var result = service
+        .result(root)
+        .filter(r =>
+          r.fresh && r.sources.exists(s => s.id == dependency && s.text == text)
+        )
+      while result.isEmpty && System.nanoTime() < deadline do
+        Thread.sleep(25)
+        result = service
+          .result(root)
+          .filter(r =>
+            r.fresh && r.sources
+              .exists(s => s.id == dependency && s.text == text)
+          )
+      result.getOrElse(
+        throw new AssertionError(
+          "Canonical root did not check its closed modified alias"
+        )
+      )
+    val failed = checkCurrent(broken)
+    assertEquals(failed.details, BendCheckOutcome.Failed, failed.outcome)
+    assertTrue(failed.details.contains("unknown_closed_alias"))
+    assertTrue(
+      failed.sources.exists(s =>
+        s.id == dependency && s.revision == document.getModificationStamp
+      )
+    )
+    assertEquals(saved, Files.readString(target))
+    edit(saved + "# repaired without reopening\n")
+    assertFalse(
+      "Closed document changes invalidate the canonical root",
+      service.result(root).get.fresh
+    )
+    val repaired = checkCurrent(document.getText)
+    assertEquals(repaired.details, BendCheckOutcome.Success, repaired.outcome)
+    assertTrue(repaired.diagnostics.isEmpty)
+    assertEquals(saved, Files.readString(target))
 
   def testExternalSymlinkTargetOpenedAfterCheckInvalidatesRoot(): Unit =
     val target = directory.resolve("external.bend")

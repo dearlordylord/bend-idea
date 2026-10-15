@@ -28,6 +28,8 @@ Supports IntelliJ IDEA **2025.1 and newer**. Compatibility has been verified wit
 - Parameter information, parameter-name hints, source semantic highlights, constructor-case generation, and an explicit import action for unresolved names.
 - Token-aware spelling for comments and supported string text, using the IDE's spellchecker dictionaries and fixes.
 
+Optional Bend inspections are available under **Settings → Editor → Inspections → Bend**. Enable naming conventions, canonical local import paths, or unused import aliases individually. Canonical path fixes preserve the loaded source graph and support undo. An unused alias hint does not mean the import can be removed: importing still loads its declarations.
+
 To distinguish resolved constructors from ordinary calls, open **Settings → Editor → Color Scheme → Bend → Resolved constructor**, disable inherited attributes, and choose a foreground color. The default inherits the scheme’s function-call color, which may be white. **Resolved import alias** has its own configurable category. These semantic colors require resolvable declarations or imports; an unresolved name is not colored as a constructor.
 
 ### Structure and refactoring
@@ -57,6 +59,7 @@ To distinguish resolved constructors from ordinary calls, open **Settings → Ed
 - Bend's release number is not a runtime requirement. The plugin negotiates check-only support and individual tooling operations; compatible Bend updates do not require a plugin update. The exact Bend/Bun pin below applies to reproducible CI tests.
 - **Check Current Bend File** runs a supported Bend compiler against a snapshot of the current unsaved file and its loaded imports, without running `main` or fetching packages.
 - Optional background checking refreshes diagnostics after edits to the root or its dependencies. Results belong to the checked root, and older results are discarded when their inputs change.
+- A located failure in an imported file also appears on affected import paths, including transitive imports. Use **Go to original compiler error** to navigate to its current source. Large graphs can limit additional import annotations; original compiler errors remain available.
 - The clickable **Bend status-bar indicator** shows checking, passed, stale, incomplete, failed, unavailable, and timeout states, with an unsafe/foreign qualification when applicable. Click it or use **Show Bend Check Status** for compiler output and **Check again**. Compiler errors appear in the editor when their source location can be mapped unambiguously.
 - For a pinned Bend 2.0.35 source checkout, the optional structured helper supplies versioned check results without matching CLI prose and can highlight the first compiler error at its exact source range. Copy `bend-structured-launcher.sh` and `bend-structured-helper.ts` from `src/main/resources/semantic` into one directory, make the launcher executable, set `BEND_IDEA_BUN` to Bun 1.4.2 and `BEND_IDEA_BEND_DIR` to that checkout's `bend2` directory in IDEA's environment, then select the launcher as the Bend executable. The helper checks hashes of the pinned compiler sources. Other compilers continue to use the guarded text CLI fallback unless they advertise a compatible check protocol. See the [check protocol](docs/compiler/check-protocol.md) and [compiler support matrix](docs/compiler/support.md).
 - **Diagnostics currently report only the first compiler error.** An earlier error in this file or an import can hide later errors, so a missing red highlight does not establish validity. Check the Bend status, fix the reported error, then run **Check Current Bend File** again to reveal the next one. Edits make the previous result stale until rechecked.
@@ -88,9 +91,9 @@ Add `https://idea.dearlordylord.com/updatePlugins.xml` and click **OK**. If that
 
 <img src="docs/screenshots/plugin-repository-url.png" alt="Custom Plugin Repositories dialog with the Bend2 repository URL" width="600">
 
-Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.18.
+Search for **Bend2** in the Plugins Marketplace tab and install it. The custom feed currently serves 0.1.22.
 
-To install a signed ZIP directly, download [`bend-idea-0.1.18-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.18/bend-idea-0.1.18-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.18/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.18) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
+To install a signed ZIP directly, download [`bend-idea-0.1.22-signed.zip`](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.22/bend-idea-0.1.22-signed.zip) and choose **Settings → Plugins → gear icon → Install Plugin from Disk**. Before installation, IDEA may warn about this release's self-signed plugin certificate. Download the [public signing certificate](https://github.com/dearlordylord/bend-idea/releases/download/v0.1.22/bend-idea-signing-certificate.crt) and add it under **Settings → Plugins → Manage Plugin Certificates**. The [release](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.22) records the signed ZIP's SHA-256 so you can check your download. Use the named signed ZIP, not GitHub's automatic source-code ZIP.
 
 ## Planned
 

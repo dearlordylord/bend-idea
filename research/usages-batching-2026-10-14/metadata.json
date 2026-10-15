@@ -1,0 +1,22 @@
+{
+  "source_base": "20e5d1fbbe5dd6a4ca8355b7dd6b10bda75a3b2e",
+  "before_source_sha256": {
+    "src/main/scala/com/dearlordylord/bend/idea/symbols/api/BendSnapshotAwareReference.scala": "377efa28e115ff9ab8c902b3ef3c9e18ca24a9cf727657fbc0ca16644057af56",
+    "src/main/scala/com/dearlordylord/bend/idea/symbols/references/BendReferenceContributor.scala": "c8e398a9d15f6519da66af7e301d401f2919b974426cb76f9d1dc3ff23ceb727",
+    "src/main/scala/com/dearlordylord/bend/idea/symbols/references/BendUsageSearch.scala": "9839a88814db7bbd24aba6bf12e2b15c9ae4cb93de174964548059a139890ed6",
+    "src/test/scala/com/dearlordylord/bend/idea/performance/BendSourceQueryProfileTest.scala": "273060a9e8c0bc1c370ce71ba7437d89256b89c18a28c7f4e007d0605ebf2fc0"
+  },
+  "after_source_sha256": {
+    "src/main/scala/com/dearlordylord/bend/idea/symbols/api/BendSnapshotAwareReference.scala": "ddf00dc0f624e96b394067b64929ff3b969bb88d1ce3fb3fb753e1c375bd6a05",
+    "src/main/scala/com/dearlordylord/bend/idea/symbols/references/BendReferenceContributor.scala": "460108312801cffb79ba6676e6ea6ff318c54133328ad30295d634e929d4df1d",
+    "src/main/scala/com/dearlordylord/bend/idea/symbols/references/BendUsageSearch.scala": "adc547e66d40db62e54e9878df3aad08e515b5e968903b1ef2ab211823fd705b",
+    "src/test/scala/com/dearlordylord/bend/idea/performance/BendSourceQueryProfileTest.scala": "273060a9e8c0bc1c370ce71ba7437d89256b89c18a28c7f4e007d0605ebf2fc0"
+  },
+  "command": "./gradlew test -PbendSourceProfile=true --tests *testFindUsagesMeasurements -PbendSourceProfile.importers=24 -PbendSourceProfile.unrelated=24 -PbendSourceProfile.calls=8 -PbendSourceProfile.shadowed=true -PbendSourceProfile.samples=3",
+  "environment": {
+    "JAVA_HOME": "/home/node/.gradle/jdks/eclipse_adoptium-21-aarch64-linux.2",
+    "BEND_TEST_COMPILER_DIR": "/tmp/bend-idea-upstream-pin-2035",
+    "BEND_TEST_BUN": "/tmp/bend-bun-1.4.2/bun-linux-aarch64/bun"
+  },
+  "after_note": "Refreshed after required Spotless formatting, on final formatted source; original before artifacts preserved."
+}

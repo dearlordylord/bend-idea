@@ -29,6 +29,7 @@ object RealBendCompilerFixture:
       val lines = List(
         "#!/bin/sh",
         "set -eu",
+        "export BEND_NO_TELEMETRY=1",
         "if [ \"${1:-}\" = \"--idea-check-capabilities\" ]; then",
         checkCapability,
         "fi",

@@ -7,8 +7,11 @@ import com.dearlordylord.bend.idea.analysis.api.{
 import com.dearlordylord.bend.idea.analysis.model.BendExpressionType
 import com.dearlordylord.bend.idea.symbols.api.*
 import com.dearlordylord.bend.idea.syntax.psi.BendDeclaration
-import com.intellij.lang.documentation.AbstractDocumentationProvider
-import com.intellij.codeInsight.documentation.DocumentationManagerProtocol
+import com.intellij.lang.documentation.{
+  AbstractDocumentationProvider,
+  ExternalDocumentationHandler
+}
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiFile, PsiManager}
 import com.intellij.psi.util.PsiTreeUtil
@@ -18,7 +21,9 @@ import java.nio.charset.StandardCharsets
 /** IntelliJ Quick Documentation over current source declarations and native
   * references.
   */
-class BendDocumentationProvider extends AbstractDocumentationProvider:
+class BendDocumentationProvider
+    extends AbstractDocumentationProvider
+    with ExternalDocumentationHandler:
   override def getCustomDocumentationElement(
       editor: Editor,
       file: PsiFile,
@@ -134,6 +139,29 @@ class BendDocumentationProvider extends AbstractDocumentationProvider:
       case ""   => null
       case html => html
 
+  /** Source links are editor navigation, not another documentation page.
+    * Consume stale owned links too, so they never fall through to the OS
+    * browser.
+    */
+  override def handleExternalLink(
+      psiManager: PsiManager,
+      url: String,
+      context: PsiElement
+  ): Boolean =
+    if !url.startsWith("bend-doc:") then false
+    else
+      Option(getDocumentationElementForLink(psiManager, url, context))
+        .foreach { target =>
+          Option(target.getContainingFile.getVirtualFile).foreach { file =>
+            new OpenFileDescriptor(
+              psiManager.getProject,
+              file,
+              target.getTextOffset
+            ).navigate(true)
+          }
+        }
+      true
+
   override def getDocumentationElementForLink(
       psiManager: PsiManager,
       link: String,
@@ -241,8 +269,7 @@ class BendDocumentationProvider extends AbstractDocumentationProvider:
     val path =
       URLEncoder.encode(symbol.handle.file.value, StandardCharsets.UTF_8)
     val name = URLEncoder.encode(symbol.name, StandardCharsets.UTF_8)
-    val protocol = DocumentationManagerProtocol.PSI_ELEMENT_PROTOCOL
-    s"<a href='${protocol}bend-doc:$path:${symbol.category}:${symbol.handle.nameOffset}:$name'>$label</a>"
+    s"<a href='bend-doc:$path:${symbol.category}:${symbol.handle.nameOffset}:$name'>$label</a>"
 
   private def sourceName(symbol: BendSourceSymbol): String =
     symbol.handle.file.value

@@ -172,10 +172,16 @@ tasks.test {
         filter { includeTestsMatching("com.dearlordylord.bend.idea.performance.BendSourceQueryProfileTest") }
         val report = layout.buildDirectory.file("reports/source-query-profile.csv")
         systemProperty("bend.source.profile.output", report.get().asFile.absolutePath)
+        // Test-only workload controls; each invocation starts a fresh fixture JVM.
+        listOf("importers", "unrelated", "calls", "samples", "shadowed", "run").forEach { name ->
+            providers.gradleProperty("bendSourceProfile.$name").orNull?.let {
+                systemProperty("bend.source.profile.$name", it)
+            }
+        }
         doFirst {
             report.get().asFile.apply {
                 parentFile.mkdirs()
-                writeText("operation,phase,sample,nanoseconds,current_thread_allocated_bytes,result_count\n")
+                writeText("operation,phase,sample,nanoseconds,current_thread_allocated_bytes,result_count,graph_loads,importers,unrelated,calls,shadowed,run\n")
             }
         }
     } else {

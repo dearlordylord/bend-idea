@@ -454,7 +454,13 @@ final class BendCheckSession(project: Project)
       try
         if noLongerCurrent then None
         else
-          val checked = backend.check(snapshot, () => noLongerCurrent)
+          val checked =
+            com.dearlordylord.bend.idea.analysis.checking.BendImportDiagnostics
+              .project(
+                snapshot,
+                backend.check(snapshot, () => noLongerCurrent),
+                () => noLongerCurrent
+              )
           val inputsCurrent = graphCurrent(snapshot)
           val sourceCurrent = isCurrent.exists(_())
           val workerCanceled = canceled() || !workerCurrent(reservation)

@@ -208,3 +208,76 @@ The maintainer completed Marketplace upload; authenticated UI displayed Upload S
 Cloudflare Pages deployed feed commit `e959484a8c2921ad97748fb9dea07d7733829d8f`. Both ordinary public URLs (`https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml`) serve 0.1.18; ID, IDE range, name, description and change notes match the signed plugin. The feed-linked ZIP was downloaded anonymously again and matched its recorded SHA-256. Initial cached responses still served 0.1.17; subsequent ordinary requests confirmed the new version at both endpoints.
 
 All four Homebrew native style/audit, actual installation, version/formula-test and uninstall jobs passed in [run 37222206009](https://github.com/dearlordylord/homebrew-tap/actions/runs/37222206009). Local macOS ARM64 `brew update`, upgrade from 0.1.17 to 0.1.18, `brew test bend-format` and installed command version check passed. After archive, feed and installation verification, GitHub Release v0.1.18 was marked stable/latest. Marketplace approval and interactive IDE installation remain unconfirmed; the signed artifact and custom feed are available now.
+
+
+## 0.1.19 release
+
+[GitHub Release v0.1.19](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.19) is tagged at clean verified source commit `c0b9038ecfc9c6baa4f253a6cfbc8240b931129a`. Quick Documentation Declaration and Implementation links now use IntelliJ native PSI navigation. Two platform-dispatch fixtures cover local Declaration and imported law Declaration/Implementation links. No shared contract or formatter policy changed; architecture rules A2/A3/A8 are preserved. Implementer self-review under `REVIEWER.md` found no actionable findings; no independent review is claimed.
+
+Clean JDK 21.0.10 release gates passed: 599 main-suite cases, 598 executed successfully, one optional compiler smoke skipped, zero failures/errors, and two architecture tests passed. Quality checks, packaging, structure/configuration, signing/signature verification and formatter JAR build passed. Real subprocess fixtures used pinned Bend 2.0.35 `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2. Plugin Verifier accepted IC 2025.1 and IU 2026.1 with existing API notices. Signed metadata uses the existing ID, version 0.1.19, since-build 251 without an upper bound and the versioned changelog notes.
+
+- Signed ZIP SHA-256: `57db0fe14d0a98f8401ee378f31f8643f7f873bb5712a2d661367b0b9ddc9d12`.
+- Portable JAR SHA-256: `50df827b59cb5bca51e2d555e81a2e2bbd8d28d7b799566d3e16653eaac50356`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; signing identity unchanged.
+
+All five native archive packaging/smoke jobs and publication passed in [run 37225334172](https://github.com/dearlordylord/bend-idea/actions/runs/37225334172). All ten assets were downloaded anonymously; eight payload hashes match both manifests and the initial three match local verified artifacts. Tap commit `11bbb69` updates all four macOS/Linux archive URLs and hashes. Live feed and Homebrew installation evidence will be recorded after confirmation.
+
+Marketplace submission is unconfirmed: this conversation's Computer Use transport returns `Transport closed`, and no publishing token is configured. The signed ZIP is ready; the maintainer was given Upload Update / Stable instructions. No submission, approval or interactive 0.1.19 IDE installation is claimed.
+
+
+Cloudflare Pages deployed feed commit `dcf2a11`. Both ordinary public feed URLs served 0.1.19 with ID, name, IDE range, description and change notes identical to the signed plugin. Anonymous downloads through both feed links matched the recorded ZIP hash. All four actual Homebrew native style/audit, installation, formula-test and uninstall jobs passed in [run 37225517725](https://github.com/dearlordylord/homebrew-tap/actions/runs/37225517725). Local macOS ARM64 `brew update`, upgrade from 0.1.18 to 0.1.19, `brew test bend-format` and installed version check passed. After these checks, GitHub Release v0.1.19 was marked stable/latest; its public latest endpoint confirms version 0.1.19 and ten assets. Self-review of feed and installation documentation found no findings. Marketplace submission and interactive IDE installation remain unconfirmed.
+
+
+After restarting Codex, Computer Use reconnected. The maintainer completed the upload; authenticated Marketplace UI displayed Upload Successful and Stable version 0.1.19 as update [1187439](https://plugins.jetbrains.com/plugin/34452-bend2/edit/versions/stable/1187439). The success notice says additional support checks are required before publication. Submission is confirmed; approval and public availability are not. The version detail status was not separately inspected before the maintainer closed the tab. This supersedes the transport blocker recorded above.
+
+
+## 0.1.20 custom repository release
+
+[GitHub Release v0.1.20](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.20) is tagged at verified release commit `25824c9777fd05b96f149b975ce4ad5b8e63c054`. It includes bounded, validated law/fill navigation caching and source navigation from Quick Documentation links. Versioned CHANGELOG and packaged plugin change notes cover both changes. The user requested distribution through the existing custom plugin repository only; 0.1.20 was not submitted to JetBrains Marketplace. Native formatter archives and Homebrew remain on 0.1.19; the attached portable JAR carries the shared 0.1.20 version with unchanged formatter policy. The GitHub release remains non-latest to preserve the complete 0.1.19 formatter release.
+
+Clean JDK 21.0.12.1 release gates passed on 2026-10-07: 616 main-suite cases, 615 successful, one optional current-release compiler smoke skipped, zero failures/errors. Architecture/quality gates, packaging, structure/configuration, signing and signature verification passed. Real subprocess tests used pinned Bend 2.0.35 `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2. Plugin Verifier classified Community 2025.1 and Ultimate 2026.1 as compatible with existing API usage notices. Signed metadata preserves ID `com.dearlordylord.bend.idea` and since-build 251 with no upper bound. Independent Standards and Spec reviews of the navigation changes found no actionable findings; release metadata received implementer self-review under REVIEWER.md.
+
+- Signed ZIP SHA-256: `b7a7047228eb9858b05e21d565ce995167c34b10cdb0d316485ade888c3df33c`.
+- Portable JAR SHA-256: `64b8af6b3f4d35e64b279528835f639906171c35cd54812e100371e58c4bad29`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
+
+All four GitHub release assets were downloaded anonymously and matched the local verified files and checksum manifest. The portable JAR reports `bend-format 0.1.20`. An interactive 0.1.20 installation/update in IDEA has not been exercised.
+
+Cloudflare Pages successfully deployed feed commit `6f11793` on 2026-10-07. Ordinary requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` served 0.1.20. ID, name, IDE range, description and change notes match the signed plugin's packaged metadata. Anonymous downloads through both feed links matched the recorded ZIP SHA-256 again. GitHub Release v0.1.20 is published as a stable, non-latest custom-repository plugin update; the latest complete formatter release remains v0.1.19. No Marketplace update was submitted.
+
+
+## 0.1.21 custom repository release
+
+[GitHub Release v0.1.21](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.21) is tagged at verified source commit `7747f0669b5c507e434391d21eeb1b2768b6f13d`. It preserves navigation inventories across unchanged editor open/close transitions, skips unnecessary selected-root discovery and runs gutter navigation without visible progress. It also includes the merged unsaved alias lifecycle correction. CHANGELOG and packaged plugin change notes cover these behaviors.
+
+Clean JDK 21.0.12.1 release gates passed on 2026-10-07: 624 main cases, 623 successful, one optional installed-compiler smoke skipped, zero failures/errors; two architecture tests passed. Quality, packaging, structure/configuration, signing and signature verification passed. Real compiler subprocess tests used pinned Bend 2.0.35 and Bun 1.4.2. Plugin Verifier accepted IC 2025.1 and IU 2026.1 with existing API notices. Metadata preserves ID `com.dearlordylord.bend.idea` and since-build 251 with no upper bound. Independent Standards and Spec reviews found no remaining actionable findings; release metadata received implementer self-review under REVIEWER.md.
+
+A read-only profile using the reported request-content sources measured 237 ms cold search and 2–7 ms warm searches across five round trips without warm graph reloads. These are editor-fixture search timings, not interactive IDEA rendering measurements. Actual installation/update of 0.1.21 remains a manual smoke check.
+
+- Signed ZIP SHA-256: `fcd1b58366a2db51f2fb936a7ce1fdfd94ac3a65e36052bf18c7007d35b60e78`.
+- Portable JAR SHA-256: `a046555f1dc07f513c92cdc296c7608e59615b6dca05617da0d908ae2221108a`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
+
+All four assets were downloaded anonymously and matched the locally verified files and manifest. Distribution is limited to the user's custom plugin repository; no Marketplace submission. Native formatter archives and Homebrew remain on 0.1.19, and the shared-version portable JAR retains unchanged formatter behavior. The GitHub release remains non-latest to preserve the complete formatter release. Live feed verification is recorded after deployment.
+
+Cloudflare Pages successfully deployed feed commit `2d89061` on 2026-10-07. Ordinary requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` served 0.1.21 with ID, name, IDE range, description and change notes matching packaged metadata. Anonymous downloads through both feed links matched the signed ZIP digest again. GitHub Release v0.1.21 is stable and non-latest; no Marketplace submission was made.
+
+
+## 0.1.22 custom repository release
+
+[GitHub Release v0.1.22](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.22) is tagged at verified source commit `b23123479af2c25d4c45f047c0e682b0ab4a881c`. CHANGELOG and packaged change notes cover import-cause diagnostics/navigation, negotiated structured source identity, three opt-in native inspections and request-local Find Usages snapshot batching. Independent Astra milestone and release-metadata reviews found no remaining actionable findings. Implementer self-review followed REVIEWER.md, including affected contracts, package ownership, packaged metadata and distribution evidence. Release preparation adds no runtime contract beyond the reviewed implementation.
+
+JDK 21.0.12.1 release gates passed: `check buildPlugin verifyPlugin verifyPluginStructure verifyPluginProjectConfiguration signPlugin verifyPluginSignature buildFormatTool`, 9m 52s. Main suite: 647 cases, 646 successful, one optional installed-release compiler smoke skipped, zero failures/errors; two architecture tests passed. Quality checks, packaging, structure/configuration, signing and signature verification passed. Real subprocess tests used pinned Bend 2.0.35 `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2. Plugin Verifier classified IC 2025.1 and IU 2026.1 as Compatible with existing API-usage notices. Signed metadata preserves ID `com.dearlordylord.bend.idea`, since-build 251 and no upper bound. Signed ZIP embedded JARs equal the verifier-tested unsigned ZIP JARs byte for byte. The portable JAR reports `bend-format 0.1.22`.
+
+The preceding clean invocation rebuilt the artifacts but failed six compiler/normalization/editor scenarios during elevated shared-host load. All six passed separately with unchanged source/deadlines, then the complete release gates passed. Elevated load is a possible explanation, not a proven diagnosis; the failed initial invocation is not counted as passing.
+
+- Signed ZIP SHA-256: `9f149335b42068883ab733605946e7b789f4a714d95959f94144a08cd14e0902`.
+- Portable JAR SHA-256: `cddeeac6c75b88becba5ba21667e055b02de308d9b8bfed1164c12729a2ca3de`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
+
+All four GitHub assets were downloaded anonymously and matched the local verified files and checksum manifest before preparing the feed update. Feed metadata was derived from the signed plugin. This is the user-authorized custom-repository release only: no Marketplace submission, native formatter archive publication or Homebrew update. Native formatter/Homebrew and GitHub's latest complete formatter release remain 0.1.19; the attached portable JAR uses the shared version with unchanged formatter behavior. An interactive 0.1.22 IDE installation/update has not been exercised. Live feed deployment and GitHub CI evidence are recorded after confirmation.
+
+
+Cloudflare Pages successfully deployed feed commit `f04e94b` (deployment `8b4e99a2-e1b3-4b79-bd16-4ee1570f868c`). Ordinary anonymous requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` served 0.1.22. ID, name, IDE range, description and change notes match the signed plugin; downloads through both feed URLs matched the recorded signed ZIP hash. The first request before deployment completed still served 0.1.21. Astra independently re-reviewed the feed/release evidence and found no actionable discrepancies; root performed the successful public-feed requests with an explicit User-Agent after the reviewer's default request received HTTP 403.
+
+GitHub Release v0.1.22 is published stable and non-latest with exactly the four intended assets. The latest endpoint still returns v0.1.19. Local release gates are passing evidence; [source-commit GitHub Verify run 38676902231](https://github.com/dearlordylord/bend-idea/actions/runs/38676902231) was still running its test step when this publication record was written and is not claimed as passed. Interactive IDEA installation/update remains a manual smoke check. No Marketplace submission, native archive publication or Homebrew change was performed.

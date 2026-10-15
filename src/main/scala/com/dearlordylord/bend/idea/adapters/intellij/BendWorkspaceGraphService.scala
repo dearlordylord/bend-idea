@@ -13,6 +13,28 @@ import java.nio.file.Path
 
 final class BendWorkspaceGraphService(project: Project)
     extends BendWorkspaceGraph:
+  override def current(
+      graph: BendLoadedGraph,
+      packageCache: String,
+      canceled: () => Boolean
+  ): Boolean = BendWorkspaceGraph.current(
+    graph,
+    packageCache,
+    project.getService(classOf[BendSourceCatalog]),
+    canceled
+  )
+
+  override def contentsCurrent(
+      graph: BendLoadedGraph,
+      packageCache: String,
+      canceled: () => Boolean
+  ): Boolean = BendWorkspaceGraph.contentsCurrent(
+    graph,
+    packageCache,
+    project.getService(classOf[BendSourceCatalog]),
+    canceled
+  )
+
   override def load(
       root: BendSourceRecord,
       basePath: String,
