@@ -94,11 +94,13 @@ final class BendWrappingCompilerTest extends BasePlatformTestCase:
       val _ = process.destroyForcibly()
       val _ = process.waitFor(5, TimeUnit.SECONDS)
       fail("Pinned compiler exceeded the 10-second block-format fixture limit")
-    assertEquals(Files.readString(log), 0, process.exitValue())
-    assertTrue(
-      "Compiler must emit complete parsed terms",
-      Files.size(output) > 0
-    )
+    val diagnostics = Files.readString(log)
+    assertEquals(diagnostics, 0, process.exitValue())
+    assertFalse("Every fixture definition must be in scope", diagnostics.contains("out of scope"))
+    val emitted = Files.readString(output)
+    assertTrue("Complete textual terms must retain the local block", emitted.contains("retain_local_block"))
+    assertTrue("Complete textual terms must retain the rewrite block", emitted.contains("retain_rewrite_block"))
+    assertFalse("A native executable is not BendTT evidence", emitted.startsWith("\u007fELF"))
     Files.readAllBytes(output)
 
   private val types =
