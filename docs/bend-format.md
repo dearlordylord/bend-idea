@@ -14,7 +14,7 @@ Then [use `bend-format`](#format-a-project) directly from your project directory
 
 ## Install from an archive
 
-On **Windows**, or if you prefer a manual installation, download the archive for your machine from the [latest release](https://github.com/dearlordylord/bend-idea/releases/latest) and extract it:
+On **Windows**, or if you prefer a manual installation, download the archive for your machine from the [native formatter release 0.1.19](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.19) and extract it:
 
 | Your machine | Download |
 |---|---|

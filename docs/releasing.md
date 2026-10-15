@@ -5,6 +5,22 @@ new patch version for a formatter fix; never replace assets of an existing
 release. IntelliJ updates use the signed ZIP through the maintainer's custom
 repository. Homebrew uses runtime archives through `dearlordylord/tap`.
 
+## Release scope and GitHub Latest
+
+The newest verified stable plugin release must be GitHub's **Latest**, including
+custom-repository-only releases. Do not retain an older Latest merely because it
+contains native formatter archives. Formatter installation links must point to
+the explicit verified formatter tag, independently of the plugin Latest.
+
+For a custom-repository-only release, publish the signed ZIP, portable JAR,
+public certificate and checksum manifest; verify their anonymous downloads and
+both live plugin feeds, then promote with `--prerelease=false --latest=true`.
+Skip native formatter packaging and Homebrew unless they are in the authorized
+scope. Verify `/releases/latest` returns the new plugin tag before reporting
+completion. Record Marketplace submission separately from approval.
+
+The native formatter and Homebrew steps below apply to a full formatter release.
+
 ## Prepare and verify the version
 
 1. Move the plugin behavior entries from `CHANGELOG.md`'s Unreleased section to
