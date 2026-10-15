@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.21/bend-idea-0.1.21-signed.zip"
-          version="0.1.21">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.22/bend-idea-0.1.22-signed.zip"
+          version="0.1.22">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,11 +19,12 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.21:</p>
+    <change-notes><![CDATA[<p>Version 0.1.22:</p>
 <ul>
-  <li>Reuse cached law/proof links across unchanged editor open/close transitions, validate source and loading contents, and skip project-wide discovery when proof roots are selected.</li>
-  <li>Keep gutter navigation in the background without displaying a progress task on every switch.</li>
-  <li>Preserve unsaved imported source after closing an editor opened through a symlink or another path alias.</li>
+  <li>Show imported compiler failures on direct and transitive import paths, with navigation to the original current error.</li>
+  <li>Distinguish identical dependency texts in structured checks using compiler namespace, source digest and root provenance; retain conservative locations for older providers.</li>
+  <li>Add optional naming, unused import alias and canonical local import path inspections. Canonical path fixes preserve the loaded graph and support Undo; unused-alias hints never remove imports.</li>
+  <li>Reuse request-local source snapshots in Find Usages while preserving native binding, alias and law/fill identities.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>
