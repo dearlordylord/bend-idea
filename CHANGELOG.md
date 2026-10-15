@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.23
+
 - Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter.
 
 ## 0.1.22
