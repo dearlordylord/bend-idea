@@ -21,6 +21,86 @@ import org.junit.Assert.*
   * reflexivity witnesses, rather than holes or claims about game invariants.
   */
 final class BendWrappingCompilerTest extends BasePlatformTestCase:
+  def testBlockArgumentsKeepExactCompilerTermsBindingsAndIdempotence(): Unit =
+    val source = """import Base
+      |def apply_ownership_preserving_function(function: Nat -> Nat, value: Nat) -> Nat:
+      |  function(value)
+      |def retain_local_block(value: Nat) -> Nat:
+      |  apply_ownership_preserving_function(argument =>
+      |    copied = argument
+      |    # This comment stays inside the lambda body.
+      |    copied, value)
+      |def retain_rewrite_block(+value: Nat, +evidence: {value == value : Nat}) -> {value == value : Nat}:
+      |  Equal.trans(Nat, value, value, value,
+      |    %evidence : {_ == value : Nat}
+      |    {==}, evidence)
+      |""".stripMargin
+    val directory = Files.createTempDirectory("bend-format-block-equivalence-")
+    val root = directory.resolve("blocks.bend")
+    try
+      val _ = Files.writeString(root, source)
+      val beforeTerms = emitPinnedTerms(root)
+      val beforeFile = myFixture.configureByText("blocks.bend", source)
+      val beforeShape = shape(beforeFile)
+      val beforeTokens = tokens(beforeFile).map(t => (t._1, t._2))
+      val settings = BendLayoutPolicy.Settings(2, false, 4, Some(55))
+      val formatted = BendLayoutPolicy.format(source, settings) match
+        case BendLayoutPolicy.Outcome.Formatted(value) => value
+        case other => fail(s"Expected block-aware wrapping: $other"); source
+      assertTrue(formatted.contains("argument =>\n"))
+      assertTrue(
+        formatted.contains("# This comment stays inside the lambda body.")
+      )
+      assertEquals(
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(formatted, settings)
+      )
+      val afterFile = myFixture.configureByText("blocks.bend", formatted)
+      assertEquals(beforeTokens, tokens(afterFile).map(t => (t._1, t._2)))
+      assertEquals(beforeShape, shape(afterFile))
+      val _ = Files.writeString(root, formatted)
+      // Same canonical source path: namespace and every compiled parsed term must agree.
+      assertArrayEquals(beforeTerms, emitPinnedTerms(root))
+    finally
+      if Files.exists(root) then
+        val _ = Files.writeString(root, source)
+      val paths = Files.walk(directory)
+      try
+        paths
+          .sorted(java.util.Comparator.reverseOrder())
+          .forEach(p => {
+            val _ = Files.deleteIfExists(p)
+          })
+      finally paths.close()
+
+  private def emitPinnedTerms(root: Path): Array[Byte] =
+    val compiler = RealBendCompilerFixture.inputs
+    val output = root.resolveSibling("terms.bendtt")
+    val log = root.resolveSibling("terms.compiler.log")
+    val process = new ProcessBuilder(
+      "taskset",
+      "-c",
+      "10",
+      compiler.bunExecutable.toString,
+      compiler.main.toString,
+      root.toString,
+      "-o",
+      output.toString
+    )
+      .redirectErrorStream(true)
+      .redirectOutput(log.toFile)
+      .start()
+    if !process.waitFor(10, TimeUnit.SECONDS) then
+      val _ = process.destroyForcibly()
+      val _ = process.waitFor(5, TimeUnit.SECONDS)
+      fail("Pinned compiler exceeded the 10-second block-format fixture limit")
+    assertEquals(Files.readString(log), 0, process.exitValue())
+    assertTrue(
+      "Compiler must emit complete parsed terms",
+      Files.size(output) > 0
+    )
+    Files.readAllBytes(output)
+
   private val types =
     """import Base
       |type AliveState is Data:

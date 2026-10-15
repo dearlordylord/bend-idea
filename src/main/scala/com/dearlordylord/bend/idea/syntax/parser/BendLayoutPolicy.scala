@@ -239,10 +239,22 @@ object BendLayoutPolicy:
         }
         gaps(list.close) = newline + indent(base)
     val blockWords = Set(
-      "do", "match", "case", "return", "for", "exs", "=>", "=", ";", "%", "\\"
+      "do",
+      "match",
+      "case",
+      "return",
+      "for",
+      "exs",
+      "=>",
+      "=",
+      ";",
+      "%",
+      "\\"
     )
     def containsBlock(list: LayoutList): Boolean =
-      significant.slice(list.open + 1, list.close).exists(token => blockWords(token.text))
+      significant
+        .slice(list.open + 1, list.close)
+        .exists(token => blockWords(token.text))
     def linePrefix(index: Int): String =
       val at = significant(index).start
       val beginning = source.lastIndexOf('\n', at - 1) + 1
@@ -263,22 +275,31 @@ object BendLayoutPolicy:
             unsafe = Some("Tab-sensitive block expression in list")
           else
             (from + 1 to until).foreach { index =>
-              val gap = source.substring(significant(index - 1).end, significant(index).start)
+              val gap = source.substring(
+                significant(index - 1).end,
+                significant(index).start
+              )
               val lastBreak = gap.lastIndexOf('\n')
               if lastBreak >= 0 then
                 val prefix = gap.substring(lastBreak + 1)
                 if prefix.exists(_ != ' ') || prefix.length + delta < 0 then
                   unsafe = Some("Unrepresentable block item indentation")
-                else gaps(index) = gap.substring(0, lastBreak + 1) + (" " * (prefix.length + delta))
+                else
+                  gaps(index) = gap.substring(
+                    0,
+                    lastBreak + 1
+                  ) + (" " * (prefix.length + delta))
             }
             gaps(from) = newline + indent(target)
-            list.children.flatMap(candidates)
+            list.children
+              .flatMap(candidates)
               .filter(child => child.open >= from && child.close <= until)
               .foreach { child =>
                 val childBase = linePrefix(child.open).length + delta
-                if childBase < 0 then unsafe = Some("Unrepresentable block item indentation")
-                else if overlong(spelling(child.open, child.close), childBase) then
-                  expandBlocks(child, childBase)
+                if childBase < 0 then
+                  unsafe = Some("Unrepresentable block item indentation")
+                else if overlong(spelling(child.open, child.close), childBase)
+                then expandBlocks(child, childBase)
               }
         }
         gaps(list.close) = newline + indent(base)
@@ -302,8 +323,10 @@ object BendLayoutPolicy:
       val region = prefix + spelling(from, until)
       if list.items.nonEmpty && overlong(region, 0) then
         if containsBlock(list) then
-          if source.contains("\r") && source.replace("\r\n", "").exists(c => c == '\n' || c == '\r') then
-            unsafe = Some("Mixed line endings")
+          if source.contains("\r") && source
+              .replace("\r\n", "")
+              .exists(c => c == '\n' || c == '\r')
+          then unsafe = Some("Mixed line endings")
           else expandBlocks(list, indentation(significant(list.open).start))
         else if significant
             .slice(list.open, list.close + 1)
