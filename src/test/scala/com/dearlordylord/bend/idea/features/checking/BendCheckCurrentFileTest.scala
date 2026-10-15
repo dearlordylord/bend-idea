@@ -468,6 +468,67 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
         .SourceLine(depId, 2),
       result.diagnostics.head.location
     )
+    val projected = result.diagnostics
+      .find(_.related.nonEmpty)
+      .getOrElse(
+        throw new AssertionError(
+          "Dependency failure must project onto the root import"
+        )
+      )
+    val importStart = myFixture.getFile.getText.indexOf("./math.bend")
+    assertEquals(
+      BendLocation.SourceRange(
+        rootId,
+        BendTextRange(importStart, importStart + "./math.bend".length)
+      ),
+      projected.location
+    )
+    assertTrue(
+      "Root import path must show the imported compiler failure",
+      myFixture
+        .doHighlighting()
+        .asScala
+        .exists(info =>
+          info.getStartOffset == importStart && info.getEndOffset == importStart + "./math.bend".length &&
+            Option(info.getDescription)
+              .exists(_.contains("Imported dependency failed"))
+        )
+    )
+    myFixture.getEditor.getCaretModel.moveToOffset(importStart)
+    assertTrue(
+      myFixture.getAvailableIntentions.asScala.exists(
+        _.getText == "Go to original compiler error"
+      )
+    )
+    val navigate =
+      new BendNavigateDiagnosticCause(result, projected.related.get)
+    assertTrue(
+      navigate.isAvailable(getProject, myFixture.getEditor, myFixture.getFile)
+    )
+    assertEquals(
+      Some((dep, dependencyDocument.getLineStartOffset(2))),
+      navigate.target(getProject)
+    )
+    navigate.invoke(getProject, myFixture.getEditor, myFixture.getFile)
+    assertEquals(
+      dep,
+      FileDocumentManager
+        .getInstance()
+        .getFile(
+          FileEditorManager
+            .getInstance(getProject)
+            .getSelectedTextEditor
+            .getDocument
+        )
+    )
+    assertEquals(
+      dependencyDocument.getLineStartOffset(2),
+      FileEditorManager
+        .getInstance(getProject)
+        .getSelectedTextEditor
+        .getCaretModel
+        .getOffset
+    )
     val checkedDependency = result.sources.find(_.id == depId).get
     assertTrue("Published graph result must remain current", result.fresh)
     assertEquals(
@@ -506,11 +567,73 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
     )
     assertFalse(service.result(rootId).get.fresh)
     assertFalse(
+      "Stale cause navigation must disappear",
+      navigate.isAvailable(getProject, myFixture.getEditor, myFixture.getFile)
+    )
+    assertFalse(
       myFixture
         .doHighlighting()
         .toArray
         .exists(_.toString.contains("unknown_value"))
     )
+
+  def testTransitiveImportCausesRemainIsolatedAcrossTwoRoots(): Unit =
+    val bad = myFixture.addFileToProject(
+      "cause.bend",
+      "def broken() -> Type:\n  absent\n"
+    )
+    val middle = myFixture.addFileToProject(
+      "middle.bend",
+      "import ./cause.bend as C\ndef value() -> Type:\n  C.broken()\n"
+    )
+    val roots = List("first.bend", "second.bend").map(name =>
+      myFixture.addFileToProject(
+        name,
+        "import ./middle.bend as M\ndef value() -> Type:\n  M.value()\n"
+      )
+    )
+    val runner = getProject.getService(classOf[BendExplicitCheckRunner])
+    val results = roots.map { root =>
+      val completed = new CountDownLatch(1)
+      var outcome: Option[BendExplicitCheckOutcome] = None
+      runner.check(root.getVirtualFile.getPath, "Checking import chain") {
+        value =>
+          outcome = Some(value)
+          completed.countDown()
+      }
+      assertTrue(completed.await(30, TimeUnit.SECONDS))
+      outcome.get match
+        case BendExplicitCheckOutcome.Published(result) => result
+        case other                                      =>
+          throw new AssertionError(s"Expected published result, got $other")
+    }
+    def id(file: com.intellij.psi.PsiFile): FileId =
+      val virtual = file.getVirtualFile
+      new FileId(
+        Option(virtual.getCanonicalPath).getOrElse(virtual.getPath),
+        virtual.getCanonicalPath != null
+      )
+    results.zip(roots).foreach { case (result, root) =>
+      assertEquals(BendCheckOutcome.Failed, result.outcome)
+      val projections = result.diagnostics.filter(_.related.nonEmpty)
+      assertEquals(
+        Set(id(root), id(middle)),
+        projections
+          .map(_.location)
+          .collect { case BendLocation.SourceRange(source, _) =>
+            source
+          }
+          .toSet
+      )
+      assertTrue(
+        projections
+          .forall(_.related.get.location == BendLocation.SourceLine(id(bad), 1))
+      )
+    }
+    assertNotEquals(results.head.key.root, results.last.key.root)
+    val service = getProject.getService(classOf[BendCheckService])
+    assertTrue(results.forall(service.isCurrent))
+    assertEquals(2, service.resultsFor(id(bad)).size)
 
   def testMissingImportCreationStalesRootResult(): Unit =
     myFixture.configureByText("main.bend", "import ./later.bend as Later\n")

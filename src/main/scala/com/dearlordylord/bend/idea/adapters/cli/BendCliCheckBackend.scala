@@ -78,8 +78,9 @@ final class BendCliCheckBackend(
       canceled
     )
     val structured = negotiation match
-      case BendStructuredCheck.Negotiation.Supported(_) => true
-      case _                                            => false
+      case BendStructuredCheck.Negotiation.Supported(identity) =>
+        BendStructuredCheck.coordinateConvention(identity)
+      case _ => None
     val capability = negotiation match
       case BendStructuredCheck.Negotiation.Supported(identity) =>
         BendCliVerdictDecoder.Capability.Supported(identity)
@@ -281,7 +282,7 @@ final class BendCliCheckBackend(
         val location = if decoded.sourceLocationAllowed then
           reliableLine(decoded.details, snapshot.text)
         else BendLocation.RootOnly
-        if structured then
+        if structured.nonEmpty then
           BendCheckResult(
             key,
             decoded.outcome,
@@ -337,7 +338,7 @@ final class BendCliCheckBackend(
       executable: String,
       environment: Map[String, String],
       canceled: () => Boolean,
-      structured: Boolean
+      structured: Option[String]
   ): BendCheckResult =
     val graph = snapshot.graph.get
     val sources = graph.files.map(file =>
@@ -598,7 +599,7 @@ final class BendCliCheckBackend(
           graphLocation(decoded.details, mappings)
         else BendLocation.RootOnly
         val diagnostic =
-          if !structured && decoded.outcome == BendCheckOutcome.Failed &&
+          if structured.isEmpty && decoded.outcome == BendCheckOutcome.Failed &&
             decoded.sourceLocationAllowed
           then
             BendStructuredDiagnostic
@@ -633,7 +634,8 @@ final class BendCliCheckBackend(
           if goal.nonEmpty then BendCompleteness.Incomplete
           else decoded.completeness,
           decoded.details,
-          if structured then structuredDiagnostics else List(diagnostic),
+          if structured.nonEmpty then structuredDiagnostics
+          else List(diagnostic),
           mappings,
           decoded.reliance,
           goal,
@@ -664,16 +666,17 @@ final class BendCliCheckBackend(
       environment: Map[String, String],
       mappings: List[BendSourceMapping],
       canceled: () => Boolean,
-      structured: Boolean
+      structured: Option[String]
   ): (BendCliVerdictDecoder.Check, List[BendDiagnostic]) =
-    if structured then
+    if structured.nonEmpty then
       val verdict = BendStructuredCheck.check(
         executable,
         directory,
         root,
         environment,
         mappings,
-        canceled
+        canceled,
+        expectedLocations = structured
       )
       (
         BendCliVerdictDecoder.Check(

@@ -1,6 +1,7 @@
 package com.dearlordylord.bend.idea.symbols.references
 
 import com.dearlordylord.bend.idea.model.FileId
+import com.dearlordylord.bend.idea.workspace.api.BendLoadingConfiguration
 import com.dearlordylord.bend.idea.symbols.api.*
 import com.dearlordylord.bend.idea.syntax.BendLanguage
 import com.dearlordylord.bend.idea.syntax.psi.{
@@ -56,6 +57,12 @@ final class BendUsageSearch
         (element.getContainingFile, element.getTextOffset),
         BendUsageIdentity.of(element)
       )
+    val catalog =
+      target.getProject.getService(classOf[BendImportedSymbolCatalog])
+    val factory =
+      target.getProject.getService(classOf[BendSnapshotAwareReferenceFactory])
+    val (basePath, packageCache) =
+      target.getProject.getService(classOf[BendLoadingConfiguration]).paths
     boundary[Boolean]:
       for file <- candidates do
         ProgressManager.checkCanceled()
@@ -64,10 +71,14 @@ final class BendUsageSearch
           .asScala
           .toList ++
           PsiTreeUtil.findChildrenOfType(file, classOf[BendName]).asScala.toList
+        // Capture lazily: files without matching spellings need no graph. The
+        // snapshot lives only inside this request/read action, never in an index.
+        lazy val snapshot =
+          catalog.navigationSnapshot(file, basePath, packageCache)
         for element <- elements do
           ProgressManager.checkCanceled()
           if element.getText.contains(identity.get.searchWord) then
-            for reference <- element.getReferences do
+            for reference <- factory.referencesFor(element, snapshot) do
               val ownDeclaration = reference.getElement match
                 case name: BendName =>
                   val sameFile =
@@ -77,7 +88,7 @@ final class BendUsageSearch
                   sameFile && name.getTextOffset == targetName.getTextOffset
                 case _ => false
               if !ownDeclaration then
-                val resolved = reference.resolve()
+                val resolved = reference.resolvePhysicalAgainst(snapshot)
                 if resolved != null && inScope(scope, reference) &&
                   identityOf(resolved).contains(identity.get) &&
                   !consumer.process(reference)

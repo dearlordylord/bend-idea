@@ -9,6 +9,13 @@ import com.intellij.psi.{PsiElement, PsiReference}
 trait BendSnapshotAwareReference extends PsiReference:
   def semanticSpelling: String
 
+  /** Reacquire the same physical target as native resolve, sharing a request
+    * snapshot for this reference's containing file under read access.
+    * Unresolved or ambiguous targets return null, following
+    * PsiReference.resolve.
+    */
+  def resolvePhysicalAgainst(snapshot: BendSourceNavigationSnapshot): PsiElement
+
   def resolveAgainst(
       snapshot: BendSourceNavigationSnapshot
   ): BendNavigationResolution

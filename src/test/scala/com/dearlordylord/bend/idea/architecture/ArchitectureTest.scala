@@ -58,6 +58,32 @@ final class ArchitectureTest:
       )
     )
     assertTrue(
+      "Source inspections must retain shared symbol and loading owners",
+      classes.contain(
+        "com.dearlordylord.bend.idea.features.inspections.BendNamingInspection"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.inspections.BendUnusedImportAliasInspection"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.inspections.BendCanonicalImportPathInspection"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendUnusedImportAliases$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.symbols.api.BendCanonicalImportPaths$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.syntax.parser.BendSourceDelimiters$"
+      )
+    )
+    assertTrue(
+      "Import diagnostic projection must keep policy and navigation separate",
+      classes.contain(
+        "com.dearlordylord.bend.idea.analysis.checking.BendImportDiagnostics$"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.analysis.model.BendRelatedDiagnostic"
+      ) && classes.contain(
+        "com.dearlordylord.bend.idea.features.checking.BendNavigateDiagnosticCause"
+      )
+    )
+    assertTrue(
       "Foreign paths must share syntax, navigation and completion owners",
       classes.contain(
         "com.dearlordylord.bend.idea.syntax.psi.BendForeignPaths$"

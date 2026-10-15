@@ -843,7 +843,16 @@ final class BendCliGraphCheckTest:
         duplicate.outcome
       )
       assertTrue(duplicate.diagnostics.head.message.contains(missing))
-      assertEquals(BendLocation.RootOnly, duplicate.diagnostics.head.location)
+      assertEquals(
+        BendLocation.SourceRange(
+          firstRecord.id,
+          BendTextRange(
+            edited.indexOf(missing),
+            edited.indexOf(missing) + missing.length
+          )
+        ),
+        duplicate.diagnostics.head.location
+      )
       assertTrue(
         duplicate.sources.exists(s =>
           s.id == firstRecord.id && s.revision == 19L && s.text == edited
@@ -926,4 +935,19 @@ final class BendCliGraphCheckTest:
       )
       assertFalse(result.details.contains("One namespace per file"))
       assertEquals(0L, snapshotCount(dir))
+    }
+
+  @Test def pinnedLawErrorEndsBeforeTrailingCommentAndBlankLines(): Unit =
+    fixture { (dir, bend) =>
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val text = "law unfinished : 1\n# trailing comment\n\n"
+      val root = source(dir.resolve("law-range.bend"), text)
+      val result = check(dir, bend, root)
+      assertEquals(result.details, BendCheckOutcome.Failed, result.outcome)
+      val token = text.indexOf('1')
+      assertEquals(
+        BendLocation.SourceRange(root.id, BendTextRange(token, token + 1)),
+        result.diagnostics.head.location
+      )
+      assertTrue(token + 1 < text.indexOf('#'))
     }

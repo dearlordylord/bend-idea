@@ -69,3 +69,7 @@ Cats Effect, ZIO, Ox, and Kyo offer different concurrency and effect models. The
 5. Trial Metals MCP on a disposable local setup. Keep it only if it imports this project and supplies reliable semantic answers that plain code search and Gradle output do not.
 
 This document is a source-and-documentation assessment. No build, test, CI run, Metals import, or Scala 3.9 migration was performed for it.
+
+## Related Bend tooling research
+
+- 2026-10-07: [MattCozendey/bend-lint](https://github.com/MattCozendey/bend-lint), a Bend 2 lint tool using compiler facts and fixes. The [architecture and feature comparison](bend-lint-architecture-and-features.md) assesses concrete product opportunities, overlap with current native features, compiler compatibility and reuse limits. It is a separate assessment against a newer product baseline; the historical recommendations above are not a current implementation inventory.

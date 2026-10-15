@@ -47,7 +47,7 @@ async function main(): Promise<void> {
   }
   if (operation === "check-capabilities") {
     emit({ checkProtocol: 1, compiler: "bend-2.0.35-pinned", checkOnly: true,
-      locations: "compiler-source-utf16", operations: ["check"] });
+      locations: "compiler-source-namespace-sha256-utf16-v1", operations: ["check"] });
     return;
   }
   if (operation === "capabilities") {
@@ -252,7 +252,8 @@ async function main(): Promise<void> {
 async function check(Bend: any, root: string): Promise<void> {
   const report = (outcome: string, completeness: string, reliance: string,
     details: string, diagnostics: unknown[] = [], incompleteKind?: string) =>
-    emit({ checkProtocol: 1, outcome, completeness, reliance, details, diagnostics, incompleteKind });
+    emit({ checkProtocol: 1, locations: "compiler-source-namespace-sha256-utf16-v1",
+      outcome, completeness, reliance, details, diagnostics, incompleteKind });
   try {
     const book = Bend.book_nil();
     const seen = new Map<string, string | null>();
@@ -303,7 +304,12 @@ async function check(Bend: any, root: string): Promise<void> {
     const span = structured && err.spn && typeof err.spn.file.str === "string" &&
       Number.isInteger(err.spn.beg) && Number.isInteger(err.spn.end) && err.spn.beg >= 0 &&
       err.spn.end > err.spn.beg && err.spn.end <= err.spn.file.str.length
-      ? { source: err.spn.file.str, start: err.spn.beg, end: err.spn.end } : undefined;
+      ? { source: err.spn.file.str, namespace: err.spn.file.ns,
+          rootSource: err.spn.file.ns === "" &&
+            err.spn.file.dir === path.dirname(fs.realpathSync(root)) + "/" &&
+            err.spn.file.dir !== path.dirname(fs.realpathSync(Bend.BASE_BEND)) + "/",
+          sha256: crypto.createHash("sha256").update(err.spn.file.str, "utf8").digest("hex"),
+          start: err.spn.beg, end: err.spn.end } : undefined;
     const named = structured && err.obs?.$ === "Hol" && err.obs.k !== "TODO";
     report("failed", named ? "incomplete" : "unknown", "unknown", message, [{ message, span }], named ? "named-hole" : undefined);
   }

@@ -1,0 +1,9 @@
+<html>
+<body>
+Reports an import alias with no possible source uses in the current file.
+Comments and strings do not count as uses. Ambiguous or unresolved name uses
+conservatively keep the alias in use.
+<p>The import still loads declarations and may affect checking even when its
+alias is unused. This optional inspection does not offer to remove imports.</p>
+</body>
+</html>

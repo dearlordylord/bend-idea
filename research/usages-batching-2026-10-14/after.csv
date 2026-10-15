@@ -1,0 +1,16 @@
+operation,phase,sample,nanoseconds,current_thread_allocated_bytes,result_count,graph_loads,importers,unrelated,calls,shadowed,run
+testFindUsagesMeasurements,fixture-build,0,645804917,-1,49,0,24,24,8,true,1
+testFindUsagesMeasurements,first-query,0,529540411,43058472,192,85,24,24,8,true,1
+testFindUsagesMeasurements,warm-query,1,93429381,19548656,192,79,24,24,8,true,1
+testFindUsagesMeasurements,warm-query,2,122415580,18467016,192,79,24,24,8,true,1
+testFindUsagesMeasurements,warm-query,3,86765179,18506480,192,79,24,24,8,true,1
+testFindUsagesMeasurements,dependency-edit-first,0,123894339,23660288,192,139,24,24,8,true,1
+testFindUsagesMeasurements,dependency-edit-warm,1,56987684,18341104,192,79,24,24,8,true,1
+testFindUsagesMeasurements,dependency-edit-warm,2,61976044,20453328,192,99,24,24,8,true,1
+testFindUsagesMeasurements,dependency-edit-warm,3,47964135,18316256,192,79,24,24,8,true,1
+testFindUsagesMeasurements,unrelated-edit-first,0,70593175,17587632,192,67,24,24,8,true,1
+testFindUsagesMeasurements,unrelated-edit-warm,1,46811795,17582464,192,69,24,24,8,true,1
+testFindUsagesMeasurements,unrelated-edit-warm,2,49319225,17580600,192,69,24,24,8,true,1
+testFindUsagesMeasurements,unrelated-edit-warm,3,56139888,18977816,192,89,24,24,8,true,1
+testFindUsagesMeasurements,pre-canceled-request,0,1288048,-1,0,0,24,24,8,true,1
+testFindUsagesMeasurements,scan-cancel-after-first-capture,0,187334,-1,0,1,24,24,8,true,1

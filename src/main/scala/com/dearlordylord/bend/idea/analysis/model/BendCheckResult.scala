@@ -378,7 +378,14 @@ final case class BendSourceMapping(
   def originalCompilerRange(start: Int, end: Int): Option[BendTextRange] =
     compilerToOriginalRange(start, end)
 
-final case class BendDiagnostic(message: String, location: BendLocation)
+/** Original compiler cause retained for navigation from a projected import. */
+final case class BendRelatedDiagnostic(message: String, location: BendLocation)
+
+final case class BendDiagnostic(
+    message: String,
+    location: BendLocation,
+    related: Option[BendRelatedDiagnostic] = None
+)
 
 final case class BendCheckResult(
     key: BendAnalysisKey,
@@ -393,7 +400,8 @@ final case class BendCheckResult(
     goal: Option[BendGoal] = None,
     incompleteKind: Option[BendIncompleteKind] = None,
     expressionTypes: List[BendExpressionType] = Nil,
-    normalization: Option[BendNormalization] = None
+    normalization: Option[BendNormalization] = None,
+    importDiagnosticsTruncated: Boolean = false
 ):
   def status: String =
     val verdict = outcome match
@@ -410,4 +418,8 @@ final case class BendCheckResult(
     val relied = if reliance == BendReliance.UnsafeOrForeign then
       "; relies on unsafe or foreign code"
     else ""
-    verdict + relied + (if fresh then "" else "; stale")
+    verdict + relied +
+      (if importDiagnosticsTruncated then
+         "; import diagnostic projection limited"
+       else "") +
+      (if fresh then "" else "; stale")

@@ -13,6 +13,13 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.22
+
+- Show imported compiler failures on affected import paths, including transitive imports, with a **Go to original compiler error** action. Stale root results cannot restore highlights or navigate to an outdated cause.
+- Distinguish identical dependency source texts in negotiated structured checks using compiler namespace and source digest, while retaining conservative mapping for older providers.
+- Add optional inspections for type/constructor/import-alias naming, unused import aliases, and canonical local import paths. Canonical path fixes preserve the resolved loading graph and support undo; unused-alias hints never remove imports.
+- Reuse one request-local source snapshot per candidate file during Find Usages instead of loading a graph for each reference. Native binding, alias and law/fill identities remain authoritative.
+
 ## 0.1.21
 
 - Preserve unsaved imported source and its revision after closing an editor opened through a symlink or another path alias; checks and navigation through the canonical path keep using the modified document.

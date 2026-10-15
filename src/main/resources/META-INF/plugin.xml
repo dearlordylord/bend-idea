@@ -20,16 +20,20 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.21:</p>
+<p>Version 0.1.22:</p>
 <ul>
-  <li>Reuse cached law/proof links across unchanged editor open/close transitions, validate source and loading contents, and skip project-wide discovery when proof roots are selected.</li>
-  <li>Keep gutter navigation in the background without displaying a progress task on every switch.</li>
-  <li>Preserve unsaved imported source after closing an editor opened through a symlink or another path alias.</li>
+  <li>Show imported compiler failures on direct and transitive import paths, with navigation to the original current error.</li>
+  <li>Distinguish identical dependency texts in structured checks using compiler namespace, source digest and root provenance; retain conservative locations for older providers.</li>
+  <li>Add optional naming, unused import alias and canonical local import path inspections. Canonical path fixes preserve the loaded graph and support Undo; unused-alias hints never remove imports.</li>
+  <li>Reuse request-local source snapshots in Find Usages while preserving native binding, alias and law/fill identities.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
     <depends optional="true" config-file="bend-editorconfig.xml">org.editorconfig.editorconfigjetbrains</depends>
     <extensions defaultExtensionNs="com.intellij">
+        <localInspection language="Bend" shortName="BendNaming" displayName="Bend naming conventions" groupName="Bend" enabledByDefault="false" level="WEAK WARNING" implementationClass="com.dearlordylord.bend.idea.features.inspections.BendNamingInspection"/>
+        <localInspection language="Bend" shortName="BendUnusedImportAlias" displayName="Unused Bend import alias" groupName="Bend" enabledByDefault="false" level="WEAK WARNING" implementationClass="com.dearlordylord.bend.idea.features.inspections.BendUnusedImportAliasInspection"/>
+        <localInspection language="Bend" shortName="BendCanonicalImportPath" displayName="Canonical Bend import path" groupName="Bend" enabledByDefault="false" level="WEAK WARNING" implementationClass="com.dearlordylord.bend.idea.features.inspections.BendCanonicalImportPathInspection"/>
         <statusBarWidgetFactory id="Bend.CheckStatusWidget" implementation="com.dearlordylord.bend.idea.features.checking.BendCheckStatusWidgetFactory"/>
         <spellchecker.support language="Bend"
                               implementationClass="com.dearlordylord.bend.idea.features.spelling.BendSpellcheckingStrategy"/>

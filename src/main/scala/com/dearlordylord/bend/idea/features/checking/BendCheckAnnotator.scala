@@ -69,8 +69,13 @@ final class BendCheckAnnotator
       Option(virtual.getCanonicalPath).getOrElse(virtual.getPath),
       virtual.getCanonicalPath != null
     )
+    val service = file.getProject.getService(classOf[BendCheckService])
     results
-      .filter(result => BendCheckAnnotator.shouldHighlight(result.outcome))
+      .filter(result =>
+        BendCheckAnnotator.shouldHighlight(result.outcome) && service.isCurrent(
+          result
+        )
+      )
       .foreach { result =>
         result.diagnostics.foreach { diagnostic =>
           val range = diagnostic.location match
@@ -85,10 +90,15 @@ final class BendCheckAnnotator
                 .flatMap(line => lineRange(file, line))
           range
             .foreach { range =>
-              val _ = holder
+              val builder = holder
                 .newAnnotation(HighlightSeverity.ERROR, diagnostic.message)
                 .range(range)
-                .create()
+              diagnostic.related.foreach { cause =>
+                val _ = builder.withFix(
+                  new BendNavigateDiagnosticCause(result, cause)
+                )
+              }
+              builder.create()
             }
         }
       }

@@ -5,8 +5,11 @@ import com.dearlordylord.bend.idea.adapters.process.{
   BendProcessOutcome
 }
 import com.dearlordylord.bend.idea.analysis.model.*
+import com.dearlordylord.bend.idea.workspace.api.BendImportPaths
 import com.google.gson.{JsonObject, JsonParser}
 import java.nio.file.Path
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
@@ -66,8 +69,11 @@ object BendStructuredCheck:
                 if code == 0 && exact(value, "checkProtocol", "1") &&
                   exact(value, "checkOnly", "true") && string(value, "compiler")
                     .exists(_.nonEmpty) &&
-                  string(value, "locations").contains(
-                    "compiler-source-utf16"
+                  string(value, "locations").exists(
+                    Set(
+                      "compiler-source-utf16",
+                      "compiler-source-namespace-sha256-utf16-v1"
+                    )
                   ) &&
                   Try(value.getAsJsonArray("operations")).toOption
                     .flatMap(Option(_))
@@ -94,7 +100,8 @@ object BendStructuredCheck:
       root: Path,
       environment: Map[String, String],
       mappings: List[BendSourceMapping],
-      canceled: () => Boolean
+      canceled: () => Boolean,
+      expectedLocations: Option[String] = None
   ): Verdict =
     val process = BendBoundedProcess.run(
       List(executable, "--idea-check", root.toString),
@@ -105,7 +112,22 @@ object BendStructuredCheck:
     )
     process match
       case BendProcessOutcome.Exited(0, output) =>
-        decode(output, mappings).getOrElse(
+        decode(
+          output,
+          mappings.map { mapping =>
+            val copied = Path.of(mapping.copiedPath).toAbsolutePath.normalize()
+            val checkedRoot = root.toAbsolutePath.normalize()
+            val namespace = if copied == checkedRoot then ""
+            else
+              BendImportPaths.canonicalNamespace(
+                checkedRoot.toString,
+                copied.toString,
+                ""
+              )
+            mapping.copy(namespace = namespace)
+          },
+          expectedLocations
+        ).getOrElse(
           unavailable("Invalid Bend structured check response.")
         )
       case BendProcessOutcome.TimedOut(_) =>
@@ -127,14 +149,24 @@ object BendStructuredCheck:
       None
     )
 
-  private def decode(
+  private[structured] def decode(
       output: String,
-      mappings: List[BendSourceMapping]
+      mappings: List[BendSourceMapping],
+      expectedLocations: Option[String] = None
   ): Option[Verdict] =
     Try {
       json(output).flatMap { value =>
         for
           _ <- Option.when(exact(value, "checkProtocol", "1"))(())
+          convention = string(value, "locations")
+          if !value.has("locations") || convention.nonEmpty
+          if expectedLocations.forall(expected =>
+            if expected == "compiler-source-utf16" then convention.isEmpty
+            else convention.contains(expected)
+          )
+          if convention.isEmpty || convention.contains(
+            "compiler-source-namespace-sha256-utf16-v1"
+          )
           outcome <- string(value, "outcome").flatMap {
             case "success"     => Some(BendCheckOutcome.Success)
             case "failed"      => Some(BendCheckOutcome.Failed)
@@ -168,7 +200,19 @@ object BendStructuredCheck:
                   start <- offset(span, "start")
                   end <- offset(span, "end")
                   if start >= 0 && end > start && end <= source.length
-                  matches = mappings.filter(_.compilerText == source)
+                  identityValid = convention.isEmpty ||
+                    string(span, "sha256").contains(sha256(source))
+                  matches = mappings.filter { mapping =>
+                    mapping.compilerText == source && (convention.isEmpty ||
+                      (identityValid && string(span, "namespace").contains(
+                        mapping.namespace
+                      ) &&
+                        (mapping.namespace.nonEmpty || exact(
+                          span,
+                          "rootSource",
+                          "true"
+                        ))))
+                  }
                   if matches.size == 1
                   range <- matches.head.compilerToOriginalRange(start, end)
                 yield BendLocation.SourceRange(matches.head.source, range)
@@ -203,3 +247,13 @@ object BendStructuredCheck:
     Option(value.get(name))
       .filter(node => node.isJsonPrimitive && node.getAsJsonPrimitive.isNumber)
       .flatMap(node => Try(node.getAsBigDecimal.intValueExact()).toOption)
+
+  def coordinateConvention(identity: String): Option[String] =
+    json(identity).flatMap(value => string(value, "locations"))
+
+  private def sha256(source: String): String =
+    MessageDigest
+      .getInstance("SHA-256")
+      .digest(source.getBytes(StandardCharsets.UTF_8))
+      .map(byte => f"${byte & 0xff}%02x")
+      .mkString

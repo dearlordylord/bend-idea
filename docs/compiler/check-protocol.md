@@ -7,7 +7,7 @@ Status: implemented by Bend2's optional hash-pinned Bend 2.0.35 helper. This is 
 The selected executable receives `--idea-check-capabilities` with no source argument. A compatible response is one JSON object, exit status 0:
 
 ```json
-{"checkProtocol":1,"compiler":"bend-2.0.35-pinned","checkOnly":true,"locations":"compiler-source-utf16","operations":["check"]}
+{"checkProtocol":1,"compiler":"bend-2.0.35-pinned","checkOnly":true,"locations":"compiler-source-namespace-sha256-utf16-v1","operations":["check"]}
 ```
 
 `checkProtocol` is an integer, `checkOnly` is a boolean, and `compiler` is a nonempty installation identity. This identity need not use the helper's spelling. `locations` names the source-coordinate convention. The check operation must load and validate source without evaluating `main`, importing foreign implementations, building artifacts or publishing packages. Optional goals/types/resources/normalization retain their separate capability negotiation; check support implies none of them.
@@ -15,7 +15,7 @@ The selected executable receives `--idea-check-capabilities` with no source argu
 After successful negotiation, the only source operation is `--idea-check <materialized-root>`. Return one JSON object with exit status 0 for a successfully transported result, including a failed compiler judgment:
 
 ```json
-{"checkProtocol":1,"outcome":"success","completeness":"complete","reliance":"none","details":"Bend check complete.","diagnostics":[]}
+{"checkProtocol":1,"locations":"compiler-source-namespace-sha256-utf16-v1","outcome":"success","completeness":"complete","reliance":"none","details":"Bend check complete.","diagnostics":[]}
 ```
 
 - `outcome`: `success`, `failed`, or `unavailable`.
@@ -29,9 +29,11 @@ A successful judgment must be complete, have known reliance, contain no diagnost
 
 ## Source mapping and isolation
 
-A span has `{ "source": "compiler input text", "start": 0, "end": 1 }`: zero-based UTF-16 offsets with an exclusive end. `source` is the exact text after the loader blanks import lines, not an original editor buffer or a filename. The adapter accepts an exact span only when one captured compiler source matches and the existing compiler-to-copy-to-original range mapping succeeds. Duplicate source texts, rewritten import paths, unknown sources and invalid ranges cannot produce a guessed editor location. Their diagnostics remain root-level where possible.
+The bundled helper negotiates `compiler-source-namespace-sha256-utf16-v1`. Its check response repeats this `locations` value. A span has `{ "source": "compiler input text", "namespace": "loaded namespace", "sha256": "lowercase SHA-256 of UTF-8 source", "start": 0, "end": 1 }`: zero-based UTF-16 offsets with an exclusive end. The namespace comes directly from the pinned compiler's `Span.file.ns`, and the source from `Span.file.str` after import blanking. It is not a path or an original editor buffer. The check adapter projects the materialized compiler namespace from each copied path relative to the copied root directory (the selected root is the empty namespace), following the pinned loader; original loaded-graph namespaces remain unchanged. The adapter requires exact materialized namespace, digest and compiler-source text matches against one captured mapping before composing compiler-to-copy-to-original ranges. Digest or namespace mismatches and ambiguous matches remain root-level; the adapter never derives a filename from a namespace. Root and Base both use the empty namespace. Empty-namespace spans additionally require `rootSource: true`; the helper sets this only when the compiler parser file directory equals the materialized root directory and differs from the built-in Base directory. Missing directory evidence, Base spans and ambiguous shared directories remain root-level even when source text and digest equal the root. Base is intentionally absent from editor materialization mappings.
 
-The helper reads the pinned compiler's `Span.file.str`, `beg` and `end` fields and exposes them through this unchanged protocol convention. A future upstream protocol can supply canonical source IDs/digests to disambiguate identical files, but that requires a new negotiated coordinate convention and mapping support; filenames alone must not be treated as proof of identity.
+External protocol-1 implementations advertising the older `compiler-source-utf16` convention remain supported. Their response omits `locations` and spans carry only `source`, `start` and `end`; one exact compiler-source text match is required. Duplicate sources remain root-level. A response cannot downgrade the newly negotiated convention by omitting its identity fields or coordinate convention. Unknown conventions are incompatible. Rewritten imports, invalid ranges and unknown sources cannot produce guessed editor locations.
+
+The pinned compiler does not expose a stable physical path in every span. This extension therefore uses its actual namespace plus content provenance, rather than claiming path provenance. Adding canonical file IDs requires a separately negotiated convention and genuine compiler support.
 
 The adapter retains selected-root and snapshot provenance, exact executable/Base freshness, matching Base validation, closed graph materialization, isolated package cache and offline hub, sibling-LAWS guard, cancellation, process-tree termination and temporary-directory cleanup. Protocol output and capability output are capped at 256 KiB. Capability negotiation has a three-second limit and checking a fifteen-second limit. The helper's pinned book validation, completeness and reliance walk mirror the pinned CLI; compiler-source hashes gate those assumptions. The helper never calls run/build entry points.
 
