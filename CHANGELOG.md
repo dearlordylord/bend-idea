@@ -13,7 +13,7 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
-- Recognize indented definition result types after a newline following `->`, including proof result types; retain refusal of missing colons and unindented or interrupted headers.
+- Recognize indented definition result types after a newline following `->`, including proof result types and continued conjunctions; retain refusal of missing colons and unindented or interrupted headers.
 
 ## 0.1.23
 

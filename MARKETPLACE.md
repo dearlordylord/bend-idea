@@ -302,3 +302,10 @@ Plugin Verifier reports Compatible for IC 2025.1 and IU 2026.1, retaining API us
 - Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
 
 Publication is awaiting the owner's requested authorization. No release tag, GitHub Release, platform-archive workflow, Homebrew update, custom-feed update or Marketplace submission is claimed. Installation links and the live feed retain their published versions. These local results do not establish archive distribution, installation or manual IDE update behavior.
+
+
+### Hapsland result-header follow-up — source candidate only
+
+Branch `fix/hapsland-proof-result-headers` merges current master `3eb1dbd` with the prior block-layout candidate. `9bb9695` and `28efd25` recognize an indented result after `->` and a following conjunction line, retaining missing-colon and interrupted-header refusal in the shared pure syntax owner. The merged CLI retains master's inline-body continuation guard. Implementer self-review under `REVIEWER.md` checked A1–A4/A9: no public API, dependency, compiler-policy or platform-lifetime changes; editor and CLI still consume one policy. No actionable findings in that scope.
+
+Two focused runs passed all 53 parser/editor/compiler/packaged-CLI tests, with no skips, using the declared Bend 2.0.35/Bun 1.4.2 inputs. The shared complete coverage fixture now includes split scalar/proof result types and a continued proof conjunction, checking source tokens/bindings, compiler acceptance, idempotence and undo. The actual Hapsland nine-file check no longer reports unsupported headers (one conforming, eight require formatting). This is focused source qualification, not a new full plugin, release, signature or attachment-verdict claim. No release metadata, feed or publication was changed.
