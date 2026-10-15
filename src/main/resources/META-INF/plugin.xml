@@ -20,12 +20,10 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.22:</p>
+<p>Version 0.1.23:</p>
 <ul>
-  <li>Show imported compiler failures on direct and transitive import paths, with navigation to the original current error.</li>
-  <li>Distinguish identical dependency texts in structured checks using compiler namespace, source digest and root provenance; retain conservative locations for older providers.</li>
-  <li>Add optional naming, unused import alias and canonical local import path inspections. Canonical path fixes preserve the loaded graph and support Undo; unused-alias hints never remove imports.</li>
-  <li>Reuse request-local source snapshots in Find Usages while preserving native binding, alias and law/fill identities.</li>
+  <li>Format block-bearing argument lists while preserving significant newlines, relative indentation, comments and multiline strings; keep adjacent curried calls stable in one pass.</li>
+  <li>Index delimiter nesting and layout lookups once per source for large, deeply nested files. Ambiguous tab-sensitive layouts and multiline atomic descendants remain unavailable.</li>
 </ul>
     ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

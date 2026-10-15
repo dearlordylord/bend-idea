@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.23
+
 - Format block-bearing argument lists while preserving significant newlines,
   physical relative indentation, comments and multiline-string contents. Keep
   adjacent curried calls stable in one pass. Ambiguous tab-sensitive layouts and
