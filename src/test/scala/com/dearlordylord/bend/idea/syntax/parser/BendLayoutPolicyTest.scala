@@ -6,6 +6,25 @@ import org.junit.Test
 final class BendLayoutPolicyTest:
   private val twoSpaces = BendLayoutPolicy.Settings(2, false, 8)
 
+  @Test def resultTypesCanStartOnTheIndentedLineAfterTheirArrow(): Unit =
+    for
+      ending <- List("\n", "\r\n")
+      result <- List("Nat", "{value == value : Nat}")
+    do
+      val source =
+        s"def retain(+value: Nat) ->$ending  $result:$ending  value$ending"
+      assertEquals(
+        BendLayoutPolicy.Outcome.Unchanged,
+        BendLayoutPolicy.format(source, twoSpaces)
+      )
+    for source <- List(
+        "def retain(value: Nat) ->\nNat:\n  value\n",
+        "def retain(value: Nat) ->\n  :\n  value\n",
+        "def retain(value: Nat) ->\n  Nat\n  value\n",
+        "def retain(value: Nat) ->\n  def other() -> Nat:\n    0n\n"
+      )
+    do assertTrue(BendLayoutPolicy.edits(source, twoSpaces).isLeft)
+
   @Test def blockItemsKeepPhysicalOffsideLinesCommentsAndArgumentBoundaries()
       : Unit =
     val source =

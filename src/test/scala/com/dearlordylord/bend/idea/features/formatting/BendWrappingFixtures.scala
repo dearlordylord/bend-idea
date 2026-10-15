@@ -247,6 +247,12 @@ object BendWrappingFixtures:
       |def continued_result(first: U32,second: U32)
       |    -> U32:
       |  first
+      |def split_result(first: Nat) ->
+      |  Nat:
+      |  first
+      |def split_proof(+value: Nat) ->
+      |  {value == value : Nat}:
+      |  {==}
       |def literal() -> String:
       |  "(a,b) [c,d]"
       |""".stripMargin
@@ -282,6 +288,12 @@ object BendWrappingFixtures:
       |def continued_result(first: U32, second: U32)
       |    -> U32:
       |  first
+      |def split_result(first: Nat) ->
+      |  Nat:
+      |  first
+      |def split_proof(+value: Nat) ->
+      |  {value == value : Nat}:
+      |  {==}
       |def literal() -> String:
       |  "(a,b) [c,d]"
       |""".stripMargin

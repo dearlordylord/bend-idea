@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Recognize indented definition result types after a newline following `->`, including proof result types; retain refusal of missing colons and unindented or interrupted headers.
+
 ## 0.1.23
 
 - Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter.

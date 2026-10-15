@@ -584,14 +584,18 @@ object BendLayoutPolicy:
                 .substring(tokens(index).end, tokens(index + 1).start)
                 .exists(c => c == '\n' || c == '\r')
             then
-              // Bend permits a continued result arrow after the parameter
-              // telescope. Keep the continuation indented and require the
-              // arrow, rather than accepting arbitrary next-line body text.
+              // A result may continue before or after its arrow. Require an
+              // indented continuation at that boundary; a missing colon must
+              // never absorb the next declaration or arbitrary body lines.
               val next = tokens(index + 1)
               val lineStart = source.lastIndexOf('\n', next.start - 1) + 1
               val continuedResult = tokens(first).text == "def" &&
                 first + 2 < tokens.length &&
-                pairs.get(first + 2).contains(index) && next.text == "->" &&
+                ((pairs.get(first + 2).contains(index) && next.text == "->") ||
+                  (tokens(index).text == "->" &&
+                    !Set("def", "law", "type", "import", "case", "match", "do")
+                      .contains(next.text) &&
+                    !next.text.startsWith("#"))) &&
                 source.substring(lineStart, next.start).nonEmpty &&
                 source
                   .substring(lineStart, next.start)
