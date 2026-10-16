@@ -346,3 +346,28 @@ submission are outside this user-authorized personal-repository release;
 explicit native formatter links remain on 0.1.19. Interactive IDE installation
 remains an untested manual smoke check. Live-feed and stable/Latest verification
 will be recorded after deployment.
+
+
+0.1.24 publication receipt: Cloudflare Pages deployment
+`20dc9c93-9998-4706-9b7c-3bf4967324ad` successfully deployed feed commit
+`d4a3dcf`. Ordinary anonymous browser requests to both live feed URLs returned
+0.1.24 with metadata identical to the signed descriptor. Downloads through both
+feed links matched signed ZIP SHA-256
+`2a588e8d374d3b7643a976ca6d62f10656ee075e6229f40a5ed76358a602a8d7`.
+The initial request during propagation still served 0.1.23; subsequent ordinary
+requests served 0.1.24. GitHub `/releases/latest` resolves to stable, public
+v0.1.24 with exactly the four intended assets. Astra independently verified the
+live feeds, anonymous asset hashes, packaged notices and stable/Latest state.
+
+After deployment, [Bend compatibility run 38830230078](https://github.com/dearlordylord/bend-idea/actions/runs/38830230078)
+passed `editor-compatibility-v2` against the exact released plugin candidate
+`93f3b003a0c5512569f23ba6530804753b29b9e4` and latest published Bend v2.0.37
+(`4ff8545f19b09b7d2b8ca2303668100eac8efd66`). The official Linux x64 archive
+was SHA-256 verified as
+`84c32465a39bc9ac315eade23f470cb8db03153dc860f89564fcfec153c3e445`.
+Both compatibility and result-recording jobs succeeded. This bounded editor/CLI
+corpus covers verdicts, check-only isolation, source navigation/formatting and
+unsaved imported-source diagnostics; it is not an exhaustive language or
+all-platform claim. The full CI pin and advanced recovery helper remain Bend
+2.0.35. No pin upgrade or private-helper support for 2.0.37 is claimed. Interactive
+IDE installation/update remains the manual verification boundary.
