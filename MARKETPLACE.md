@@ -371,3 +371,13 @@ unsaved imported-source diagnostics; it is not an exhaustive language or
 all-platform claim. The full CI pin and advanced recovery helper remain Bend
 2.0.35. No pin upgrade or private-helper support for 2.0.37 is claimed. Interactive
 IDE installation/update remains the manual verification boundary.
+
+## 0.1.25 custom repository release
+
+Tagged candidate `79f9dfb5cbb74c918a6893ee7fefd4350c578a59`; [exact-candidate Verify CI 38855722380](https://github.com/dearlordylord/bend-idea/actions/runs/38855722380) passed the full editor/compiler/architecture suite and packaging/compatibility gates with Bend 2.0.37 and Bun 1.4.2. Local JDK 21 packaging, both IDE verifiers, structure/configuration, signing and signature verification passed. Signed descriptor is version 0.1.25, ID unchanged, since-build 251 without upper bound. Embedded JARs match the verifier-tested unsigned ZIP; packaged helper and recovery notices verified. Independent Astra metadata review and implementer self-review under REVIEWER.md found no actionable findings; no architectural contract changed.
+
+- Signed ZIP SHA-256: `9ff81a5a8d0ddffe7855157e3a216268fab67e6cb538a32ca5ef8f2c6ca8406a`.
+- Portable formatter JAR SHA-256: `700fced902a1d8cfee4f7a110eaac21a2c9923faf7872c1a92d28c1bef27ae65`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity.
+
+Personal feed and GitHub release only; native formatter archives/Homebrew retain their explicit 0.1.19 links. Interactive IDE update remains a manual smoke check. Feed deployment receipt is recorded after live verification.

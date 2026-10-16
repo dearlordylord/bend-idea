@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.24/bend-idea-0.1.24-signed.zip"
-          version="0.1.24">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.25/bend-idea-0.1.25-signed.zip"
+          version="0.1.25">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,9 +19,9 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.24:</p>
+    <change-notes><![CDATA[<p>Version 0.1.25:</p>
 <ul>
-  <li>Show multiple independent compiler errors with the optional pinned Bend 2.0.35 helper, using bounded fresh-state recovery and dependency blocking. Unsupported constructs retain the original first-error fallback.</li>
+  <li>Upgrade all optional structured helper operations, including safe multi-error recovery, to Bend 2.0.37. Include datatype parameter types when checking unsafe reliance.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>
