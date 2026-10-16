@@ -81,7 +81,7 @@ final class BendAdjacencyRegressionTest extends BasePlatformTestCase:
       assertEquals(source, myFixture.getEditor.getDocument.getText)
 
   def testUnaryNegativeLiteralRetainsLexicalFormAndCompilerRejection(): Unit =
-    // Bend 2.0.35 does not support unary minus on a numeric literal: its
+    // Bend 2.0.37 does not support unary minus on a numeric literal: its
     // parser expects a binder name after -. Keep that limitation observable.
     val source = "import Base\ndef negative() -> F32:\n    -2.5e-3\n"
     check(source, BendCheckOutcome.Failed)

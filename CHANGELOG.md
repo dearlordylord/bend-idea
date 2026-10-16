@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Upgrade the compiler test baseline and all optional structured helper operations, including safe multi-error recovery, to Bend 2.0.37. Include datatype parameter types when checking unsafe reliance.
+
 ## 0.1.24
 
 - Show multiple independent compiler errors with the optional pinned Bend 2.0.35 helper, using bounded fresh-state recovery, dependency blocking and first-error fallback for unsupported constructs.

@@ -105,7 +105,7 @@ final class BendCliCheckBackendTest:
         Files
           .readString(main)
           .replace(
-            "const VERSION = \"2.0.35\";",
+            "const VERSION = \"2.0.37\";",
             "const VERSION = \"2.99.0\";"
           ) +
           "\n// changed build identity\n"

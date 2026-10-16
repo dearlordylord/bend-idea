@@ -115,6 +115,51 @@ final class BendCliGraphCheckTest:
         .count()
     finally stream.close()
 
+  @Test def datatypeParameterRelianceMatchesNativeCompiler(): Unit = fixture {
+    (dir, bend) =>
+      val copy = Files.createDirectories(dir.resolve("compiler/bend2"))
+      List("bend.ts", "comp.ts", "main.ts", "safe.ts").foreach { name =>
+        val _ = Files.copy(
+          compiler.compilerDirectory.resolve("bend2").resolve(name),
+          copy.resolve(name)
+        )
+      }
+      val customBase = copy.resolve("base.bend")
+      val _ = Files.writeString(
+        customBase,
+        Files.readString(base) +
+          "\n@unsafe def risky_kind() -> Type:\n  Nat\n"
+      )
+      val root = source(
+        dir.resolve("main.bend"),
+        "import Base\ntype Box<-A: risky_kind()> is Type:\n"
+      )
+      def useCopy(): Unit =
+        val _ = Files.writeString(
+          bend,
+          Files
+            .readString(bend)
+            .replace(
+              "$BEND_TEST_COMPILER_DIR/bend2",
+              copy.toString
+            )
+        )
+      useCopy()
+      val native = check(dir, bend, root, configuredBase = customBase)
+      assertEquals(native.details, BendCheckOutcome.Success, native.outcome)
+      assertEquals(BendReliance.UnsafeOrForeign, native.reliance)
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      useCopy()
+      val structured = check(dir, bend, root, configuredBase = customBase)
+      assertEquals(structured.details, native.outcome, structured.outcome)
+      assertEquals(native.completeness, structured.completeness)
+      assertEquals(native.reliance, structured.reliance)
+      assertTrue(
+        structured.details,
+        structured.details.contains("relies on unsafe")
+      )
+  }
+
   @Test def pinnedHelperReportsIndependentErrorsFromOneUnchangedSnapshot()
       : Unit =
     fixture { (dir, bend) =>
@@ -319,7 +364,7 @@ final class BendCliGraphCheckTest:
         bend,
         s"""#!/bin/sh
         |if [ "$${1:-}" = "--idea-structured-capabilities" ]; then
-        |  '${helper}' "$$@" | sed 's/bend-2.0.35-pinned/bend-next-development-build/'
+        |  '${helper}' "$$@" | sed 's/bend-2.0.37-pinned/bend-next-development-build/'
         |else
         |  exec '${helper}' "$$@"
         |fi
@@ -540,7 +585,7 @@ final class BendCliGraphCheckTest:
       )
       val incompatible =
         """if [ "${1:-}" = "--idea-structured-capabilities" ]; then
-          |  printf '%s\n' '{"protocol":2,"compiler":"bend-2.0.35-pinned","operations":["diagnostic"]}'
+          |  printf '%s\n' '{"protocol":2,"compiler":"bend-2.0.37-pinned","operations":["diagnostic"]}'
           |  exit 0
           |fi""".stripMargin
       val _ = compiler.writeLauncher(bend, incompatible)
@@ -579,7 +624,7 @@ final class BendCliGraphCheckTest:
     val output = dir.resolve("no-span.json")
     Files.writeString(output, response.toString + "\n")
     val helper = s"""if [ "$${1:-}" = "--idea-structured-capabilities" ]; then
-                    |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.35-pinned","operations":["diagnostic"]}'
+                    |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.37-pinned","operations":["diagnostic"]}'
                     |  exit 0
                     |fi
                     |if [ "$${1:-}" = "--idea-structured-diagnostic" ]; then

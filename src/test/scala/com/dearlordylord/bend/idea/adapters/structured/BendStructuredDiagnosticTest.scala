@@ -42,7 +42,7 @@ final class BendStructuredDiagnosticTest:
         executable,
         """#!/bin/sh
           |if [ "${1:-}" = "--idea-structured-capabilities" ]; then
-          |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.35-pinned","operations":["diagnostic"]}'
+          |  printf '%s\n' '{"protocol":1,"compiler":"bend-2.0.37-pinned","operations":["diagnostic"]}'
           |else
           |  printf '%s\n' '{"protocol":1,"kind":"first-error","message":"Error: example","span":"invalid"}'
           |fi

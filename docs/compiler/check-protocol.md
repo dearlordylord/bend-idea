@@ -1,13 +1,13 @@
 # Bend check protocol 1
 
-Status: implemented by Bend2's optional hash-pinned Bend 2.0.35 helper. This is a plugin-side contract and an upstream integration proposal, not a claim that published Bend binaries implement it. The compiler rewrite can implement the same transport without exposing TypeScript internals. No changes to the trusted compiler checkout are required.
+Status: implemented by Bend2's optional hash-pinned Bend 2.0.37 helper. This is a plugin-side contract and an upstream integration proposal, not a claim that published Bend binaries implement it. The compiler rewrite can implement the same transport without exposing TypeScript internals. No changes to the trusted compiler checkout are required.
 
 ## Negotiation and commands
 
 The selected executable receives `--idea-check-capabilities` with no source argument. A compatible response is one JSON object, exit status 0:
 
 ```json
-{"checkProtocol":1,"compiler":"bend-2.0.35-pinned","checkOnly":true,"locations":"compiler-source-namespace-sha256-utf16-v1","operations":["check"]}
+{"checkProtocol":1,"compiler":"bend-2.0.37-pinned","checkOnly":true,"locations":"compiler-source-namespace-sha256-utf16-v1","operations":["check"]}
 ```
 
 `checkProtocol` is an integer, `checkOnly` is a boolean, and `compiler` is a nonempty installation identity. This identity need not use the helper's spelling. `locations` names the source-coordinate convention. The check operation must load and validate source without evaluating `main`, importing foreign implementations, building artifacts or publishing packages. Optional goals/types/resources/normalization retain their separate capability negotiation; check support implies none of them.
@@ -52,7 +52,7 @@ Upstream coordination/adoption remains outstanding; this repository contains the
 
 ## Restricted pinned recovery (#75)
 
-For the exact hash-pinned 2.0.35 source pairing, the helper instruments native
+For the exact hash-pinned 2.0.37 source pairing, the helper instruments native
 validator event hooks in memory. It preserves original source and checker rules;
 no compiler checkout is edited. Loader source bytes, resolved paths and named
 package results are captured on the initial successful load and frozen before

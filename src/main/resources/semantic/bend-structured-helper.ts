@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Protocol 1 uses bounded, fail-closed recovery for the pinned Bend 2.0.35 sources.
+// Protocol 1 uses bounded, fail-closed recovery for the pinned Bend 2.0.37 sources.
 // Native validation hooks adapted from bend2-lsp-rs and Bend.
 // Copyright 2026 HigherOrderCO. SPDX-License-Identifier: Apache-2.0
 // See META-INF/bend-recovery-NOTICES.txt and bend-recovery-LICENSE.txt.
@@ -10,9 +10,9 @@ import * as path from "node:path";
 import * as url from "node:url";
 
 const hashes: Record<string, string> = {
-  "bend.ts": "7deae3693eb896f33c73867081b99d2c6f3ed3b57e77e55eb5f6260840dd0e63",
-  "comp.ts": "32fb66e09f608ce9e4b173384bcfeec453db8c5bc96650e26ad861bef815a8d9",
-  "main.ts": "d1a3e026f5014f8daec3614df8e39cf261e3fbc47769eb0916fd891bc18703c9",
+  "bend.ts": "6c1df3eb304fe085070aa4797928f70243b80d4635389e3d5d8a49fdfbb3051e",
+  "comp.ts": "56d5727049bc3ef528ef84d3b4712a41a0a8ce0a06437b29d881e71107638c70",
+  "main.ts": "38f77e7f1c2b0239cd8ed4a6baad90439c1d2610b2014573590ec7cf6ad04497",
 };
 
 function emit(value: unknown): void {
@@ -49,12 +49,12 @@ async function main(): Promise<void> {
     return;
   }
   if (operation === "check-capabilities") {
-    emit({ checkProtocol: 1, compiler: "bend-2.0.35-pinned", checkOnly: true,
+    emit({ checkProtocol: 1, compiler: "bend-2.0.37-pinned", checkOnly: true,
       locations: "compiler-source-namespace-sha256-utf16-v1", operations: ["check"] });
     return;
   }
   if (operation === "capabilities") {
-    emit({ protocol: 1, compiler: "bend-2.0.35-pinned", operations: ["diagnostic", "goal-first-named-hole", "expression-types-checked", "goal-binder-comparison", "normalize-closed-expression"] });
+    emit({ protocol: 1, compiler: "bend-2.0.37-pinned", operations: ["diagnostic", "goal-first-named-hole", "expression-types-checked", "goal-binder-comparison", "normalize-closed-expression"] });
     return;
   }
   if (operation === "check") installRecoveryHooks(dir);
@@ -292,9 +292,15 @@ async function check(Bend: any, root: string): Promise<void> {
     const uses: Record<string, string[]> = Object.create(null);
     const visited = new Set<string>();
     function refs(term: any, out: Set<string>): void {
-      if (typeof term !== "object" || term === null) return;
-      if ((term.$ === "Ref" || term.$ === "ADT") && term.k !== undefined) out.add(term.k);
-      for (const [key, child] of Object.entries(term)) if (key !== "s") refs(child, out);
+      const pending = [term];
+      const seen = new Set<object>();
+      while (pending.length > 0) {
+        const current = pending.pop();
+        if (typeof current !== "object" || current === null || seen.has(current)) continue;
+        seen.add(current);
+        if ((current.$ === "Ref" || current.$ === "ADT") && typeof current.k === "string") out.add(current.k);
+        for (const [key, child] of Object.entries(current)) if (key !== "s") pending.push(child);
+      }
     }
     for (const pending = bad.size === 0 ? [] : own.slice(); pending.length > 0;) {
       const name = pending.pop()!;
@@ -302,7 +308,7 @@ async function check(Bend: any, root: string): Promise<void> {
       if (declaration !== undefined && !visited.has(name)) {
         visited.add(name);
         const references = new Set<string>();
-        for (const c of declaration.$ === "ADT" ? declaration.c : [declaration]) refs(Bend.term_lower(c.T), references);
+        for (const c of declaration.$ === "ADT" ? [declaration, ...declaration.c] : [declaration]) refs(Bend.term_lower(c.T), references);
         refs(declaration.$ === "Def" ? declaration.e : undefined, references);
         for (const ref of references) { (uses[ref] ??= []).push(name); pending.push(ref); }
       }

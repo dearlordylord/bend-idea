@@ -25,8 +25,8 @@ def release(number, release_id, digest="a" * 64, assets=True):
 
 class CandidateTests(unittest.TestCase):
     def test_all_unseen_releases_are_kept_even_when_published_on_one_day(self):
-        found = candidates([release(38, 38), release(37, 37), release(36, 36), release(35, 35)], {})
-        self.assertEqual(["v2.0.36", "v2.0.37", "v2.0.38"], [item["tag"] for item in found])
+        found = candidates([release(40, 40), release(39, 39), release(38, 38), release(37, 37)], {})
+        self.assertEqual(["v2.0.38", "v2.0.39", "v2.0.40"], [item["tag"] for item in found])
 
     def test_recorded_result_is_skipped_but_changed_digest_is_retested(self):
         recorded = {"38": {"tag": "v2.0.38", "digest": "a" * 64, "status": "failed", "suite": COMPATIBILITY_SUITE}}

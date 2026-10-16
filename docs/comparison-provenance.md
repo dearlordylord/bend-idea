@@ -105,3 +105,7 @@ contain the helper and its notices. The formatter JAR/native distribution does
 not select this resource or compiler helper. `scripts/verify-recovery-notices.py <plugin.jar> <plugin.zip>` verifies
 both plugin JAR and ZIP for byte-identical notices; the helper carries no new formatter
 payload.
+
+## Bend 2.0.37 compiler pairing
+
+The helper adaptation above now targets [Bend 2.0.37](https://github.com/bendlang/bend/tree/4ff8545f19b09b7d2b8ca2303668100eac8efd66), `bend2/bend.ts` and `bend2/main.ts`. Native validation/lowering/literal expansion boundaries remain unchanged; the reliance walk now includes datatype parameter types and avoids recursive object traversal. The same Apache-2.0 copyright/license applies, with no upstream NOTICE. Updated immutable provenance is retained in the packaged recovery notices. Historical validation records above remain tied to their original pins.
