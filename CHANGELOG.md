@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.25
+
 - Upgrade the compiler test baseline and all optional structured helper operations, including safe multi-error recovery, to Bend 2.0.37. Include datatype parameter types when checking unsafe reliance.
 
 ## 0.1.24
