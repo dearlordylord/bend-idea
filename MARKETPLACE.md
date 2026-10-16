@@ -381,3 +381,5 @@ Tagged candidate `79f9dfb5cbb74c918a6893ee7fefd4350c578a59`; [exact-candidate Ve
 - Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity.
 
 Personal feed and GitHub release only; native formatter archives/Homebrew retain their explicit 0.1.19 links. Interactive IDE update remains a manual smoke check. Feed deployment receipt is recorded after live verification.
+
+0.1.25 publication receipt: both ordinary anonymous feed requests (`idea.dearlordylord.com` and `bend-idea-plugins.pages.dev`) now serve 0.1.25 from feed commit `dde9e1e`. ID, name, IDE range, description and change notes equal the signed descriptor. Downloads through both feed URLs match signed ZIP SHA-256 `9ff81a5a8d0ddffe7855157e3a216268fab67e6cb538a32ca5ef8f2c6ca8406a`. The first requests during deployment still served 0.1.24. All four GitHub assets were independently downloaded anonymously and matched local verified bytes. GitHub `/releases/latest` confirms stable public v0.1.25 with exactly the four intended assets. Exact-candidate Verify CI completed successfully.
