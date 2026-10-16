@@ -310,3 +310,39 @@ All four GitHub assets were downloaded anonymously and matched the local verifie
 Cloudflare Pages successfully deployed feed commit `aaac0aa6aec17ce1beee1e203485a8329da6eb50` (deployment `d48ae3b9-6b0f-44e5-bcfb-fff60f92a214`). Ordinary anonymous requests to both `https://idea.dearlordylord.com/updatePlugins.xml` and `https://bend-idea-plugins.pages.dev/updatePlugins.xml` returned 0.1.23 with metadata identical to the signed plugin. Downloads through both feed links matched signed ZIP SHA-256 `b1cdef81f91edcb46e320f26c56c6904f2ba538c3e1bf8222e30080cc7d3e366`. The first request while deployment was in progress still returned 0.1.22.
 
 GitHub Release v0.1.23 is stable, public and Latest with exactly the four intended assets; the ordinary `/releases/latest` API confirms v0.1.23. Independent Astra final metadata/feed review found no actionable discrepancies or weakened validation requirements. The tagged candidate's full CI is successful; documentation-only follow-up CI is separate and is not used as release-source evidence. Interactive IDEA installation/update remains untested, and no Marketplace submission or native formatter/Homebrew publication was performed.
+
+
+## 0.1.24 custom repository release
+
+[GitHub Release v0.1.24](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.24)
+is tagged at `93f3b003a0c5512569f23ba6530804753b29b9e4`, including restricted
+independent-error recovery implementation `5eb0d4a`. Changelog, packaged change
+notes and feed metadata describe the optional pinned 2.0.35 helper, dependency
+blocking, bounded fresh replay and conservative original-first-error fallback.
+Native upstream recovery and parser/template recovery are not claimed.
+
+[Exact-candidate Verify CI 38829116809](https://github.com/dearlordylord/bend-idea/actions/runs/38829116809)
+passed: 660 main-suite cases (659 passed, one optional installed-release smoke
+skipped), two architecture tests, quality gates, packaging and compatibility.
+Full JDK 21, pinned Bend `79df8d9c40722ee9507a1e253f283b51025f9d6c` and Bun 1.4.2.
+Local packaging, structure/configuration, both IDE compatibility checks, signing
+and signature verification passed. IC 2025.1 and IU 2026.1 were Compatible with
+existing API notices. Independent Astra release metadata review found no
+remaining actionable findings; implementer self-review followed REVIEWER.md.
+
+Signed ZIP metadata: ID `com.dearlordylord.bend.idea`, version 0.1.24,
+since-build 251, no upper bound. Its embedded JARs equal the verifier-tested
+unsigned ZIP JARs. Recovery helper bytes and Apache license/attribution resources
+were verified in actual JAR and signed ZIP. Portable JAR reports `bend-format 0.1.24`.
+
+- Signed ZIP SHA-256: `2a588e8d374d3b7643a976ca6d62f10656ee075e6229f40a5ed76358a602a8d7`.
+- Portable JAR SHA-256: `c2530db2fe741cf53564c1f1c7a4b765b66d181d51114ac1a04a24b6bca7d627`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity reused.
+
+All four assets, including SHA256SUMS.txt, were downloaded anonymously and matched
+the local verified artifacts before this feed update. Feed metadata is derived
+from the signed descriptor. Native formatter archives/Homebrew and Marketplace
+submission are outside this user-authorized personal-repository release;
+explicit native formatter links remain on 0.1.19. Interactive IDE installation
+remains an untested manual smoke check. Live-feed and stable/Latest verification
+will be recorded after deployment.

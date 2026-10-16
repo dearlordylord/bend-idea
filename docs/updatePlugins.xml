@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.23/bend-idea-0.1.23-signed.zip"
-          version="0.1.23">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.24/bend-idea-0.1.24-signed.zip"
+          version="0.1.24">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,9 +19,9 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.23:</p>
+    <change-notes><![CDATA[<p>Version 0.1.24:</p>
 <ul>
-  <li>Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter, including bodies containing multiline strings.</li>
+  <li>Show multiple independent compiler errors with the optional pinned Bend 2.0.35 helper, using bounded fresh-state recovery and dependency blocking. Unsupported constructs retain the original first-error fallback.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>
