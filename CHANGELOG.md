@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.24
+
 - Show multiple independent compiler errors with the optional pinned Bend 2.0.35 helper, using bounded fresh-state recovery, dependency blocking and first-error fallback for unsupported constructs.
 
 ## 0.1.23

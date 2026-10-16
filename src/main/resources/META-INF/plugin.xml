@@ -20,9 +20,9 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.23:</p>
+<p>Version 0.1.24:</p>
 <ul>
-  <li>Preserve inline-body continuation columns by declining unsafe formatting edits in Reformat Code and the offline formatter, including bodies containing multiline strings.</li>
+  <li>Show multiple independent compiler errors with the optional pinned Bend 2.0.35 helper, using bounded fresh-state recovery and dependency blocking. Unsupported constructs retain the original first-error fallback.</li>
 </ul>
 ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
