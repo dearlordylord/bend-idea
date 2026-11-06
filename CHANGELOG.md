@@ -13,6 +13,8 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.27
+
 - Replace the remaining name suffix when accepting ordinary completion with Enter, matching Tab insertion.
 - Keep declarations and formatting after a raw apostrophe character literal (`'''`) visible to the shared lexer.
 - Keep dependent-arrow binders inside their enclosing match case, preserving the case binder without leaking names into sibling cases.
