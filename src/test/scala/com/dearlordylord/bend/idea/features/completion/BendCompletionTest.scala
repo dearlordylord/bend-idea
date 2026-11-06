@@ -183,3 +183,36 @@ final class BendCompletionTest extends BasePlatformTestCase:
       myFixture.performEditorAction(IdeActions.ACTION_UNDO)
       undos += 1
     assertEquals("de", myFixture.getEditor.getDocument.getText)
+
+  def testOrdinaryCompletionReplacesTheNameTailWithEnterAndTab(): Unit =
+    for
+      completionChar <- List('\n', '\t')
+      (source, name, expected) <- List(
+        (
+          "def helper(): 0\ndef helpful(): 1\ndef main():\n  hel<caret>per_old + 2",
+          "helper",
+          "helper + 2"
+        ),
+        (
+          "def main(value: U32, variant: U32):\n  va<caret>lue_old + 2",
+          "value",
+          "value + 2"
+        )
+      )
+    do
+      myFixture.configureByText("replace-name.bend", source)
+      val items = Option(myFixture.completeBasic())
+        .getOrElse(Array.empty[LookupElement])
+      val selected = items.find(_.getLookupString == name)
+      assertTrue(s"Missing $name completion", selected.isDefined)
+      myFixture.getLookup.setCurrentItem(selected.get)
+      myFixture.finishLookup(completionChar)
+      assertTrue(
+        myFixture.getEditor.getDocument.getText,
+        myFixture.getEditor.getDocument.getText.endsWith("  " + expected)
+      )
+      assertEquals(
+        name.length,
+        myFixture.getEditor.getCaretModel.getOffset -
+          myFixture.getEditor.getDocument.getText.lastIndexOf("  ") - 2
+      )

@@ -115,6 +115,29 @@ final class BendLocalScopeTest extends BasePlatformTestCase:
     item.renderElement(presentation)
     assertTrue(presentation.getTailText.contains("+x"))
 
+  def testAnnotatedLambdaKeepsBinderInsideItsBodyOnly(): Unit =
+    val body = at(
+      "def applied() -> U32:\n  {(input => inp<caret>ut) : U32 -> U32}(7)"
+    )
+    val input = body._2.find(_.name == "input").get
+    assertEquals(BendBindingKind.Lambda, input.origin)
+    val reference = myFixture.getFile.findReferenceAt(
+      myFixture.getFile.getText.indexOf("input)")
+    )
+    assertNotNull(reference)
+    assertNotNull(reference.resolve())
+    assertEquals(input.handle.nameOffset, reference.resolve().getTextOffset)
+    assertFalse(
+      at(
+        "def applied() -> U32:\n  {(input => input) : inp<caret>ut -> U32}(7)"
+      )._2.exists(_.name == "input")
+    )
+    assertFalse(
+      at(
+        "def applied() -> U32:\n  {(input => input) : U32 -> U32}(inp<caret>ut)"
+      )._2.exists(_.name == "input")
+    )
+
   def testLocalsStopAtColumnZeroEvenWhenSurfacePsiRetainsLine(): Unit =
     val (items, bindings) = at("def f(x: Nat) -> Nat:\n  x\nx<caret>")
     assertFalse(bindings.exists(_.name == "x"))

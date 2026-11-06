@@ -175,6 +175,33 @@ final class BendLexerTest:
     assertFalse(found.exists(_.kind == BendTokens.Comment))
     assertEquals(BendTokens.InvalidEscape, found.last.kind)
 
+  @Test def rawApostropheCharacterDoesNotConsumeFollowingSource(): Unit =
+    val source =
+      "def quote() -> Char:\n  '''\ndef next(value: Char):\n  value\n"
+    val found = tokens(source)
+    val first = source.indexOf("'''")
+    assertEquals(
+      List(
+        (BendTokens.StringDelimiter, "'"),
+        (BendTokens.StringContent, "'"),
+        (BendTokens.StringDelimiter, "'")
+      ),
+      found
+        .filter(t => first <= t.start && t.start < first + 3)
+        .map(t => t.kind -> t.text)
+    )
+    assertTrue(
+      found.exists(t => t.kind == BendTokens.FunctionName && t.text == "next")
+    )
+    assertTrue(
+      found.exists(t => t.kind == BendTokens.Identifier && t.text == "value")
+    )
+    for boundary <- found do
+      assertEquals(
+        found.dropWhile(_.start < boundary.start),
+        tokens(source, boundary.start, boundary.state)
+      )
+
   @Test def distinguishesFixedInfixOperatorsFromTypeAngles(): Unit =
     val found = tokens("def f() -> D<List<Nat>>:\n  a <&> b <> c << d\n")
     assertEquals(2, found.count(_.kind == BendTokens.LeftAngle))

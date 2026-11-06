@@ -80,6 +80,36 @@ final class BendAdjacencyRegressionTest extends BasePlatformTestCase:
       myFixture.performEditorAction(IdeActions.ACTION_UNDO)
       assertEquals(source, myFixture.getEditor.getDocument.getText)
 
+  def testRawApostropheKeepsFollowingDeclarationAndFormatting(): Unit =
+    val source =
+      "import Base\ndef quote() -> Char:\n    '''\ndef choose(value: Char,other: Char) -> Char:\n    value\n"
+    preserve(source) { file =>
+      assertEquals(
+        List("quote", "choose"),
+        BendSourceSymbols.declarations(file).map(_.name)
+      )
+      binder(file, "value\n", "value", "choose(value")
+      assertTrue(file.getText.contains("'''"))
+    }
+    assertTrue(myFixture.getFile.getText.contains("value: Char, other: Char"))
+
+  def testAnnotatedLambdaAndGenericLetKeepTheirCompilerMeaning(): Unit =
+    val source =
+      "import Base\ndef applied() -> U32:\n    {(input => input) : U32 -> U32}(7)\ndef item() -> List<&2, U32>:\n  xs: List<&2, U32> = [1]\n  xs\n"
+    preserve(source) { file =>
+      binder(file, "input)", "input", "input =>")
+      binder(file, "\n  xs\n", "xs", "xs: List")
+      assertTrue(file.getText.contains("U32> = [1]"))
+    }
+
+  def testCaseBinderSurvivesDependentArrowAndFormatting(): Unit =
+    val source =
+      "import Base\ntype Flag is Data:\n  FlagOn{value: Nat}\n  FlagOff{}\ndef spec(flag: Flag) -> Type:\n  match flag:\n    case FlagOn{outer}:\n      @index: Nat -> {outer == index : Nat}\n    case FlagOff{}:\n      {0n == 0n : Nat}\n"
+    preserve(source) { file =>
+      binder(file, "{outer ==", "outer", "FlagOn{outer")
+      binder(file, "== index :", "index", "@index")
+    }
+
   def testUnaryNegativeLiteralRetainsLexicalFormAndCompilerRejection(): Unit =
     // Bend 2.0.37 does not support unary minus on a numeric literal: its
     // parser expects a binder name after -. Keep that limitation observable.

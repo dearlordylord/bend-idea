@@ -8,6 +8,7 @@ import com.dearlordylord.bend.idea.workspace.api.{
 }
 import com.intellij.openapi.fileEditor.{FileDocumentManager, FileEditorManager}
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.editor.EditorFactory
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -17,6 +18,30 @@ import org.junit.Assert.*
 import java.nio.file.Files
 
 final class BendLibrarySourceServiceTest extends BasePlatformTestCase:
+  def testReleasingSecondEditorRetainsSharedUnsavedSource(): Unit =
+    val persisted = "def saved():\n  Type\n"
+    val edited = "def edited():\n  Type\n"
+    val file = myFixture.addFileToProject("views/library.bend", persisted)
+    myFixture.configureFromExistingVirtualFile(file.getVirtualFile)
+    val document = myFixture.getEditor.getDocument
+    val extra = EditorFactory.getInstance().createEditor(document, getProject)
+    try
+      WriteCommandAction.runWriteCommandAction(
+        getProject,
+        new Runnable:
+          override def run(): Unit = document.setText(edited)
+      )
+      PsiDocumentManager.getInstance(getProject).commitDocument(document)
+    finally EditorFactory.getInstance().releaseEditor(extra)
+    val catalog = getProject.getService(classOf[BendSourceCatalog])
+    val source = catalog.source(file.getVirtualFile.getPath).get
+    assertEquals(edited, source.text)
+    assertEquals(document.getModificationStamp, source.revision)
+    assertEquals(edited, myFixture.getEditor.getDocument.getText)
+    assertTrue(
+      FileDocumentManager.getInstance().isFileModified(file.getVirtualFile)
+    )
+
   def testClosedModifiedSymlinkAliasRemainsCurrentForCanonicalSourceReads()
       : Unit =
     VfsTestRoots.allowSystemTemporaryDirectory(getTestRootDisposable)

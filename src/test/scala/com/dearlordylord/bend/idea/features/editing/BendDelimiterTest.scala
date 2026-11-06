@@ -67,6 +67,22 @@ final class BendDelimiterTest extends BasePlatformTestCase:
     myFixture.`type`("\"")
     assertEquals("# \"", myFixture.getEditor.getDocument.getText)
 
+  def testRawApostropheCanBeTypedInsideAnInsertedCharacterPair(): Unit =
+    editing("def quote() -> Char:\n  <caret>")
+    myFixture.`type`("'")
+    assertTrue(myFixture.getEditor.getDocument.getText.endsWith("''"))
+    myFixture.`type`("'")
+    assertTrue(myFixture.getEditor.getDocument.getText.endsWith("'''"))
+    myFixture.`type`("'")
+    assertEquals(
+      "def quote() -> Char:\n  '''",
+      myFixture.getEditor.getDocument.getText
+    )
+    assertEquals(
+      myFixture.getEditor.getDocument.getTextLength,
+      myFixture.getEditor.getCaretModel.getOffset
+    )
+
   def testTypeAnglesButNotComparison(): Unit =
     editing("type Box<caret>")
     myFixture.`type`("<")

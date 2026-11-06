@@ -44,13 +44,22 @@ object BendScope:
     val structured = BendStructuredScope.inspect(source, active, limit)
     parameterBindings(source, header, limit) ++
       bodyBindings(source, active, limit, structured) ++ structured.bindings ++
-      BendProofScope.bindings(
-        source,
-        tokens.filter(_.start < limit),
-        headerEnd,
-        limit,
-        law
-      )
+      BendProofScope
+        .bindings(
+          source,
+          tokens.filter(_.start < limit),
+          headerEnd,
+          limit,
+          law
+        )
+        .map { binding =>
+          binding.copy(until =
+            math.min(
+              binding.until,
+              structured.regionEnd(binding.nameOffset, limit)
+            )
+          )
+        }
 
   /** The surface parser deliberately retains malformed neighbors; a fresh
     * column-zero line outside delimiters is no longer in this declaration's

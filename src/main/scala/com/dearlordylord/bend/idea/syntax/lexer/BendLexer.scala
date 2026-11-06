@@ -12,6 +12,7 @@ final class BendLexer extends LexerBase:
   private val Normal = 0
   private val Double = 1
   private val Single = 2
+  private val SingleFirst = 3
   private val NoName = 0
   private val Function = 1
   private val Type = 2
@@ -82,7 +83,11 @@ final class BendLexer extends LexerBase:
   private def scanLiteral(): Unit =
     val c = char(startOffset)
     val quote = if mode == Double then '"' else '\''
-    if c == quote then
+    if mode == SingleFirst then withMode(Single)
+    if mode == SingleFirst && c == '\'' then
+      tokenEnd += 1
+      kind = BendTokens.StringContent
+    else if c == quote then
       tokenEnd += 1
       kind = BendTokens.StringDelimiter
       withMode(Normal)
@@ -131,7 +136,7 @@ final class BendLexer extends LexerBase:
     else if c == '"' || c == '\'' then
       tokenEnd += 1
       kind = BendTokens.StringDelimiter
-      withMode(if c == '"' then Double else Single)
+      withMode(if c == '"' then Double else SingleFirst)
       withExpected(NoName)
     else if expected == Path && c != '#' then
       while tokenEnd < end && !space(char(tokenEnd)) && char(tokenEnd) != '#' do

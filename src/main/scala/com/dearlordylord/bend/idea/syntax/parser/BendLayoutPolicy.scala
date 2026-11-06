@@ -680,6 +680,9 @@ object BendLayoutPolicy:
             else
               unsafe = true
               index += 1
+          else if current == '\'' && char == '\'' && scalars == 0 then
+            scalars += 1
+            index += 1
           else if current == char then
             index += 1
             closed = true

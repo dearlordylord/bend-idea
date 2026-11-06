@@ -25,6 +25,7 @@ import com.intellij.codeInsight.completion.{
   CompletionProvider,
   CompletionResultSet,
   CompletionType,
+  InsertHandler,
   InsertionContext,
   PrioritizedLookupElement
 }
@@ -74,7 +75,10 @@ final class BendCompletionContributor extends CompletionContributor:
             case BendCompletionContributor.Site.Qualified => Nil
           words.foreach { word =>
             result.addElement(
-              LookupElementBuilder.create(word).withTypeText("Bend 2 keyword")
+              LookupElementBuilder
+                .create(word)
+                .withTypeText("Bend 2 keyword")
+                .withInsertHandler(BendCompletionContributor.replaceNameTail)
             )
           }
           val bindings = BendSourceSymbols
@@ -112,6 +116,7 @@ final class BendCompletionContributor extends CompletionContributor:
                   .create(symbol.declaration, symbol.name)
                   .withTailText(tail, true)
                   .withTypeText(symbol.category.toString.toLowerCase)
+                  .withInsertHandler(BendCompletionContributor.replaceNameTail)
               )
             }
           if qualified.isEmpty && site != BendCompletionContributor.Site.TopLevel
@@ -126,6 +131,9 @@ final class BendCompletionContributor extends CompletionContributor:
                   LookupElementBuilder
                     .create(alias)
                     .withTypeText("import alias")
+                    .withInsertHandler(
+                      BendCompletionContributor.replaceNameTail
+                    )
                 )
               }
           visibleImported.foreach { case (name, symbol) =>
@@ -222,7 +230,12 @@ final class BendCompletionContributor extends CompletionContributor:
                       else 0.0
                     )
                   )
-              case None => result.addElement(builder)
+              case None =>
+                result.addElement(
+                  builder.withInsertHandler(
+                    BendCompletionContributor.replaceNameTail
+                  )
+                )
           }
           val triggers =
             site match
@@ -264,6 +277,20 @@ final class BendCompletionContributor extends CompletionContributor:
   )
 
 object BendCompletionContributor:
+  private val replaceNameTail = new InsertHandler[LookupElement]:
+    override def handleInsert(
+        insertion: InsertionContext,
+        element: LookupElement
+    ): Unit =
+      val document = insertion.getDocument
+      val start = insertion.getTailOffset
+      var end = start
+      while end < document.getTextLength &&
+        (document.getCharsSequence.charAt(end).isLetterOrDigit ||
+          document.getCharsSequence.charAt(end) == '_')
+      do end += 1
+      if end > start then document.deleteString(start, end)
+
   private enum Site:
     case TopLevel, Body, Do, Match, Law, TypeHeader, Type, Qualified
 
@@ -443,7 +470,7 @@ object BendCompletionContributor:
       if token == BendTokens.Comment && offset <= lexer.getTokenEnd then
         return true
       lexer.advance()
-    // State 1/2 is the shared lexer's unfinished quote mode. At a closing quote
+    // Nonzero literal modes belong to the shared lexer. At a closing quote
     // boundary, advance() has already returned it to normal.
     val state = lexer.getState & 3
     if state != 0 then true

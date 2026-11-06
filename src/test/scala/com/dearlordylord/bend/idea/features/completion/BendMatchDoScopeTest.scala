@@ -126,6 +126,29 @@ final class BendMatchDoScopeTest extends BasePlatformTestCase:
       ).find(_.name == "value").get.origin
     )
 
+  def testDependentArrowKeepsCaseBinderWithoutLeakingToSibling(): Unit =
+    val source =
+      "def spec(flag: Flag) -> Type:\n  match flag:\n    case FlagOn{outer}:\n      @index: Nat -> {outer == index : Nat}\n    case FlagOff{}:\n      {0n == 0n : Nat}\n"
+    val inside = source.replace("outer == index", "out<caret>er == index")
+    val innerBindings = visible(inside)
+    assertEquals(
+      Set("flag", "outer", "index"),
+      innerBindings.map(_.name).toSet
+    )
+    val outer = innerBindings.find(_.name == "outer").get
+    val offset = myFixture.getFile.getText.indexOf("outer ==")
+    val reference = myFixture.getFile.findReferenceAt(offset)
+    assertNotNull(reference)
+    assertNotNull(reference.resolve())
+    assertEquals(outer.handle.nameOffset, reference.resolve().getTextOffset)
+    val sibling = source.replace("{0n == 0n", "{ind<caret>ex == 0n")
+    assertEquals(Set("flag"), names(sibling))
+    val siblingReference = myFixture.getFile.findReferenceAt(
+      myFixture.getFile.getText.lastIndexOf("index == 0n")
+    )
+    assertNotNull(siblingReference)
+    assertNull(siblingReference.resolve())
+
   def testDoBindingStopsAtEnclosingCaseEvenWhenSiblingIsColumnAligned(): Unit =
     val source =
       "def f(x: Nat) -> IO<Unit>:\n  match x:\n    case A{a}:\n      do IO<Unit>:\n        v : Nat = 1\n        return v\n    case B{}:\n      v<caret>"

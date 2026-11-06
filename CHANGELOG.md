@@ -13,6 +13,10 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+- Replace the remaining name suffix when accepting ordinary completion with Enter, matching Tab insertion.
+- Keep declarations and formatting after a raw apostrophe character literal (`'''`) visible to the shared lexer.
+- Keep dependent-arrow binders inside their enclosing match case, preserving the case binder without leaking names into sibling cases.
+
 ## 0.1.26
 
 - Recognize Bend 2.0.40 reports of unsafe and foreign reliance when checking files, preserving the distinction from proofs without these dependencies.
