@@ -452,3 +452,62 @@ violation in release metadata and optional test selection. Independent concludin
 feed-downloaded ZIP signature and recovery notices, packaged metadata, both fresh
 canonical feeds, stable/latest release state and the transcript/decision trail.
 It found no remaining actionable flag and did not rerun Gradle.
+
+
+## 0.1.28 lint correction, custom repository — 2026-11-06
+
+Published [v0.1.28](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.28)
+from `029910ff271265eeceeeb0fa7024bef889626baf`. The 0.1.27 project-compiler
+version restriction was erroneous: tested versions had been turned into a runtime
+allowlist despite lint owning its independently verified compiler. The correction
+removes the entire project-version probe and allowlist, without substituting a
+new version filter. Installation validation, offline execution and snapshot/tool
+freshness remain unchanged. Existing lint tools do not need reinstalling.
+
+[Exact-candidate Verify 42311991517](https://github.com/dearlordylord/bend-idea/actions/runs/42311991517)
+passed full JDK 21 check, packaging, structure/configuration and both Plugin Verifier
+targets (IC 2025.1, IU 2026.1, with existing API notices). Main CI report: 694 tests,
+zero failures, nine optional skips; two architecture cases passed. The optional
+JUnit 3 lint editor method is excluded without configured tools. Separate focused
+validation passed seven cases and two architecture cases with no failures/errors/skips:
+real clean Bend 2.0.39 with matching Base, unsaved CRLF/Unicode root/import mapping,
+real native lint action, independence from project compiler probing, and controlled
+source/inventory changes after a successful unchanged baseline on each generation.
+
+The original version gate produced the expected regression failure. The first
+focused retry passed six cases but found runtime drift from relocating prepared
+tools; test fixtures now create actual isolated verified installations at their
+final paths. An unused-import compile error during that correction was fixed.
+These failed invocations are retained in the decision trail. No production
+integrity/freshness assertion was weakened to obtain a pass.
+
+Local JDK 21 packaging, both compatibility checks, signing and signature verification
+passed. Independent CLI verification uses the public certificate downloaded from
+0.1.27; certificate bytes and fingerprint remain unchanged. Recovery helper/notices
+match the candidate in both JAR and signed ZIP. Assets were anonymously downloaded
+and matched the published SHA256SUMS.txt:
+
+| Asset | SHA-256 |
+| --- | --- |
+| `bend-idea-0.1.28-signed.zip` | `2d629b13f2d43c561639483d96071ee3413f3f15de6aed62c1592c13fde55ae3` |
+| `bend-format-tool-0.1.28.jar` | `f804559e40dad9403e44e4b804b37d1bd9fffbcfb3b10da9fae02875a15af5ec` |
+| `bend-idea-signing-certificate.crt` | `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc` |
+
+Feed commit `e3c71a2` deployed through Cloudflare Pages. Both canonical feeds now
+advertise 0.1.28 and match the signed ZIP's ID, build range, description and notes.
+Initial pre-deployment requests correctly still showed 0.1.27; final canonical
+requests show 0.1.28. The ZIP downloaded through the live feed again matched its
+digest. The release was promoted from prerelease to stable/latest only after these
+checks. Anonymous /releases/latest resolves to v0.1.28.
+
+Implementer self-review under REVIEWER.md found no remaining A2/A5–A7 or issue #89
+violation in the changed owner and its consumers. No shared API, compiler/helper
+judgment, source loader or dependency boundary changed. Real lint execution was
+on Linux ARM64; user IDE installation remains a manual check. No Marketplace,
+native formatter runtime archives or Homebrew publication was performed.
+
+Concluding independent `gpt-6-astra` review found no actionable source, evidence
+or trail finding. It independently parsed focused/CI reports, checked artifact
+hashes and signature, fetched both canonical feeds and the published manifest,
+verified stable/latest release state, and audited the exact transcript against the
+trail. It did not rerun Gradle or modify publication state.

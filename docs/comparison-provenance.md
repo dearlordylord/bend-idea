@@ -240,3 +240,7 @@ before each deliberate process-boundary mutation. Production installation/freshn
 validation was not relaxed. An unused-import compile error during this fixture
 correction was fixed. Final focused and exact-candidate release gates are recorded
 in the release evidence after their actual completion.
+
+Final correction evidence: seven focused cases and two architecture cases passed
+without skips. Exact-candidate CI, packaging, compatibility, signing and live-feed
+publication completed successfully; see [0.1.28 release evidence](../MARKETPLACE.md#0128-lint-correction-custom-repository--2026-11-06).
