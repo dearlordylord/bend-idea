@@ -1,0 +1,58 @@
+{
+  "compiler_commit": "624dd9f4607cd29b0871a9b96d413bfb11e92f52",
+  "bun_revision": "1.4.4+38afee6c8",
+  "bun_sha256": "354c2b049c716aca07b2e5cddb887928ac58950675d1258bb6312083917793b6",
+  "platform": "Linux-7.0.14-orbstack-00380-ga7e0a2dc9535-aarch64-with-glibc2.36",
+  "machine": "aarch64",
+  "logical_cpus": 12,
+  "load_average_start": [
+    10.51904296875,
+    15.32666015625,
+    10.2744140625
+  ],
+  "started_utc": "2026-11-06T16:09:54Z",
+  "hypothesis": "Only consider a production prototype if cold/warm and all edited results exactly equal uncached checks and warm checks actually skip work; timing alone cannot authorize adoption.",
+  "compiler_files": {
+    "bend2/bend.ts": "6b86606fd096cc8322b5e3ffc624dbfeef63ef4c6c5e72d78148fb179d0d26b7",
+    "bend2/main.ts": "1aabcfdf921a7a0fc971f1982787cbd385afe3441d3e2cc640c8f0e5c0b5630e",
+    "bend2/base.bend": "ff90fb27ed19d5c7a6165170f28ad81562bf345b9a9e6134e5c2e326beff9de4",
+    "tools/bend-cache/src/cache.ts": "3806c6a1e6611e9d6c8a454d3778b3b0372162561926df3736f3f543b8619747"
+  },
+  "correctness": {
+    "comparison_pairs": 28,
+    "warm_skipped_entries": 3209
+  },
+  "performance": {
+    "pairs": 5,
+    "min_ms": 0.2,
+    "generated_proofs": 32,
+    "observed_wall_ms": {
+      "plain": {
+        "median": 478.698019,
+        "min": 439.285639,
+        "max": 824.832749
+      },
+      "cached": {
+        "median": 436.942622,
+        "min": 332.58067,
+        "max": 490.445107
+      }
+    },
+    "verdict": "INCONCLUSIVE: observations only; shared host, no isolated limiter profile or IDE end-to-end measurement"
+  },
+  "cache_trust": {
+    "scope": "separate deliberate local-cache tamper, excluded from normal invalidation equivalence",
+    "plain": "failed",
+    "cached": "complete",
+    "observation": "FALSE PASS from untrusted cache",
+    "mutation": "replace only alleged#0f trace.d with [] after warming; change equality right side 6n to 7n"
+  },
+  "load_average_end": [
+    10.62255859375,
+    14.72509765625,
+    10.28466796875
+  ],
+  "failures": [],
+  "normal_equivalence": "PASS",
+  "compiler_unchanged": true
+}

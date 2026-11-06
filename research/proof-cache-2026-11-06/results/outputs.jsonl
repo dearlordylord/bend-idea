@@ -1,0 +1,74 @@
+{"id": "000-dependency-edit-cold-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "001-dependency-edit-cold-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 535, skipped 0, traces kept 535\n"}
+{"id": "002-dependency-edit-warm-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "003-dependency-edit-warm-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 535, traces kept 0\n"}
+{"id": "004-dependency-edit-break-referenced-body-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- expected : 24n\n- observed : 23n\nLocation: marker_is_expected\n4 | def marker_is_expected() -> {Library.marker == 23n : Nat}:\n5>|   {==}\n  |   ^^^^\n6 | \nNote: the left side of the equality is the expected, the right side is the observed.\n"}
+{"id": "005-dependency-edit-break-referenced-body-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- expected : 24n\n- observed : 23n\nLocation: marker_is_expected\n4 | def marker_is_expected() -> {Library.marker == 23n : Nat}:\n5>|   {==}\n  |   ^^^^\n6 | \nNote: the left side of the equality is the expected, the right side is the observed.\nbend-cache: checked 2, skipped 533, traces kept 1\n"}
+{"id": "006-dependency-edit-restore-body-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "007-dependency-edit-restore-body-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 1, skipped 534, traces kept 1\n"}
+{"id": "008-dependency-edit-comment-only-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "009-dependency-edit-comment-only-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 535, traces kept 0\n"}
+{"id": "010-dependency-edit-remove-imported-file-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- message  : no such file: /tmp/bend-idea-cache-probe-0nnk172a/dependency-edit/Library.bend\nLocation:\n1 | import Base\n2>| import ./Library.bend as Library\n  |        ^\n3 | \n"}
+{"id": "011-dependency-edit-remove-imported-file-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- message  : no such file: /tmp/bend-idea-cache-probe-0nnk172a/dependency-edit/Library.bend\nLocation:\n1 | import Base\n2>| import ./Library.bend as Library\n  |        ^\n3 | \nbend-cache: checked 0, skipped 0, traces kept 0\n"}
+{"id": "012-dependency-edit-restore-imported-file-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "013-dependency-edit-restore-imported-file-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 535, traces kept 0\n"}
+{"id": "014-law-fill-roots-cold-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "015-law-fill-roots-cold-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 536, skipped 0, traces kept 536\n"}
+{"id": "016-law-fill-roots-warm-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "017-law-fill-roots-warm-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 536, traces kept 0\n"}
+{"id": "018-law-fill-roots-other-root-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "019-law-fill-roots-other-root-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 3, skipped 533, traces kept 3\n"}
+{"id": "020-law-fill-roots-drop-proof-fill-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 1 TODO found.\nThe code is incomplete, and not a valid proof yet.\n"}
+{"id": "021-law-fill-roots-drop-proof-fill-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 1 TODO found.\nThe code is incomplete, and not a valid proof yet.\nbend-cache: checked 3, skipped 532, traces kept 3\n"}
+{"id": "022-law-fill-roots-restore-proof-fill-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "023-law-fill-roots-restore-proof-fill-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 1, skipped 535, traces kept 1\n"}
+{"id": "024-law-fill-roots-drop-value-fill-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 1 TODO found.\nThe code is incomplete, and not a valid proof yet.\n"}
+{"id": "025-law-fill-roots-drop-value-fill-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 1 TODO found.\nThe code is incomplete, and not a valid proof yet.\nbend-cache: checked 3, skipped 532, traces kept 3\n"}
+{"id": "026-law-fill-roots-restore-value-fill-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "027-law-fill-roots-restore-value-fill-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 2, skipped 534, traces kept 2\n"}
+{"id": "028-fill-load-order-cold-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "029-fill-load-order-cold-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 536, skipped 0, traces kept 536\n"}
+{"id": "030-fill-load-order-warm-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "031-fill-load-order-warm-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 536, traces kept 0\n"}
+{"id": "032-fill-load-order-consumer-before-fill-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- expected : C.threshold\n- observed : 17n\nLocation: observes_fill\n4 | def observes_fill() -> {C.threshold == 17n : Nat}:\n5>|   {==}\n  |   ^^^^\n6 | \nNote: the left side of the equality is the expected, the right side is the observed.\n"}
+{"id": "033-fill-load-order-consumer-before-fill-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- expected : C.threshold\n- observed : 17n\nLocation: observes_fill\n4 | def observes_fill() -> {C.threshold == 17n : Nat}:\n5>|   {==}\n  |   ^^^^\n6 | \nNote: the left side of the equality is the expected, the right side is the observed.\nbend-cache: checked 1, skipped 533, traces kept 0\n"}
+{"id": "034-fill-load-order-restore-load-order-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "035-fill-load-order-restore-load-order-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 536, traces kept 0\n"}
+{"id": "036-unsafe-reliance-cold-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: input_value, copy_value\n"}
+{"id": "037-unsafe-reliance-cold-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: input_value, copy_value\nbend-cache: checked 534, skipped 0, traces kept 534\n"}
+{"id": "038-unsafe-reliance-warm-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: input_value, copy_value\n"}
+{"id": "039-unsafe-reliance-warm-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: input_value, copy_value\nbend-cache: checked 0, skipped 534, traces kept 0\n"}
+{"id": "040-unsafe-reliance-remove-unsafe-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "041-unsafe-reliance-remove-unsafe-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 2, skipped 532, traces kept 2\n"}
+{"id": "042-unsafe-reliance-restore-unsafe-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: input_value, copy_value\n"}
+{"id": "043-unsafe-reliance-restore-unsafe-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: input_value, copy_value\nbend-cache: checked 2, skipped 532, traces kept 2\n"}
+{"id": "044-foreign-reliance-cold-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on foreign effects: send_event, main\n"}
+{"id": "045-foreign-reliance-cold-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on foreign effects: send_event, main\nbend-cache: checked 535, skipped 0, traces kept 535\n"}
+{"id": "046-foreign-reliance-warm-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on foreign effects: send_event, main\n"}
+{"id": "047-foreign-reliance-warm-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on foreign effects: send_event, main\nbend-cache: checked 0, skipped 535, traces kept 0\n"}
+{"id": "048-foreign-reliance-remove-foreign-fill-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- expected : a def whose body is implemented before the def is used (defs are checked in file order, and an unfilled law has none)\n- observed : send_event\nLocation: main\n5 | def main() -> IO(Unit):\n6>|   send_event()\n  |   ^^^^^^^^^^\n7 | \n"}
+{"id": "049-foreign-reliance-remove-foreign-fill-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- expected : a def whose body is implemented before the def is used (defs are checked in file order, and an unfilled law has none)\n- observed : send_event\nLocation: main\n5 | def main() -> IO(Unit):\n6>|   send_event()\n  |   ^^^^^^^^^^\n7 | \nbend-cache: checked 2, skipped 532, traces kept 1\n"}
+{"id": "050-foreign-reliance-restore-foreign-fill-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on foreign effects: send_event, main\n"}
+{"id": "051-foreign-reliance-restore-foreign-fill-cached", "stdout": "", "stderr": "SOME PROOFS FAIL\nError: 2 defs rely on unsafe or foreign code:\ndefs that depend on foreign effects: send_event, main\nbend-cache: checked 0, skipped 535, traces kept 0\n"}
+{"id": "052-check-only-cold-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "053-check-only-cold-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 533, skipped 0, traces kept 533\n"}
+{"id": "054-check-only-warm-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "055-check-only-warm-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 533, traces kept 0\n"}
+{"id": "056-performance-cold-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "057-performance-cold-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 565, skipped 0, traces kept 47\n"}
+{"id": "058-performance-warm-proof-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "059-performance-warm-proof-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 518, skipped 47, traces kept 21\n"}
+{"id": "060-performance-pair-0-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "061-performance-pair-0-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "062-performance-pair-1-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "063-performance-pair-1-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "064-performance-pair-2-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "065-performance-pair-2-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "066-performance-pair-3-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "067-performance-pair-3-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "068-performance-pair-4-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "069-performance-pair-4-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "070-cache-trust-prime-plain", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": ""}
+{"id": "071-cache-trust-prime-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 533, skipped 0, traces kept 533\n"}
+{"id": "072-cache-trust-tampered-plain", "stdout": "", "stderr": "SOME PROOFS FAIL\nError:\n- expected : 6n\n- observed : 7n\nLocation: alleged\n3 | def alleged() -> {6n == 7n : Nat}:\n4>|   {==}\n  |   ^^^^\n5 | \nNote: the left side of the equality is the expected, the right side is the observed.\n"}
+{"id": "073-cache-trust-tampered-cached", "stdout": "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n", "stderr": "bend-cache: checked 0, skipped 533, traces kept 0\n"}
