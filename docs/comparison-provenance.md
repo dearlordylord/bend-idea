@@ -181,3 +181,25 @@ actual compiler sources, raw probe outputs and both Gradle result sets. Their
 final review found no actionable finding under A2/A5–A7 and #74/#75. This is
 independent source review; integrated full-suite and distribution evidence remain
 separate gates.
+
+## Managed optional lint — 2026-11-06
+
+Original Scala integration updates the repository's own `prototype/bend-lint` slice
+for standalone bend-lint 0.3.0, source revision
+[`c6f31c0`](https://github.com/MattCozendey/bend-lint/tree/c6f31c0c2ef4587368dd6a5443a6d42e22e975fc).
+The [Rust LSP 0.7.0 release](https://github.com/IlyaGulya/bend2-lsp-rs/releases/tag/v0.7.0)
+motivates unsaved-dependency lint and explicit tool setup. No upstream LSP integration,
+rule implementation, diagnostic strings, tests or grammar were copied into the plugin.
+The protocol model/decoder, native settings/actions/annotations, installer and offline
+preload are authored here. New source programs and expected native ranges are original.
+
+Tool source is fetched only by explicit installation, not bundled in plugin/formatter
+archives. Installation retains the npm package's MIT LICENSE and verifies immutable
+package/compiler/Hub/build inputs. The linter's own compiler pairing is separate from
+the project's compiler and canonical proof verdict. Existing recovery-helper licensing
+is unaffected. Plugin payload adds original integration classes, the offline guard and
+immutable tool identity metadata; the standalone formatter selects none of these owners.
+
+Validation and limitations are recorded in the implementation report after the actual
+checks, rather than inferred from upstream release notes. This provenance entry does
+not claim independent review or that the old prototype's checks validate this pairing.

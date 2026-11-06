@@ -36,3 +36,10 @@ trait BendExplicitCheckRunner:
       request: BendNormalizationRequest,
       taskTitle: String
   )(completed: BendExplicitCheckOutcome => Unit): Unit
+
+  /** Checks the captured root and requests optional lint findings separately
+    * from the authoritative compiler verdict.
+    */
+  def checkLint(path: String, taskTitle: String)(
+      completed: BendExplicitCheckOutcome => Unit
+  ): Unit

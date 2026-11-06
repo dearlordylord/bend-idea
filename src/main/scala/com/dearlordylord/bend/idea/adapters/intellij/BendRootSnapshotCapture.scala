@@ -51,6 +51,7 @@ private[intellij] final class BendRootSnapshotCapture(
       root.revision,
       selected,
       selectedPath = path,
+      lintRequested = selected.lint.enabled && selected.lint.background,
       externalInputStamp = BendExternalInputs.stamp(
         selected.executable,
         Some(selected.baseSource)

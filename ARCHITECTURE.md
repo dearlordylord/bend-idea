@@ -434,6 +434,31 @@ Use Scala 3 for native extension classes, domain policies and application orches
 
 Keep the proposed Gradle build. A Kotlin Gradle DSL file, if used, is build configuration rather than a Kotlin plugin implementation. Pin a coherent IDE/JDK/Gradle/Scala combination in #2, package the Scala runtime deliberately, and verify extension instantiation and an actual editor fixture. Users must not need the Scala language plugin merely to run Bend IDEA. Resolve lifecycle/async interoperability against the selected SDK before introducing compiler workers. A narrowly necessary platform bridge must be documented in its adapter; it does not justify a second domain implementation.
 
+## Optional managed lint analysis — #89
+
+`toolchain.api.BendLintTools` owns explicit installation/current/rollback requests;
+`adapters.cli.BendLintInstallation` owns bounded verified downloads, archive extraction,
+preparation and immutable installation generations. The IntelliJ application adapter
+selects its cache location; settings call the API in a cancellable background task.
+Installation is separate from analysis. Analysis never selects an arbitrary latest package.
+
+`BendLintBackend` consumes the existing captured/materialized root graph and mappings.
+It runs the prepared lint 0.3.0 tool with its own pinned Bend 2.0.39, a plugin-owned
+style-rule configuration and explicit root entry. The compiler's canonical result stays
+in `BendCheckResult`; lint findings, skipped coverage, unavailable states and source
+mapping failures are separate values in `analysis.model`. No project lint configuration
+or custom rule code is discovered. No lint fix changes source.
+
+Optional background lint decorates snapshots through the existing capture/scheduler,
+sharing its worker bound, cancellation and root freshness. It introduces no second
+source loader, resolver, scheduler or proof verdict. Installed inputs are observed for
+publication and later invalidation. The pinned runtime inherits a Bun preload that
+rejects fetch/build attempts; controlled PATH/CC/ProgramFiles disable native build
+discovery. Missing prepared artifacts are unavailable, never lazily installed during a
+check. `BendBoundedProcess.stdoutOnly` retains separate protocol stdout while bounding
+both streams together. Tests cover stderr limits, source mapping, optional failures,
+real linter integration and native editor publication. A1–A8 remain unchanged.
+
 ## Keeping the architecture in use
 
 [AGENTS.md](AGENTS.md) is the entry point for implementation work. [REVIEWER.md](REVIEWER.md) is the review procedure. They reference this document rather than restating its entire design. Feature issues define behavior and delivery blockers; this document owns package boundaries and shared contracts; [CONTEXT.md](CONTEXT.md) owns terminology. Record a hard-to-reverse change with its rationale in an ADR when an actual tradeoff is decided.

@@ -136,3 +136,28 @@ For the design and contribution rules, see [ARCHITECTURE.md](ARCHITECTURE.md), [
 ## License
 
 [Apache-2.0](LICENSE)
+
+## Optional bend-lint
+
+In **Settings | Languages & Frameworks | Bend**, choose **Install / repair pinned tools**.
+The explicit installation downloads and verifies bend-lint 0.3.0, Bun 1.4.4 (or reuses
+an exact compatible Bun path), the linter's Bend 2.0.39 and its fixed rule packages.
+Apply settings, then use **Tools | Bend | Run bend-lint on Current File**. Optionally
+enable lint with background compiler checks. Current unsaved source and dependencies
+use the same captured root as compiler checking; files on disk are not changed.
+
+The supported configured compiler pairings are Bend 2.0.37 and 2.0.40; other or unknown
+versions leave lint unavailable. The selected compiler remains authoritative for errors, completeness and unsafe/foreign
+reliance. Lint uses a separate compiler and reports its own findings and skipped coverage;
+the two can disagree. The initial rule set reports naming conventions and potentially
+unused imports. It does not apply import deletion or other fixes, and does not execute
+project lint configuration or custom rules. Analysis is offline and bounded; incomplete
+installation or incompatible inputs remain unavailable while ordinary Bend checking
+continues. Downloads/preparation happen only through the explicit install/repair action.
+**Use previous installation** selects the prior successful tools; apply the settings
+to activate that selection. Advanced path fields accept only a prepared, verified
+installation made by this plugin, not an arbitrary source checkout.
+
+The real lint tests additionally require `BEND_TEST_LINT_DIR` naming such a prepared
+installation and `BEND_TEST_LINT_BUN` naming its Bun executable. Tests skipped without
+these inputs are not evidence for lint compatibility.

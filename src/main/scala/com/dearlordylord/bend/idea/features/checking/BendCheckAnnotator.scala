@@ -70,6 +70,36 @@ final class BendCheckAnnotator
       virtual.getCanonicalPath != null
     )
     val service = file.getProject.getService(classOf[BendCheckService])
+    results.filter(service.isCurrent).foreach { result =>
+      result.lint
+        .filter(lint =>
+          Set(BendLintOutcome.Completed, BendLintOutcome.Partial)(lint.outcome)
+        )
+        .foreach { lint =>
+          lint.findings.filter(_.source == id).foreach { finding =>
+            val span = finding.range
+            if span.start >= 0 && span.end > span.start && span.end <= file.getTextLength
+            then
+              val severity = finding.severity match
+                case BendLintSeverity.Error       => HighlightSeverity.ERROR
+                case BendLintSeverity.Warning     => HighlightSeverity.WARNING
+                case BendLintSeverity.Information =>
+                  HighlightSeverity.INFORMATION
+                case BendLintSeverity.Hint => HighlightSeverity.INFORMATION
+              val builder = holder
+                .newAnnotation(
+                  severity,
+                  s"bend-lint [${finding.code}]: ${finding.message}"
+                )
+                .range(new TextRange(span.start, span.end))
+              finding.documentation.foreach(link => {
+                val _ =
+                  builder.withFix(new BendLintRuleDocumentation(result, link))
+              })
+              builder.create()
+          }
+        }
+    }
     results
       .filter(result =>
         BendCheckAnnotator.shouldHighlight(result.outcome) && service.isCurrent(

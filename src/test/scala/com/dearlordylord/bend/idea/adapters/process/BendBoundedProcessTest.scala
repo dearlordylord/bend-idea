@@ -45,3 +45,25 @@ final class BendBoundedProcessTest:
       thread.join()
     finally
       val _ = Files.deleteIfExists(directory)
+
+  @Test def stdoutProtocolIsSeparateWhileStderrStillConsumesOutputBudget()
+      : Unit =
+    val directory = Files.createTempDirectory("bend-worker-streams-")
+    try
+      val clean = BendBoundedProcess.run(
+        List("sh", "-c", "printf '{\"ok\":true}'; printf 'progress\\n' >&2"),
+        directory,
+        Map.empty,
+        stdoutOnly = true
+      )
+      assertEquals(BendProcessOutcome.Exited(0, "{\"ok\":true}"), clean)
+      val excessive = BendBoundedProcess.run(
+        List("sh", "-c", "yes noise >&2"),
+        directory,
+        Map.empty,
+        maxOutputBytes = 128,
+        stdoutOnly = true
+      )
+      assertTrue(excessive.isInstanceOf[BendProcessOutcome.OutputLimit])
+    finally
+      val _ = Files.deleteIfExists(directory)

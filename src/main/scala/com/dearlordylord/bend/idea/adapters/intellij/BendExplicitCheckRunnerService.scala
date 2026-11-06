@@ -38,11 +38,19 @@ final class BendExplicitCheckRunnerService(project: Project)
   )(completed: BendExplicitCheckOutcome => Unit): Unit =
     run(path, taskTitle, goalRequested = false, Some(request))(completed)
 
+  override def checkLint(path: String, taskTitle: String)(
+      completed: BendExplicitCheckOutcome => Unit
+  ): Unit =
+    run(path, taskTitle, goalRequested = false, None, lintRequested = true)(
+      completed
+    )
+
   private def run(
       path: String,
       taskTitle: String,
       goalRequested: Boolean,
-      normalizationRequest: Option[BendNormalizationRequest]
+      normalizationRequest: Option[BendNormalizationRequest],
+      lintRequested: Boolean = false
   )(completed: BendExplicitCheckOutcome => Unit): Unit =
     val initialPath = Path.of(path).toAbsolutePath.normalize().toString
     val canonical =
@@ -85,7 +93,9 @@ final class BendExplicitCheckRunnerService(project: Project)
           val root = initial.get
           val snapshot = root.copy(
             goalRequested = goalRequested,
-            normalizationRequest = normalizationRequest
+            normalizationRequest = normalizationRequest,
+            lintRequested =
+              lintRequested || selection.lint.enabled && selection.lint.background
           )
           val document = documentAt(Path.of(initialPath))
           def sourceCurrent: Boolean = capture.rootCurrent(root)
@@ -110,7 +120,9 @@ final class BendExplicitCheckRunnerService(project: Project)
                 indicator.isCanceled || project.isDisposed || !sourceCurrent,
               _.copy(
                 goalRequested = goalRequested,
-                normalizationRequest = normalizationRequest
+                normalizationRequest = normalizationRequest,
+                lintRequested =
+                  lintRequested || selection.lint.enabled && selection.lint.background
               )
             )
             if captured.isEmpty then

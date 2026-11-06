@@ -843,3 +843,28 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
       "Disposed session must drop all results",
       transient.result(root).isEmpty
     )
+
+  def testUnavailableOptionalLintKeepsBackgroundCompilerVerdict(): Unit =
+    myFixture.configureByText(
+      "background-lint.bend",
+      "def Value() -> Type:\n  Type\n"
+    )
+    val root = id(myFixture.getFile.getVirtualFile)
+    val settings = ApplicationManager.getApplication.getService(
+      classOf[BendToolchainSettings]
+    )
+    val _ = getProject.getService(classOf[BendBackgroundChecking])
+    settings.update(
+      settings.choices.copy(
+        diagnosticsEnabled = true,
+        lint = com.dearlordylord.bend.idea.toolchain.api.BendLintOptions(
+          enabled = true,
+          background = true
+        )
+      )
+    )
+    val checked = awaitResult(root, r => r.fresh && r.lint.nonEmpty)
+    assertEquals(BendCheckOutcome.Success, checked.outcome)
+    assertEquals(BendCompleteness.Complete, checked.completeness)
+    assertEquals(BendLintOutcome.Unavailable, checked.lint.get.outcome)
+    assertTrue(checked.lint.get.findings.isEmpty)

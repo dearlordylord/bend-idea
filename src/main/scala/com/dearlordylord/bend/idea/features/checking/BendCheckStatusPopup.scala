@@ -21,7 +21,7 @@ private[checking] object BendCheckStatusPopup:
       BorderLayout.NORTH
     )
     val details = result
-      .map(value => s"${value.status}\n\n${value.details}")
+      .map(BendCheckPresentation.details)
       .getOrElse(
         "No compiler result for this file. Use Check again to check it."
       )

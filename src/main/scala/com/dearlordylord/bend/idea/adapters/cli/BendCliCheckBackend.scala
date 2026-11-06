@@ -360,7 +360,8 @@ final class BendCliCheckBackend(
         goal: Option[BendGoal] = None,
         incompleteKind: Option[BendIncompleteKind] = None,
         expressionTypes: List[BendExpressionType] = Nil,
-        normalization: Option[BendNormalization] = None
+        normalization: Option[BendNormalization] = None,
+        lint: Option[BendLintResult] = None
     ): BendCheckResult =
       BendCheckResult(
         key,
@@ -374,7 +375,8 @@ final class BendCliCheckBackend(
         goal = goal,
         incompleteKind = incompleteKind,
         expressionTypes = expressionTypes,
-        normalization = normalization
+        normalization = normalization,
+        lint = lint
       )
     if graph.root != snapshot.root || graph
         .source(snapshot.root)
@@ -556,6 +558,10 @@ final class BendCliCheckBackend(
         canceled,
         structured
       )
+      val lint = Option.when(snapshot.lintRequested)(
+        BendLintBackend
+          .run(snapshot, temp, rootPath, isolated, mappings, canceled)
+      )
       if decoded.outcome == BendCheckOutcome.Success then
         val expressionTypes = BendStructuredTypes.checked(
           executable,
@@ -592,7 +598,8 @@ final class BendCliCheckBackend(
           mappings = mappings,
           reliance = decoded.reliance,
           expressionTypes = expressionTypes,
-          normalization = normalization
+          normalization = normalization,
+          lint = lint
         )
       else
         val location = if decoded.sourceLocationAllowed then
@@ -639,7 +646,8 @@ final class BendCliCheckBackend(
           mappings,
           decoded.reliance,
           goal,
-          decoded.incompleteKind
+          decoded.incompleteKind,
+          lint = lint
         )
     catch
       case e: java.io.IOException =>

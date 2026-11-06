@@ -13,48 +13,97 @@ final class BendLintInstallationTest:
   @Test def archivesRejectTraversalLinksAndChecksumMismatch(): Unit =
     temporary { home =>
       List("../outside", "/absolute", "C:/drive", "a\\b").foreach { name =>
-        val _ = assertThrows(classOf[IllegalArgumentException], () => {
-          val _ = BendLintInstallation.safePath(home, name)
-        })
+        val _ = assertThrows(
+          classOf[IllegalArgumentException],
+          () => {
+            val _ = BendLintInstallation.safePath(home, name)
+          }
+        )
       }
-      val _ = assertThrows(classOf[IllegalArgumentException], () =>
-        BendLintInstallation.unpackTar(archive("package/../../outside", '0', "bad"), home, () => false)
+      val _ = assertThrows(
+        classOf[IllegalArgumentException],
+        () =>
+          BendLintInstallation.unpackTar(
+            archive("package/../../outside", '0', "bad"),
+            home,
+            () => false
+          )
       )
-      val _ = assertThrows(classOf[IllegalArgumentException], () =>
-        BendLintInstallation.unpackTar(archive("package/link", '2', ""), home, () => false)
+      val _ = assertThrows(
+        classOf[IllegalArgumentException],
+        () =>
+          BendLintInstallation.unpackTar(
+            archive("package/link", '2', ""),
+            home,
+            () => false
+          )
       )
       assertFalse(Files.exists(home.getParent.resolve("outside")))
-      val _ = assertThrows(classOf[IllegalArgumentException], () =>
-        BendLintInstallation.verify("tampered".getBytes(UTF_8), "SHA-256", "0" * 64)
+      val _ = assertThrows(
+        classOf[IllegalArgumentException],
+        () =>
+          BendLintInstallation.verify(
+            "tampered".getBytes(UTF_8),
+            "SHA-256",
+            "0" * 64
+          )
       )
     }
 
-  @Test def cancellationPreservesSelectedToolsAndRollbackRejectsMissingPrevious(): Unit =
+  @Test def cancellationPreservesSelectedToolsAndRollbackRejectsMissingPrevious()
+      : Unit =
     temporary { home =>
       val selected = "active=lint-kept\nprevious=lint-old\n"
       val _ = Files.writeString(home.resolve("selection.properties"), selected)
       val installation = new BendLintInstallation(home)
       assertEquals(Canceled, installation.install("", () => true))
-      assertEquals(selected, Files.readString(home.resolve("selection.properties")))
+      assertEquals(
+        selected,
+        Files.readString(home.resolve("selection.properties"))
+      )
       assertTrue(installation.rollback().isInstanceOf[Unavailable])
-      assertEquals(selected, Files.readString(home.resolve("selection.properties")))
+      assertEquals(
+        selected,
+        Files.readString(home.resolve("selection.properties"))
+      )
       val files = Files.list(home)
-      try assertEquals(Set("selection.properties", "install.lock"), files.iterator().asScala.map(_.getFileName.toString).toSet)
+      try
+        assertEquals(
+          Set("selection.properties", "install.lock"),
+          files.iterator().asScala.map(_.getFileName.toString).toSet
+        )
       finally files.close()
     }
 
   @Test def extractingPinnedFilePreservesItsContents(): Unit =
     temporary { home =>
-      BendLintInstallation.unpackTar(archive("package/src/entry.ts", '0', "export {};\n"), home, () => false)
-      assertEquals("export {};\n", Files.readString(home.resolve("src/entry.ts")))
-      val _ = assertThrows(classOf[java.nio.file.FileAlreadyExistsException], () =>
-        BendLintInstallation.unpackTar(archive("package/src/entry.ts", '0', "changed"), home, () => false)
+      BendLintInstallation.unpackTar(
+        archive("package/src/entry.ts", '0', "export {};\n"),
+        home,
+        () => false
+      )
+      assertEquals(
+        "export {};\n",
+        Files.readString(home.resolve("src/entry.ts"))
+      )
+      val _ = assertThrows(
+        classOf[java.nio.file.FileAlreadyExistsException],
+        () =>
+          BendLintInstallation.unpackTar(
+            archive("package/src/entry.ts", '0', "changed"),
+            home,
+            () => false
+          )
       )
     }
 
-  @Test def realPinnedInstallationPreparesToolsAndSurvivesCanceledReplacement(): Unit =
+  @Test def realPinnedInstallationPreparesToolsAndSurvivesCanceledReplacement()
+      : Unit =
     val bun = Option(System.getenv("BEND_TEST_INSTALL_BUN"))
-    org.junit.Assume.assumeTrue("Set BEND_TEST_INSTALL_BUN for the explicit network installation test.", bun.nonEmpty)
+    org.junit.Assume.assumeTrue(
+      "Set BEND_TEST_INSTALL_BUN for the explicit network installation test.",
+      bun.nonEmpty
+    )
     temporary { home =>
       val installation = new BendLintInstallation(home)
       val result = installation.install(bun.get, () => false)
@@ -63,9 +112,15 @@ final class BendLintInstallationTest:
           assertEquals(Path.of(bun.get).toRealPath().toString, actualBun)
           assertEquals(None, BendLintInstallation.validate(Path.of(directory)))
           assertTrue(Files.isRegularFile(Path.of(directory).resolve("LICENSE")))
-          val injected = Path.of(directory).resolve("cache/bend-lint/server/programs/injected-native")
+          val injected = Path
+            .of(directory)
+            .resolve("cache/bend-lint/server/programs/injected-native")
           val _ = Files.writeString(injected, "untracked native artifact")
-          assertTrue(BendLintInstallation.validate(Path.of(directory)).exists(_.contains("inventory changed")))
+          assertTrue(
+            BendLintInstallation
+              .validate(Path.of(directory))
+              .exists(_.contains("inventory changed"))
+          )
           val _ = Files.delete(injected)
           assertEquals(None, BendLintInstallation.validate(Path.of(directory)))
           assertEquals(Canceled, installation.install(bun.get, () => true))
@@ -75,7 +130,10 @@ final class BendLintInstallationTest:
           assertEquals(result, installation.rollback())
           replacement match
             case Installed(_, newer, _) =>
-              val _ = Files.writeString(Path.of(newer).resolve("src/linter/seam.ts"), "changed")
+              val _ = Files.writeString(
+                Path.of(newer).resolve("src/linter/seam.ts"),
+                "changed"
+              )
             case _ => ()
           assertTrue(installation.rollback().isInstanceOf[Unavailable])
           assertEquals(result, installation.current())
@@ -104,5 +162,11 @@ final class BendLintInstallationTest:
     try body(home)
     finally
       val stream = Files.walk(home)
-      try stream.iterator().asScala.toList.reverse.foreach(path => { val _ = Files.deleteIfExists(path) })
+      try
+        stream
+          .iterator()
+          .asScala
+          .toList
+          .reverse
+          .foreach(path => { val _ = Files.deleteIfExists(path) })
       finally stream.close()

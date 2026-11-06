@@ -164,6 +164,20 @@ final class ArchitectureTest:
         "com.dearlordylord.bend.idea.adapters.intellij.BendCheckSession"
       )
     )
+    Seq(
+      "analysis.model.BendLintResult",
+      "adapters.cli.BendLintBackend$",
+      "adapters.cli.BendLintInstallation",
+      "adapters.intellij.BendLintToolsService",
+      "toolchain.api.BendLintTools",
+      "adapters.structured.BendLintProtocol$",
+      "features.checking.BendRunLintAction"
+    ).foreach(name =>
+      assertTrue(
+        "Lint production classes must be inspected: " + name,
+        classes.contain("com.dearlordylord.bend.idea." + name)
+      )
+    )
     val captureOwner =
       "com.dearlordylord.bend.idea.adapters.intellij.BendRootSnapshotCapture"
     Seq(

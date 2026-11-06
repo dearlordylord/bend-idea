@@ -17,6 +17,7 @@ version. Use the versioned entry when writing GitHub release notes.
 - Keep declarations and formatting after a raw apostrophe character literal (`'''`) visible to the shared lexer.
 - Keep dependent-arrow binders inside their enclosing match case, preserving the case binder without leaking names into sibling cases.
 - Upgrade the compiler test baseline and optional structured helper operations, including restricted multi-error recovery, to Bend 2.0.40. Unknown compiler source builds retain guarded CLI checking. Preserve native error highlights when compiler diagnostics end with an explanatory note.
+- Add optional bend-lint 0.3.0 diagnostics for the current unsaved root and imported sources, with separate skipped/unavailable status and opt-in background runs. Install verified pinned tools or select prepared paths in Bend settings, repair explicitly, and return to the previous installation. Lint uses its own Bend 2.0.39 and never changes the compiler verdict or edits source.
 
 ## 0.1.26
 

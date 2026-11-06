@@ -46,3 +46,22 @@ private[checking] object BendCheckPresentation:
   def summary(service: BendCheckService, file: VirtualFile): String =
     val root = id(file)
     summary(service.status(root), service.result(root))
+
+  def lintDetails(lint: BendLintResult): String =
+    val skipped =
+      lint.skipped.take(8).map(item => s"${item.reason}: ${item.message}")
+    val remaining = if lint.skipped.size > 8 then
+      List(s"${lint.skipped.size - 8} more skipped file(s).")
+    else Nil
+    (List(s"Lint: ${lint.outcome}", lint.details) ++ skipped ++ remaining ++
+      Option
+        .when(lint.unmapped > 0)(
+          s"${lint.unmapped} finding(s) have no exact editor location."
+        )
+        .toList)
+      .mkString("\n")
+      .take(8192)
+
+  def details(result: BendCheckResult): String =
+    s"${result.status}\n\n${result.details}" +
+      result.lint.map(lint => "\n\n" + lintDetails(lint)).getOrElse("")

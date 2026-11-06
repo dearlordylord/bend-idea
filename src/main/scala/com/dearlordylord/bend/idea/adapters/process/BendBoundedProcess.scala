@@ -24,7 +24,8 @@ object BendBoundedProcess:
       environment: Map[String, String],
       timeoutMillis: Long = 15000L,
       maxOutputBytes: Int = 2 * 1024 * 1024,
-      canceled: () => Boolean = () => false
+      canceled: () => Boolean = () => false,
+      stdoutOnly: Boolean = false
   ): BendProcessOutcome =
     var process: Process = null
     val executor = Executors.newFixedThreadPool(
@@ -37,6 +38,7 @@ object BendBoundedProcess:
     )
     val bytes = new ByteArrayOutputStream()
     val tooLarge = new AtomicBoolean(false)
+    var received = 0
     def output: String = bytes.synchronized {
       bytes.toString(StandardCharsets.UTF_8)
     }
@@ -54,25 +56,27 @@ object BendBoundedProcess:
       builder.environment().putAll(environment.asJava)
       process = builder.start()
       val started = System.nanoTime()
-      def drain(stream: java.io.InputStream): Unit =
+      def drain(stream: java.io.InputStream, keep: Boolean): Unit =
         val buffer = new Array[Byte](8192)
         try
           var size = stream.read(buffer)
           while size >= 0 && !tooLarge.get() do
             bytes.synchronized {
-              val room = maxOutputBytes - bytes.size()
+              val room = maxOutputBytes - received
               if size > room then
-                if room > 0 then bytes.write(buffer, 0, room)
+                if keep && room > 0 then bytes.write(buffer, 0, room)
                 tooLarge.set(true)
-              else bytes.write(buffer, 0, size)
+              else if keep then bytes.write(buffer, 0, size)
+              received += math.min(size, room)
             }
             if !tooLarge.get() then size = stream.read(buffer)
         catch case _: java.io.IOException => ()
       val stdout = executor.submit(new Runnable {
-        override def run(): Unit = drain(process.getInputStream)
+        override def run(): Unit = drain(process.getInputStream, keep = true)
       })
       val stderr = executor.submit(new Runnable {
-        override def run(): Unit = drain(process.getErrorStream)
+        override def run(): Unit =
+          drain(process.getErrorStream, keep = !stdoutOnly)
       })
       var done = false
       while !done && !tooLarge.get() && !canceled() &&

@@ -29,7 +29,9 @@ Each installation has a stable generation directory with the unmodified npm
 package, its LICENSE, `cache/`, `packages/`, and the fixed `bend-lint.json`.
 Preparation builds JavaScript rules before writing `ready.properties`. PATH,
 CC and ProgramFiles point at unavailable tool locations during preparation,
-which prevents native compiler discovery and detached builds. The default
+which prevents native compiler discovery and detached builds. Preparation and
+analysis set `BUN_RUNTIME_TRANSPILER_CACHE_PATH=0`, so Bun does not add mutable
+transpiler cache files to the verified generation. The default
 rules are `layout/case` and `no_unused/imports`; the upstream prepares its
 full bundled rule program once. Project rule configuration is not executed by
 this installation.
@@ -63,16 +65,34 @@ Apache-2.0 and Bun license texts are retained in the generation too. The plugin 
 and orchestration only, not npm/Bun/compiler payloads. Sources consulted:
 [npm 0.3.0 metadata](https://registry.npmjs.org/bend-lint/0.3.0),
 [upstream linter](https://github.com/MattCozendey/bend-lint/blob/c6f31c0c2ef4587368dd6a5443a6d42e22e975fc/src/linter/seam.ts),
-[Bun 1.4.4 assets](https://github.com/oven-sh/bun/releases/tag/bun-v1.4.4).
+[Bun 1.4.4 assets](https://github.com/oven-sh/bun/releases/tag/bun-v1.4.4),
+[Bun transpiler cache configuration](https://bun.sh/docs/runtime/environment-variables#runtime-transpiler-caching).
 
 `BendLintInstallationTest` covers traversal/link rejection, checksum mismatch,
 file preservation, cancellation and unchanged selection on failed rollback.
 A direct JDK 21/dotc 3.3.7 compile with the project warning flags passed, and the
-first direct JUnit run passed four cases including two actual installations on
-Linux ARM64 with pinned Bun 1.4.4 (28.626 s). Later integrity and native-artifact
-checks are being rerun before handoff. This is subset verification, not the
-project Gradle/IDE gate.
+final direct JUnit run passed four cases, including two actual installations
+on Linux ARM64 with pinned Bun 1.4.4 (24.856 s). The same run exercised
+compiler verification before preparation, native-artifact injection/rejection,
+rollback, cancellation, and rejection of modified prior tools. A persistent
+installation was independently created with the same implementation for the
+backend integration fixtures. A further real install with no Bun override
+downloaded, checksum-verified, extracted and used the pinned Linux ARM64 Bun
+successfully (`/tmp/lint-managed-autobun/lint-aff1f40e-c336-4342-ad2b-eb033ec6adfe`).
+This is subset verification, not the project
+Gradle/IDE gate.
 
 Its explicit network scenario uses `BEND_TEST_INSTALL_BUN` to test actual
 installation, verified readiness, replacement, rollback, and rejection of an
 altered prior generation. A skipped scenario is not installation evidence.
+
+Implementer self-review under REVIEWER.md covered the diff against `9e14236`,
+the new pure toolchain API, CLI effect boundary, application service, pinned
+distribution paths, and readiness/selection consumers. A2/A4 keep platform and
+network handles in adapters; A6 isolates preparation from analysis and keeps
+process/download bounds; A7 reports unavailable/canceled installation honestly.
+The API supports settings management and later explicit repair without changing
+analysis result policy. No existing source resolver, compiler verdict or write
+command contract changes here. This is self-review; independent review and the
+integrated Gradle/IDE gates remain the integrating implementer's responsibility.
+No runtime compatibility claim is made for unexecuted operating systems.
