@@ -399,3 +399,56 @@ All four release assets were downloaded anonymously and matched local verified b
 
 
 0.1.26 publication receipt: both ordinary anonymous feed requests to `idea.dearlordylord.com` and `bend-idea-plugins.pages.dev` now serve 0.1.26 from feed commit `6d92e2c`. ID, name, IDE range, description and change notes equal the signed descriptor. Downloads through both feed URLs match signed ZIP SHA-256 `12c7598a245d3d59d1d9c5719d3b4520bc5856cde8c59bc16cafaed8e67f9377`. Initial requests during propagation served 0.1.25. All four GitHub assets were downloaded anonymously and verified. GitHub `/releases/latest` confirms stable public v0.1.26 with exactly the four intended assets; the remote tag points to verified candidate `da273fa62fd3dbc1b1916e878e1d4c05cf3a2305`. Exact-candidate full Verify and Bend 2.0.40 compatibility workflows both succeeded. Interactive IDE install/update remains untested.
+
+
+## 0.1.27 custom-repository-only release — 2026-11-06
+
+Released [v0.1.27](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.27)
+from candidate `7c6d0864ff11ec545db2fe5d07f9f9754255b747` after
+[exact-candidate Verify 42260590879](https://github.com/dearlordylord/bend-idea/actions/runs/42260590879)
+passed full JDK 21 check, packaging, structure/configuration checks and Plugin
+Verifier for IC 2025.1 and IU 2026.1. CI reports 692 tests, zero failures and
+seven optional skips, plus two passing architecture tests. One additional optional
+JUnit 3 editor method is excluded when installed lint inputs are absent. The
+first candidate run failed because its JUnit 4 assumption was treated as an error
+by JUnit 3; the narrowly scoped Gradle selection correction leaves configured
+coverage unchanged. With real lint configured, that native editor method passed
+locally on the final candidate. The prior integrated source run passed 691 main
+cases with two optional skips; see [the adoption record](research/upstream-adoption-2026-11-06.md).
+
+CI signing secrets were unavailable. Local JDK 21 `signPlugin` and
+`verifyPluginSignature` passed with the existing maintainer identity. Independent
+ZIP-signer verification used the public certificate downloaded from v0.1.26,
+whose SHA-256 fingerprint remains
+`87:66:5D:BD:29:D6:BC:8F:E2:5F:AF:62:9D:6E:4D:76:5B:9C:DC:3E:3B:B1:76:53:EE:C6:D2:1F:C7:1B:71:C2`.
+Recovery helper and required notices were verified in the JAR and signed ZIP.
+The packaged plugin metadata is ID `com.dearlordylord.bend.idea`, version `0.1.27`,
+`since-build=251`, with no upper bound and matching change notes.
+
+Published assets were anonymously downloaded and their SHA-256 checked:
+
+| Asset | SHA-256 |
+| --- | --- |
+| `bend-idea-0.1.27-signed.zip` | `a9a3807a496bba5009246d4aa854698044b281aa5f56583d3c981116efe4c64c` |
+| `bend-format-tool-0.1.27.jar` | `ef522d0354e3254219e97ba202c366258e193e26c939a46488915b4779154b05` |
+| `bend-idea-signing-certificate.crt` | `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc` |
+
+Feed commit `64b9f25` deployed through Cloudflare Pages. Both canonical live
+addresses advertise 0.1.27 and the signed asset, with ID, compatibility,
+description and change notes matching its actual packaged metadata. An initial
+fetch during deployment still served 0.1.26; subsequent canonical fetches verified
+0.1.27. Downloading the feed's signed ZIP anonymously again matched its digest.
+GitHub `/releases/latest` returns v0.1.27 and the release is stable.
+
+No Marketplace submission, native formatter runtime packaging or Homebrew update
+was performed. Actual user IDE installation remains a manual smoke check;
+publication evidence alone does not establish it. Runtime lint execution was
+verified on Linux ARM64. Cache timing remains inconclusive and no production
+proof cache is enabled.
+
+Implementer self-review under REVIEWER.md found no remaining behavior or boundary
+violation in release metadata and optional test selection. Independent concluding
+`gpt-6-astra` review rechecked CI reports, local/anonymous asset hashes, the actual
+feed-downloaded ZIP signature and recovery notices, packaged metadata, both fresh
+canonical feeds, stable/latest release state and the transcript/decision trail.
+It found no remaining actionable flag and did not rerun Gradle.
