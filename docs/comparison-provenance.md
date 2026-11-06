@@ -109,3 +109,75 @@ payload.
 ## Bend 2.0.37 compiler pairing
 
 The helper adaptation above now targets [Bend 2.0.37](https://github.com/bendlang/bend/tree/4ff8545f19b09b7d2b8ca2303668100eac8efd66), `bend2/bend.ts` and `bend2/main.ts`. Native validation/lowering/literal expansion boundaries remain unchanged; the reliance walk now includes datatype parameter types and avoids recursive object traversal. The same Apache-2.0 copyright/license applies, with no upstream NOTICE. Updated immutable provenance is retained in the packaged recovery notices. Historical validation records above remain tied to their original pins.
+
+
+## Bend 2.0.40 compiler pairing — 2026-11-06
+
+The existing adapted `semantic/bend-structured-helper.ts` now targets
+[Bend 2.0.40](https://github.com/bendlang/bend/tree/624dd9f4607cd29b0871a9b96d413bfb11e92f52),
+`bend2/bend.ts`, `bend2/comp.ts` and `bend2/main.ts`. All source hashes were
+recomputed from that clean tag. The native validator/loader anchors and private
+semantic APIs used by the helper retain their previous shapes; recovery rules,
+limits and first-error fallback are unchanged. The source pairing and protocol
+identity were updated without copying new compiler or LSP implementation. The original Scala CLI
+verdict decoder now recognizes one final nonempty `Note: ...` after a valid
+numbered excerpt; source attribution still requires the unique unchanged captured
+compiler/copy/original line. Unknown footers, misplaced or repeated notes and
+empty notes keep the conservative root-only location. Decoder tests and native
+current-file/background checking fixtures cover this boundary.
+Apache-2.0 and `Copyright 2026 HigherOrderCO` remain applicable; no root NOTICE
+or additional file-specific license notice is present in these inspected paths.
+The packaged recovery notices retain both historical adaptations and this pin.
+The formatter still excludes the helper.
+
+The new `BendCliGraphCheckTest.changedCompilerSourcesKeepNativeCheckingWithoutRecovery`
+is an original fixture: two independent errors are reported for the supported
+source copy; changing only a compiler comment disables hash-pinned recovery while
+ordinary native CLI checking still reports the original first error. Existing
+real compiler and IntelliJ semantic fixtures remain the API/behavior oracles.
+Bend 2.0.40 changes non-exhaustive-match wording to `this match doesn't cover`;
+the graph/current-file/background fixture expectations were updated from the
+actual native output, without changing the missing-case behavior or recovery
+policy. The first corrected three-case rerun exposed loss of source attribution
+in the text CLI when the new trailing note was rejected by the old decoder;
+the root cause was fixed at the existing decoder boundary, rather than weakening
+the editor highlight assertions. Direct real subprocess probes covered two independent errors, first-hole goals,
+compiler binder comparisons, expression types, closed normalization, TODOs and
+safe/unsafe verdicts. Their exact command and raw output are retained locally at
+`/tmp/bend-helper-2040-probe.py` and `/tmp/bend-helper-2040-probe.jsonl`; these
+probes supplement, rather than replace, the Gradle integration gates.
+
+Implementer self-review under `REVIEWER.md`: inspected this upgrade against
+`9e14236`, traced the helper consumers through `RealBendCompilerFixture`,
+`BendCliCheckBackend`, structured decoders and semantic actions, and compared the
+native validator/check-only/reliance boundaries to the new source. A2 and A5–A7
+remain unchanged: no feature depends directly on the compiler, unsupported hashes
+retain guarded CLI checking, and successful checks preserve completeness and
+reliance. Reference and compiler checkouts were not modified. This is self-review,
+not independent review. Full Gradle and archive verification results must be
+recorded after the integrated run; they are not implied by the direct probes.
+
+Focused upgrade validation used full JDK 21 and the exact Bend/Bun pin with
+`spotlessApply test --tests '*BendCliGraphCheckTest' --tests '*BendStructured*Test'
+--tests '*BendInspectGoalActionTest' --tests '*BendNormalizeExpressionActionTest'
+--tests '*BendNormalizationInlayTest' --tests '*BendTryReflexivityActionTest'`.
+The first run executed 64 cases: 63 passed, one failed solely on the old missing-case
+message expectation; no cases were skipped. The new hash-mismatch/native-fallback
+fixture and the semantic native fixtures passed. The original failed log remains
+at `/tmp/bend-helper-2040-gradle.log`. The first three-case rerun
+(`/tmp/bend-helper-2040-wording-rerun.log`) passed recovery but failed the two
+native highlight cases because of the trailing-note attribution regression
+described above. After the decoder fix, full JDK 21 `spotlessApply test` with
+`BendCliVerdictDecoderTest`, `BendCliDiagnosticAttributionTest`, the poisoned-
+dependent recovery method and both non-exhaustive-match native methods passed
+**15 cases, zero failures/errors/skips**. The final log is
+`/tmp/bend-helper-2040-notes-rerun.log`; unchanged semantic-operation fixtures
+retain their passing results from the earlier run. Full integrated `check`,
+packaging, verifier and archive-notice gates remain required and are not claimed
+by these focused results.
+
+A separately delegated reviewer inspected the helper and expanded decoder diff,
+actual compiler sources, raw probe outputs and both Gradle result sets. Their
+final review found no actionable finding under A2/A5–A7 and #74/#75. This is
+independent source review; integrated full-suite and distribution evidence remain
+separate gates.

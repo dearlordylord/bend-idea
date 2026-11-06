@@ -234,6 +234,35 @@ final class BendCliVerdictDecoderTest:
     )
     assertUnknown(unfamiliarError)
 
+  @Test def trailingCompilerNotePreservesValidatedDiagnosticExcerpt(): Unit =
+    val report = compilerError + "\nNote: this call is missing arguments."
+    val decoded = BendCliVerdictDecoder.check(
+      BendProcessOutcome.Exited(1, "SOME PROOFS FAIL\n" + report)
+    )
+    assertEquals(BendCheckOutcome.Failed, decoded.outcome)
+    assertEquals(BendCompleteness.Unknown, decoded.completeness)
+    assertEquals(BendReliance.Unknown, decoded.reliance)
+    assertTrue(decoded.sourceLocationAllowed)
+    assertTrue(
+      decoded.details.endsWith("Note: this call is missing arguments.")
+    )
+
+  @Test def notesCannotHideUnrecognizedOrMisplacedDiagnosticOutput(): Unit =
+    val reports = List(
+      compilerError + "\nUnexpected footer\nNote: additional explanation.",
+      compilerError + "\nNote: first.\nNote: second.",
+      compilerError + "\nNote: ",
+      compilerError
+        .replace("Location: main\n", "Location: main\nNote: before excerpt.\n"),
+      compilerError + "\nNote: explanation.\nUnexpected footer"
+    )
+    reports.foreach { report =>
+      val decoded =
+        BendCliVerdictDecoder.check(BendProcessOutcome.Exited(1, report))
+      assertEquals(BendCheckOutcome.Failed, decoded.outcome)
+      assertFalse(report, decoded.sourceLocationAllowed)
+    }
+
   @Test def groupedRelianceReportsCountDistinctDefinitionsAcrossCategories()
       : Unit =
     val reports = List(

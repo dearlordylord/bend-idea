@@ -108,7 +108,10 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
     settings.update(settings.choices.copy(diagnosticsEnabled = true))
 
     val result =
-      awaitResult(root, r => r.fresh && r.details.contains("cases for B"))
+      awaitResult(
+        root,
+        r => r.fresh && r.details.contains("this match doesn't cover B")
+      )
     assertEquals(BendCheckOutcome.Failed, result.outcome)
     assertEquals(
       BendLocation.SourceLine(root, 4),
@@ -122,7 +125,7 @@ final class BendBackgroundCheckingTest extends BasePlatformTestCase:
       myFixture.doHighlighting().asScala.exists { info =>
         info.getSeverity == HighlightSeverity.ERROR &&
         info.getStartOffset <= matchStart && info.getEndOffset > matchStart &&
-        info.getDescription.contains("cases for B")
+        info.getDescription.contains("this match doesn't cover B")
       }
     )
 

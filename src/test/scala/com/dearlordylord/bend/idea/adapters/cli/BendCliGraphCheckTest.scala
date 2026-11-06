@@ -185,6 +185,46 @@ final class BendCliGraphCheckTest:
       assertEquals(0L, snapshotCount(dir))
     }
 
+  @Test def changedCompilerSourcesKeepNativeCheckingWithoutRecovery(): Unit =
+    fixture { (dir, bend) =>
+      val copy = Files.createDirectories(dir.resolve("compiler/bend2"))
+      List("bend.ts", "comp.ts", "main.ts", "safe.ts", "base.bend")
+        .foreach { name =>
+          val _ = Files.copy(
+            compiler.compilerDirectory.resolve("bend2").resolve(name),
+            copy.resolve(name)
+          )
+        }
+      val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
+      val _ = Files.writeString(
+        bend,
+        Files
+          .readString(bend)
+          .replace("$BEND_TEST_COMPILER_DIR/bend2", copy.toString)
+      )
+      val root = source(
+        dir.resolve("main.bend"),
+        "import Base\ndef first() -> Nat:\n  True{}\ndef second() -> Nat:\n  False{}\n"
+      )
+      val supported =
+        check(dir, bend, root, configuredBase = copy.resolve("base.bend"))
+      assertEquals(BendCheckOutcome.Failed, supported.outcome)
+      assertEquals(2, supported.diagnostics.size)
+      val main = copy.resolve("main.ts")
+      val _ = Files.writeString(
+        main,
+        Files.readString(main) + "\n// Different compiler build.\n"
+      )
+      val fallback =
+        check(dir, bend, root, configuredBase = copy.resolve("base.bend"))
+      assertEquals(fallback.details, BendCheckOutcome.Failed, fallback.outcome)
+      assertEquals(BendReliance.Unknown, fallback.reliance)
+      assertEquals(1, fallback.diagnostics.size)
+      assertTrue(fallback.details, fallback.details.contains("Location: first"))
+      assertFalse(fallback.details.contains("Location: second"))
+      assertEquals(0L, snapshotCount(dir))
+    }
+
   @Test def recoveryBlocksPoisonedDependentsAndPreservesLawFillOrder(): Unit =
     fixture { (dir, bend) =>
       val _ = compiler.writeStructuredLauncher(bend, structuredChecks = true)
@@ -210,7 +250,10 @@ final class BendCliGraphCheckTest:
       assertEquals(BendCheckOutcome.Failed, result.outcome)
       assertEquals(2, result.diagnostics.size)
       assertTrue(result.diagnostics.head.message.contains("Location: first"))
-      assertTrue(result.diagnostics.last.message.contains("cases for Right"))
+      assertTrue(
+        result.diagnostics.last.message
+          .contains("this match doesn't cover Right")
+      )
       assertFalse(
         result.diagnostics.exists(_.message.contains("Location: dependent"))
       )
@@ -364,7 +407,7 @@ final class BendCliGraphCheckTest:
         bend,
         s"""#!/bin/sh
         |if [ "$${1:-}" = "--idea-structured-capabilities" ]; then
-        |  '${helper}' "$$@" | sed 's/bend-2.0.37-pinned/bend-next-development-build/'
+        |  '${helper}' "$$@" | sed 's/bend-2.0.40-pinned/bend-next-development-build/'
         |else
         |  exec '${helper}' "$$@"
         |fi

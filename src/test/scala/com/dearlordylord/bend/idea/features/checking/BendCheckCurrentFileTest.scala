@@ -99,7 +99,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       .result(id)
       .getOrElse(throw new AssertionError("Match check did not publish"))
     assertEquals(BendCheckOutcome.Failed, result.outcome)
-    assertTrue(result.details.contains("cases for B"))
+    assertTrue(result.details.contains("this match doesn't cover B"))
     assertEquals(
       BendLocation.SourceLine(id, 4),
       result.diagnostics.head.location
@@ -111,7 +111,7 @@ final class BendCheckCurrentFileTest extends BasePlatformTestCase:
       myFixture.doHighlighting().asScala.exists { info =>
         info.getSeverity == HighlightSeverity.ERROR &&
         info.getStartOffset <= matchStart && info.getEndOffset > matchStart &&
-        info.getDescription.contains("cases for B")
+        info.getDescription.contains("this match doesn't cover B")
       }
     )
 

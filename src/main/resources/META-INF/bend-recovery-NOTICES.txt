@@ -26,3 +26,9 @@ Updated compiler pairing and reliance traversal for Bend 2.0.37:
 bendlang/bend, revision 4ff8545f19b09b7d2b8ca2303668100eac8efd66
 bend2/bend.ts and bend2/main.ts
 https://github.com/bendlang/bend/tree/4ff8545f19b09b7d2b8ca2303668100eac8efd66
+
+Updated compiler source-hash pairing for Bend 2.0.40:
+bendlang/bend, revision 624dd9f4607cd29b0871a9b96d413bfb11e92f52
+bend2/bend.ts, bend2/comp.ts and bend2/main.ts
+https://github.com/bendlang/bend/tree/624dd9f4607cd29b0871a9b96d413bfb11e92f52
+Existing in-memory validator/loader anchors and conservative recovery remain unchanged.

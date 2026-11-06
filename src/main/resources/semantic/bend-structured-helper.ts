@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Protocol 1 uses bounded, fail-closed recovery for the pinned Bend 2.0.37 sources.
+// Protocol 1 uses bounded, fail-closed recovery for the pinned Bend 2.0.40 sources.
 // Native validation hooks adapted from bend2-lsp-rs and Bend.
 // Copyright 2026 HigherOrderCO. SPDX-License-Identifier: Apache-2.0
 // See META-INF/bend-recovery-NOTICES.txt and bend-recovery-LICENSE.txt.
@@ -10,9 +10,9 @@ import * as path from "node:path";
 import * as url from "node:url";
 
 const hashes: Record<string, string> = {
-  "bend.ts": "6c1df3eb304fe085070aa4797928f70243b80d4635389e3d5d8a49fdfbb3051e",
-  "comp.ts": "56d5727049bc3ef528ef84d3b4712a41a0a8ce0a06437b29d881e71107638c70",
-  "main.ts": "38f77e7f1c2b0239cd8ed4a6baad90439c1d2610b2014573590ec7cf6ad04497",
+  "bend.ts": "6b86606fd096cc8322b5e3ffc624dbfeef63ef4c6c5e72d78148fb179d0d26b7",
+  "comp.ts": "078699d307485cf8fa01260b0590832aff2ff90755fe3d8af55d28a90e33e188",
+  "main.ts": "1aabcfdf921a7a0fc971f1982787cbd385afe3441d3e2cc640c8f0e5c0b5630e",
 };
 
 function emit(value: unknown): void {
@@ -49,12 +49,12 @@ async function main(): Promise<void> {
     return;
   }
   if (operation === "check-capabilities") {
-    emit({ checkProtocol: 1, compiler: "bend-2.0.37-pinned", checkOnly: true,
+    emit({ checkProtocol: 1, compiler: "bend-2.0.40-pinned", checkOnly: true,
       locations: "compiler-source-namespace-sha256-utf16-v1", operations: ["check"] });
     return;
   }
   if (operation === "capabilities") {
-    emit({ protocol: 1, compiler: "bend-2.0.37-pinned", operations: ["diagnostic", "goal-first-named-hole", "expression-types-checked", "goal-binder-comparison", "normalize-closed-expression"] });
+    emit({ protocol: 1, compiler: "bend-2.0.40-pinned", operations: ["diagnostic", "goal-first-named-hole", "expression-types-checked", "goal-binder-comparison", "normalize-closed-expression"] });
     return;
   }
   if (operation === "check") installRecoveryHooks(dir);

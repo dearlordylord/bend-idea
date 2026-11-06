@@ -321,7 +321,12 @@ private[cli] object BendCliVerdictDecoder:
             .isDefined
         case _ => false
     val beforeLocation = lines.take(location).drop(1)
-    val excerpts = lines.drop(location + 1)
+    val tail = lines.drop(location + 1)
+    val excerpts = tail.lastOption match
+      case Some(note)
+          if note.startsWith("Note: ") && note.substring(6).trim.nonEmpty =>
+        tail.dropRight(1)
+      case _ => tail
     location >= 0 && location < lines.size - 1 && recognizedFields(
       beforeLocation
     ) &&
