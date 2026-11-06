@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugins>
   <plugin id="com.dearlordylord.bend.idea"
-          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.27/bend-idea-0.1.27-signed.zip"
-          version="0.1.27">
+          url="https://github.com/dearlordylord/bend-idea/releases/download/v0.1.28/bend-idea-0.1.28-signed.zip"
+          version="0.1.28">
     <idea-version since-build="251"/>
     <name>Bend2</name>
     <description><![CDATA[Language support for <a href="https://github.com/bendlang/bend">Bend 2</a> in IntelliJ IDEA.
@@ -19,11 +19,9 @@
 Editing works without a Bend installation. Configure a Bend compiler to use checking and
 compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.]]></description>
-    <change-notes><![CDATA[<p>Version 0.1.27:</p>
+    <change-notes><![CDATA[<p>Version 0.1.28:</p>
 <ul>
-  <li>Add optional bend-lint 0.3.0 diagnostics for unsaved roots and imports, verified tool installation and rollback, and opt-in background lint.</li>
-  <li>Upgrade optional structured compiler operations and restricted recovery to Bend 2.0.40; preserve diagnostic locations with trailing compiler notes.</li>
-  <li>Fix Enter completion suffix replacement, raw apostrophe character literals, and dependent-arrow binder scope in match cases.</li>
+  <li>Remove the configured Bend version restriction from optional lint, including the incorrect rejection of Bend 2.0.39. Lint uses its independently verified compiler and reports actual tool outcomes.</li>
 </ul>]]></change-notes>
   </plugin>
 </plugins>
