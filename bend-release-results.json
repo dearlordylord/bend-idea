@@ -153,6 +153,17 @@
       "status": "failed",
       "suite": "editor-compatibility-v2",
       "tag": "v2.0.39"
+    },
+    "436017339": {
+      "commit": "624dd9f4607cd29b0871a9b96d413bfb11e92f52",
+      "digest": "c9ff8d67bd903fb6ad9a26b43d8a62c01021de82a44d55ce4a3dcd4732113d6b",
+      "exit_code": 1,
+      "plugin_commit": "7ec43aaf409aa0f05dcfbf6934442a8b6d1f36ee",
+      "release_id": 436017339,
+      "run_url": "https://github.com/dearlordylord/bend-idea/actions/runs/42174596816",
+      "status": "failed",
+      "suite": "editor-compatibility-v2",
+      "tag": "v2.0.40"
     }
   },
   "schema": 1
