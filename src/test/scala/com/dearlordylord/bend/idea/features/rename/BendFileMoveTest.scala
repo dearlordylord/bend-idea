@@ -316,5 +316,10 @@ final class BendFileMoveTest extends BasePlatformTestCase:
       output,
       output.contains("1 def relies on unsafe or foreign code:")
     )
-    assertTrue(output, output.contains("- external"))
+    assertTrue(
+      output,
+      output.linesIterator.contains(
+        "defs that depend on foreign effects: external"
+      )
+    )
     process.exitValue()
