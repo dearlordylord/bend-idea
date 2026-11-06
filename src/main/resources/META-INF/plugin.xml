@@ -20,9 +20,9 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.25:</p>
+<p>Version 0.1.26:</p>
 <ul>
-  <li>Upgrade all optional structured helper operations, including safe multi-error recovery, to Bend 2.0.37. Include datatype parameter types when checking unsafe reliance.</li>
+  <li>Recognize Bend 2.0.40 reports of unsafe and foreign reliance when checking files, preserving the distinction from proofs without these dependencies.</li>
 </ul>
 ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

@@ -234,6 +234,62 @@ final class BendCliVerdictDecoderTest:
     )
     assertUnknown(unfamiliarError)
 
+  @Test def groupedRelianceReportsCountDistinctDefinitionsAcrossCategories()
+      : Unit =
+    val reports = List(
+      "1 def relies on unsafe or foreign code:\ndefs that depend on @unsafe: main",
+      "2 defs rely on unsafe or foreign code:\ndefs that depend on foreign effects: foreign, main",
+      "3 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: danger, main\ndefs that depend on foreign effects: foreign, danger, main",
+      "2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: unsafe.first, unsafe.main\n" +
+        "Hint: no law or proof uses these defs. Move them to a file this proof does not import, and the proofs will check: unsafe.first, unsafe.main"
+    )
+    reports.foreach { report =>
+      val decoded = BendCliVerdictDecoder.check(
+        BendProcessOutcome.Exited(
+          1,
+          "SOME PROOFS FAIL\nError: " + report + "\n"
+        )
+      )
+      assertEquals(decoded.details, BendCheckOutcome.Success, decoded.outcome)
+      assertEquals(BendCompleteness.Complete, decoded.completeness)
+      assertEquals(BendReliance.UnsafeOrForeign, decoded.reliance)
+      assertFalse(decoded.sourceLocationAllowed)
+    }
+
+  @Test def malformedGroupedRelianceCannotEstablishVerdictFacts(): Unit =
+    val reports = List(
+      "2 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: main",
+      "1 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: main",
+      "999999999999999999999 defs rely on unsafe or foreign code:\ndefs that depend on @unsafe: main",
+      "1 def relies on unsafe or foreign code:\ndefs that depend on @unsafe: 1main",
+      "1 def relies on unsafe or foreign code:\ndefs that depend on @unsafe: main, ",
+      "1 def relies on unsafe or foreign code:\ndefs that depend on @unsafe: main, main",
+      "1 def relies on unsafe or foreign code:\ndefs that depend on unknown: main",
+      "1 def relies on unsafe or foreign code:\ndefs that depend on @unsafe: main\ndefs that depend on @unsafe: main",
+      "1 def relies on unsafe or foreign code:\ndefs that depend on @unsafe: main\nUnexpected footer",
+      "1 def relies on unsafe or foreign code:\ndefs that depend on @unsafe: main\n" +
+        "Hint: no law or proof uses these defs. Move them to a file this proof does not import, and the proofs will check: other"
+    )
+    reports.foreach { report =>
+      assertUnknown(
+        BendCliVerdictDecoder.check(
+          BendProcessOutcome.Exited(
+            1,
+            "SOME PROOFS FAIL\nError: " + report + "\n"
+          )
+        )
+      )
+    }
+    assertUnknown(
+      BendCliVerdictDecoder.check(
+        BendProcessOutcome.Exited(
+          0,
+          "All terms check, but 1 def relies on unsafe or foreign code:\n" +
+            "defs that depend on @unsafe: main\n"
+        )
+      )
+    )
+
   @Test def processLimitsAndCancellationCannotCarryVerdictFacts(): Unit =
     val timeout = BendCliVerdictDecoder.check(
       BendProcessOutcome.TimedOut("All terms check.")

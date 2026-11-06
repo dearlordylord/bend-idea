@@ -22,6 +22,10 @@ private[cli] object BendCliVerdictDecoder:
   private val CurrentUnsafeHeader =
     "^([1-9][0-9]*) (defs?) (relies|rely) on unsafe or foreign code:$".r
   private val UnsafeDefinition = "- [A-Za-z_][A-Za-z0-9_.]*".r
+  private val UnsafeGroup =
+    "^defs that depend on (@unsafe|foreign effects): ([A-Za-z_][A-Za-z0-9_.]*(?:, [A-Za-z_][A-Za-z0-9_.]*)*)$".r
+  private val ImportedUnsafeHint =
+    "Hint: no law or proof uses these defs. Move them to a file this proof does not import, and the proofs will check: "
   private val TodoHeader = "^Error: ([1-9][0-9]*) TODO(s?) found\\.$".r
   private val ProofSiblingGuard =
     "bend: PROOF.bend must import ./LAWS.bend (see bend --help)"
@@ -223,16 +227,51 @@ private[cli] object BendCliVerdictDecoder:
     val header = if current then CurrentUnsafeHeader else UnsafeHeader
     lines match
       case header(countText, pluralDef, verb) :: definitions
-          if countText.toIntOption.exists(_ > 0) && definitions.nonEmpty &&
-            definitions.forall(line => UnsafeDefinition.matches(line)) =>
+          if countText.toIntOption.exists(_ > 0) && definitions.nonEmpty =>
         val count = countText.toInt
         val grammarMatches = if count == 1 then
           pluralDef == "def" && verb == "relies"
         else pluralDef == "defs" && verb == "rely"
-        Option.when(grammarMatches && definitions.size == count)(
+        val countMatches =
+          if definitions.forall(UnsafeDefinition.matches) then
+            definitions.size == count
+          else
+            current && groupedUnsafeDefinitions(definitions).exists(
+              _.size == count
+            )
+        Option.when(grammarMatches && countMatches)(
           BendReliance.UnsafeOrForeign
         )
       case _ => None
+
+  private def groupedUnsafeDefinitions(
+      lines: List[String]
+  ): Option[List[String]] =
+    val (groups, hint) =
+      if lines.last.startsWith(ImportedUnsafeHint) then
+        (lines.init, Some(lines.last))
+      else (lines, None)
+    val parsed = groups.map {
+      case UnsafeGroup(category, names) =>
+        Some((category, names.split(", ", -1).toList))
+      case _ => None
+    }
+    if parsed.isEmpty || parsed.exists(_.isEmpty) then None
+    else
+      val entries = parsed.flatten
+      val categories = entries.map(_._1)
+      val names = entries.flatMap(_._2).distinct
+      val validGroups =
+        categories == List("@unsafe") || categories == List(
+          "foreign effects"
+        ) ||
+          categories == List("@unsafe", "foreign effects")
+      Option.when(
+        validGroups && entries.forall { (_, values) =>
+          values.distinct == values
+        } &&
+          hint.forall(_ == ImportedUnsafeHint + names.mkString(", "))
+      )(names)
 
   private def todoReport(report: String): Boolean =
     report.split("\n", -1).toList match

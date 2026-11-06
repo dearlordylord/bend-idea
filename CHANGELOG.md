@@ -13,6 +13,10 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.26
+
+- Recognize Bend 2.0.40 reports of unsafe and foreign reliance when checking files, preserving the distinction from proofs without these dependencies.
+
 ## 0.1.25
 
 - Upgrade the compiler test baseline and all optional structured helper operations, including safe multi-error recovery, to Bend 2.0.37. Include datatype parameter types when checking unsafe reliance.
