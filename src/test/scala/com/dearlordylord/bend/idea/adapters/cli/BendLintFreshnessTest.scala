@@ -9,46 +9,114 @@ import com.dearlordylord.bend.idea.toolchain.api.{
 import java.nio.file.{Files, Path}
 import org.junit.Assert.*
 import org.junit.Test
-import scala.jdk.CollectionConverters.*
 
 final class BendLintFreshnessTest:
-  @Test def changedInputDuringCompilerProbeCannotBecomeTheTrustedBaseline()
-      : Unit =
-    probeMutation("src/linter/seam.ts", append = true)
+  @Test def lintDoesNotInvokeOrRequireTheConfiguredCompiler(): Unit =
+    fixture { (snapshot, directory, root, _, marker) =>
+      val text = snapshot.text
+      val mapping = BendSourceMapping(
+        snapshot.root,
+        1L,
+        root.toString,
+        root.toString,
+        "",
+        text,
+        text,
+        Set.empty,
+        Nil,
+        text,
+        Nil
+      )
+      val result = BendLintBackend.run(
+        snapshot,
+        directory,
+        root,
+        Map.empty,
+        List(mapping),
+        () => false
+      )
+      assertEquals(result.details, BendLintOutcome.Completed, result.outcome)
+      assertFalse(
+        "Lint must not invoke the project's compiler",
+        Files.exists(marker)
+      )
+    }
 
-  @Test def nativeArtifactAddedDuringProbeCannotRunOutsideTheInventory(): Unit =
-    probeMutation(
+  @Test def changedInputAtProcessBoundaryCannotBePublished(): Unit =
+    mutation("src/linter/seam.ts", append = true)
+
+  @Test def nativeArtifactAddedAtProcessBoundaryInvalidatesPublication(): Unit =
+    mutation(
       "cache/bend-lint/server/programs/unrecorded-native",
       append = false
     )
 
-  private def probeMutation(relative: String, append: Boolean): Unit =
-    val installed = Option(System.getenv("BEND_TEST_LINT_DIR"))
-    val bun = Option(System.getenv("BEND_TEST_LINT_BUN"))
+  private def mutation(relative: String, append: Boolean): Unit =
+    fixture { (snapshot, directory, root, tools, _) =>
+      val baseline = BendLintBackend.run(
+        snapshot,
+        directory,
+        root,
+        Map.empty,
+        Nil,
+        () => false
+      )
+      assertEquals(
+        baseline.details,
+        BendLintOutcome.Completed,
+        baseline.outcome
+      )
+      Files.delete(directory.resolve("idea-lint-offline.mjs"))
+      val changed = new java.util.concurrent.atomic.AtomicBoolean(false)
+      val result = BendLintBackend.run(
+        snapshot,
+        directory,
+        root,
+        Map.empty,
+        Nil,
+        () => {
+          if Files.isRegularFile(directory.resolve("idea-lint-offline.mjs")) &&
+            changed.compareAndSet(false, true)
+          then
+            val options =
+              if append then Array(java.nio.file.StandardOpenOption.APPEND)
+              else Array(java.nio.file.StandardOpenOption.CREATE_NEW)
+            val _ =
+              Files.writeString(tools.resolve(relative), "changed", options*)
+          false
+        }
+      )
+      assertTrue("The process-boundary mutation must execute", changed.get())
+      assertEquals(result.details, BendLintOutcome.Unavailable, result.outcome)
+      assertTrue(
+        result.details,
+        result.details.contains("changed during execution")
+      )
+      assertTrue(result.findings.isEmpty)
+    }
+
+  private def fixture(
+      run: (BendCheckSnapshot, Path, Path, Path, Path) => Unit
+  ): Unit =
+    val bun = Option(System.getenv("BEND_TEST_INSTALL_BUN"))
     org.junit.Assume.assumeTrue(
-      "Set prepared lint inputs for the real freshness boundary",
-      installed.nonEmpty && bun.nonEmpty
+      "Set BEND_TEST_INSTALL_BUN for an isolated verified tool installation",
+      bun.nonEmpty
     )
     val directory = Files.createTempDirectory("bend-lint-freshness-")
     try
-      val source = Path.of(installed.get)
-      val copy = directory.resolve("tools")
-      val stream = Files.walk(source)
-      try
-        stream.iterator().asScala.foreach { path =>
-          val target = copy.resolve(source.relativize(path))
-          if Files.isDirectory(path) then
-            val _ = Files.createDirectories(target)
-          else
-            val _ = Files.copy(path, target)
-        }
-      finally stream.close()
+      val installed = new BendLintInstallation(directory.resolve("managed"))
+        .install(bun.get, () => false)
+      val copy = installed match
+        case com.dearlordylord.bend.idea.toolchain.api.BendLintInstallationResult
+              .Installed(_, path, _) =>
+          Path.of(path)
+        case other => throw new AssertionError(other.toString)
       val executable = directory.resolve("compiler")
-      val mutation = copy.resolve(relative)
-      val operator = if append then ">>" else ">"
+      val marker = directory.resolve("compiler-invoked")
       val _ = Files.writeString(
         executable,
-        s"#!/bin/sh\nprintf 'changed' $operator '$mutation'\nprintf 'Bend 2.0.37: compiler help\\n'\n"
+        s"#!/bin/sh\nprintf invoked > '$marker'\nexit 99\n"
       )
       val _ = executable.toFile.setExecutable(true)
       val root = directory.resolve("source.bend")
@@ -69,20 +137,7 @@ final class BendLintFreshnessTest:
         ),
         lintRequested = true
       )
-      val result = BendLintBackend.run(
-        snapshot,
-        directory,
-        root,
-        Map.empty,
-        Nil,
-        () => false
-      )
-      assertEquals(result.details, BendLintOutcome.Unavailable, result.outcome)
-      assertTrue(
-        result.details,
-        result.details.contains("changed before execution")
-      )
-      assertTrue(result.findings.isEmpty)
+      run(snapshot, directory, root, copy, marker)
     finally
       val paths = Files.walk(directory)
       try

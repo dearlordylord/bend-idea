@@ -13,6 +13,10 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.28
+
+- Remove the configured Bend version restriction from optional lint. Bend 2.0.39 and compilers with other or unreported versions no longer fail before lint runs. Lint retains its independently verified compiler and reports actual tool outcomes.
+
 ## 0.1.27
 
 - Replace the remaining name suffix when accepting ordinary completion with Enter, matching Tab insertion.

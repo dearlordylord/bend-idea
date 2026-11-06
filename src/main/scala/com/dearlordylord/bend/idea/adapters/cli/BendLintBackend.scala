@@ -130,15 +130,6 @@ object BendLintBackend:
           )
         case Some(error) => return unavailable(error)
         case None        => ()
-      new BendCompilerInfoProbeService()
-        .inspect(snapshot.toolchain.executable, canceled) match
-        case com.dearlordylord.bend.idea.toolchain.api.BendCompilerInfoResult
-              .Detected(info) if info.version.exists(Set("2.0.37", "2.0.40")) =>
-          ()
-        case _ =>
-          return unavailable(
-            "This lint pairing supports configured Bend 2.0.37 or 2.0.40. Ordinary compiler checking remains available."
-          )
       if !observations.forall { case (path, stamp) => matches(path, stamp) }
       then
         return unavailable(

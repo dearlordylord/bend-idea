@@ -446,7 +446,10 @@ Installation is separate from analysis. Analysis never selects an arbitrary late
 It runs the prepared lint 0.3.0 tool with its own pinned Bend 2.0.39, a plugin-owned
 style-rule configuration and explicit root entry. The compiler's canonical result stays
 in `BendCheckResult`; lint findings, skipped coverage, unavailable states and source
-mapping failures are separate values in `analysis.model`. No project lint configuration
+mapping failures are separate values in `analysis.model`. The lint adapter does not
+probe or restrict the configured project compiler version: its own compiler belongs
+to the verified installation. Actual lint output determines lint completion, rejection
+or unavailability. No project lint configuration
 or custom rule code is discovered. No lint fix changes source.
 
 Optional background lint decorates snapshots through the existing capture/scheduler,

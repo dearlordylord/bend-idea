@@ -1212,6 +1212,64 @@ final class BendCliGraphCheckTest:
       assertTrue(token + 1 < text.indexOf('#'))
     }
 
+  @Test def configuredBend2039ChecksAndLintsUnsavedImports(): Unit =
+    val checkout = Option(System.getenv("BEND_TEST_COMPILER_2039_DIR"))
+    val lintDirectory = Option(System.getenv("BEND_TEST_LINT_DIR"))
+    val lintBun = Option(System.getenv("BEND_TEST_LINT_BUN"))
+    org.junit.Assume.assumeTrue(
+      "Set Bend 2.0.39 and prepared lint inputs for the compatibility regression",
+      checkout.nonEmpty && lintDirectory.nonEmpty && lintBun.nonEmpty
+    )
+    fixture { (dir, bend) =>
+      val compilerDirectory = Path.of(checkout.get).toRealPath()
+      def quoted(path: Path): String =
+        "'" + path.toString.replace("'", "'\"'\"'") + "'"
+      val _ = Files.writeString(
+        bend,
+        "#!/bin/sh\nexport BEND_NO_TELEMETRY=1\nexec " +
+          quoted(compiler.bunExecutable) + " " +
+          quoted(compilerDirectory.resolve("bend2/main.ts")) + " \"$@\"\n"
+      )
+      val detected =
+        new BendCompilerInfoProbeService().inspect(bend.toString, () => false)
+      assertTrue(detected.toString, detected.toString.contains("2.0.39"))
+      val dependency = dir.resolve("identity.bend")
+      val _ = Files.writeString(dependency, "invalid disk contents\n")
+      val edited = source(
+        dependency,
+        "import Base\r\n# 😀\r\ndef BadIdentity(x: U32) -> U32:\r\n  x\r\n"
+      )
+      val text =
+        "import Base\r\nimport ./identity.bend as I\r\n# 😀\r\ndef BadMain() -> U32:\r\n  I.BadIdentity(1)\r\n"
+      val root = source(dir.resolve("main.bend"), text)
+      val result = check(
+        dir,
+        bend,
+        root,
+        Map(dependency.toString -> edited),
+        configuredBase = compilerDirectory.resolve("bend2/base.bend"),
+        lint = com.dearlordylord.bend.idea.toolchain.api
+          .BendLintOptions(true, lintBun.get, lintDirectory.get),
+        lintRequested = true
+      )
+      assertEquals(result.details, BendCheckOutcome.Success, result.outcome)
+      val lint =
+        result.lint.getOrElse(throw new AssertionError("Missing lint result"))
+      assertEquals(lint.details, BendLintOutcome.Completed, lint.outcome)
+      for (record, name) <- List(root -> "BadMain", edited -> "BadIdentity") do
+        val finding = lint.findings
+          .find(f =>
+            f.source == record.id && f.code == "bend-lint-rules/layout/case"
+          )
+          .get
+        assertEquals(
+          name,
+          record.text.substring(finding.range.start, finding.range.end)
+        )
+      assertEquals(0, lint.unmapped)
+      assertEquals("invalid disk contents\n", Files.readString(dependency))
+    }
+
   @Test def realBendLintMapsUnsavedRootAndImportedSource(): Unit =
     val checkout = Option(System.getenv("BEND_TEST_LINT_DIR"))
     org.junit.Assume.assumeTrue(

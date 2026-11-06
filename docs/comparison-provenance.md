@@ -216,3 +216,27 @@ resources match source, and the formatter has no lint payload. Earlier pending
 statements above describe the focused slice checkpoints, superseded by this
 integrated evidence. See [the final report](../research/upstream-adoption-2026-11-06.md)
 for archive identity, self-review, independent review and limitations.
+
+## Lint project-compiler version restriction correction — 2026-11-06
+
+Original adapter correction removes the entire configured-compiler version probe
+and its 2.0.37/2.0.40 allowlist. Managed lint owns its verified Bend 2.0.39;
+the selected project compiler continues to determine canonical checking outcomes.
+Lint now reports actual execution/protocol outcomes rather than rejecting the
+project's version banner. This introduces no new upstream payload or notice change.
+
+A new regression exercises a real clean Bend 2.0.39 source checkout
+`a3efe8a3801f423827424227172eed9802c5e6cb`, its matching Base and unsaved
+CRLF/astral root/import texts, preserving exact diagnostic ranges and disk contents.
+Another real-engine fixture makes the configured compiler fail if invoked, so
+reintroducing any project-version probe fails independently of version spelling.
+The original gate produced the expected Completed-versus-Unavailable failure.
+
+The first focused retry passed the real 2.0.39 graph scenario and five other cases,
+but its direct positive control found that relocating a prepared installation can
+change runtime-generated files. The tests now prepare isolated generations at their
+final paths through the real installer and require a successful unchanged baseline
+before each deliberate process-boundary mutation. Production installation/freshness
+validation was not relaxed. An unused-import compile error during this fixture
+correction was fixed. Final focused and exact-candidate release gates are recorded
+in the release evidence after their actual completion.

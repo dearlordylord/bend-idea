@@ -146,9 +146,9 @@ Apply settings, then use **Tools | Bend | Run bend-lint on Current File**. Optio
 enable lint with background compiler checks. Current unsaved source and dependencies
 use the same captured root as compiler checking; files on disk are not changed.
 
-The supported configured compiler pairings are Bend 2.0.37 and 2.0.40; other or unknown
-versions leave lint unavailable. The selected compiler remains authoritative for errors, completeness and unsafe/foreign
-reliance. Lint uses a separate compiler and reports its own findings and skipped coverage;
+The configured project compiler version does not gate lint. The selected compiler
+remains authoritative for errors, completeness and unsafe/foreign reliance. Lint uses
+its own verified compiler and reports its own findings and skipped coverage;
 the two can disagree. The initial rule set reports naming conventions and potentially
 unused imports. It does not apply import deletion or other fixes, and does not execute
 project lint configuration or custom rules. Analysis is offline and bounded; incomplete
