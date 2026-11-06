@@ -203,3 +203,16 @@ immutable tool identity metadata; the standalone formatter selects none of these
 Validation and limitations are recorded in the implementation report after the actual
 checks, rather than inferred from upstream release notes. This provenance entry does
 not claim independent review or that the old prototype's checks validate this pairing.
+
+## Integrated adoption verification — 2026-11-06
+
+The four slices at `328b3fb` passed full JDK 21 `check buildPlugin verifyPlugin
+verifyPluginStructure verifyPluginProjectConfiguration`: 693 main tests, zero
+failures/errors, two optional skips, and two passing architecture tests. Actual
+managed installation was separately exercised, including automatic pinned Bun
+download. Both configured IDE targets are compatible with API notices retained.
+The built JAR and ZIP retain byte-identical recovery helper/notices; original lint
+resources match source, and the formatter has no lint payload. Earlier pending
+statements above describe the focused slice checkpoints, superseded by this
+integrated evidence. See [the final report](../research/upstream-adoption-2026-11-06.md)
+for archive identity, self-review, independent review and limitations.

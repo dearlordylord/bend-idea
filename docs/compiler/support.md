@@ -31,9 +31,13 @@ CLI error attribution also accepts a final explanatory `Note: ...` after an
 otherwise fully recognized excerpt, preserving current-file/background error
 highlights; the unchanged unique snapshot-line mapping remains mandatory.
 See [upgrade provenance](../comparison-provenance.md#bend-2040-compiler-pairing--2026-11-06).
-Full-suite/packaging verification for this upgrade must be recorded after the
-integrated run; historical release compatibility results above do not establish
-advanced helper compatibility.
+Integrated JDK 21 verification at `328b3fb` passed `check buildPlugin verifyPlugin
+verifyPluginStructure verifyPluginProjectConfiguration`: 693 main cases (691 passed,
+two optional skips), plus two passing architecture cases. Plugin Verifier reports
+compatible for IC 2025.1 and IU 2026.1 with API notices. Helper and recovery notices
+were verified byte-for-byte in the built JAR and ZIP. See the
+[complete integration record](../../research/upstream-adoption-2026-11-06.md) for
+focused real installation evidence and remaining platform limits.
 
 The 2.0.37 upgrade was validated on 2026-10-16 at plugin source commit `0c596c3`. [CI run 38854490676](https://github.com/dearlordylord/bend-idea/actions/runs/38854490676) passed `check`, packaging, structure/configuration checks and Plugin Verifier for IC 2025.1 and IU 2026.1: 661 main cases (660 passed, one optional installed-release smoke skipped), plus two passing architecture tests. Existing API notices remain. Locally, the installed official Linux ARM64 2.0.37 binary and matching Base passed the optional current-compiler smoke. Its archive SHA-256 is `b65d452e5c68a4c486e353220d4298ba5d76f535db47109a7d76ffdf72efafb1`; Base matches the pinned source. Advanced helper operations now use the 2.0.37 hashes. A new zero-constructor datatype fixture detects unsafe reliance through the datatype's own parameter type; the old walk misses it, while the new helper agrees with native CLI. Independent Astra review found no remaining actionable findings under A5–A7 after correcting that fixture. No architecture boundary or process limit was relaxed.
 
