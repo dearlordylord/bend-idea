@@ -167,6 +167,15 @@ tasks.test {
     useJUnit()
     exclude("**/architecture/**")
     systemProperty("java.awt.headless", "true")
+    // JUnit 3 editor fixtures cannot use JUnit 4 assumptions as skipped cases.
+    val lintEditorConfigured = !providers.environmentVariable("BEND_TEST_LINT_DIR").orNull.isNullOrBlank() &&
+        !providers.environmentVariable("BEND_TEST_LINT_BUN").orNull.isNullOrBlank()
+    inputs.property("bend.lint.editor.configured", lintEditorConfigured)
+    if (!lintEditorConfigured) {
+        filter {
+            excludeTestsMatching("com.dearlordylord.bend.idea.features.checking.BendCheckCurrentFileTest.testLintActionHighlightsUnsavedTextAndDropsItOnEdit")
+        }
+    }
     if (bendSourceProfile) {
         outputs.upToDateWhen { false }
         filter { includeTestsMatching("com.dearlordylord.bend.idea.performance.BendSourceQueryProfileTest") }
