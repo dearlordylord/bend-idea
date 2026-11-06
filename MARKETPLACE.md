@@ -383,3 +383,16 @@ Tagged candidate `79f9dfb5cbb74c918a6893ee7fefd4350c578a59`; [exact-candidate Ve
 Personal feed and GitHub release only; native formatter archives/Homebrew retain their explicit 0.1.19 links. Interactive IDE update remains a manual smoke check. Feed deployment receipt is recorded after live verification.
 
 0.1.25 publication receipt: both ordinary anonymous feed requests (`idea.dearlordylord.com` and `bend-idea-plugins.pages.dev`) now serve 0.1.25 from feed commit `dde9e1e`. ID, name, IDE range, description and change notes equal the signed descriptor. Downloads through both feed URLs match signed ZIP SHA-256 `9ff81a5a8d0ddffe7855157e3a216268fab67e6cb538a32ca5ef8f2c6ca8406a`. The first requests during deployment still served 0.1.24. All four GitHub assets were independently downloaded anonymously and matched local verified bytes. GitHub `/releases/latest` confirms stable public v0.1.25 with exactly the four intended assets. Exact-candidate Verify CI completed successfully.
+
+
+## 0.1.26 custom repository release
+
+Tagged candidate `da273fa62fd3dbc1b1916e878e1d4c05cf3a2305`; [exact-candidate Verify CI 42185580600](https://github.com/dearlordylord/bend-idea/actions/runs/42185580600) passed full pinned editor/compiler/architecture checks and packaging/compatibility gates. [Bend 2.0.40 compatibility run 42185616490](https://github.com/dearlordylord/bend-idea/actions/runs/42185616490) passed the Linux x64 editor corpus and result recording. Local macOS ARM64 release editor tests passed; two canonical-import inspection tests still failed locally, while the complete Linux CI passed. Local JDK 21 packaging, IC 2025.1 and IU 2026.1 verifiers, structure/configuration, signing and signature verification passed. Existing IDE API notices remain.
+
+Signed descriptor is version 0.1.26, ID `com.dearlordylord.bend.idea`, since-build 251 without an upper bound. Signed embedded JARs match the verifier-tested unsigned ZIP. Recovery notices and portable formatter version were verified. Independent source and artifact review and implementer self-review under REVIEWER.md found no actionable findings; no architectural contract changed.
+
+- Signed ZIP SHA-256: `12c7598a245d3d59d1d9c5719d3b4520bc5856cde8c59bc16cafaed8e67f9377`.
+- Portable formatter JAR SHA-256: `5ad6101b77d65dfea4851b56c5fe48cb73b2c21dbe5fe6a45e1f488b202c195a`.
+- Public certificate SHA-256: `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc`; existing signing identity.
+
+All four release assets were downloaded anonymously and matched local verified bytes before this feed update. Native formatter archives and Homebrew remain on explicit 0.1.19 links. No Marketplace submission or approval is claimed. Interactive IDE install/update remains a manual smoke check. Live-feed and stable/Latest verification will be recorded after deployment.
