@@ -511,3 +511,71 @@ or trail finding. It independently parsed focused/CI reports, checked artifact
 hashes and signature, fetched both canonical feeds and the published manifest,
 verified stable/latest release state, and audited the exact transcript against the
 trail. It did not rerun Gradle or modify publication state.
+
+
+## 0.1.29 editor and lint reliability, custom repository — 2026-11-07 UTC
+
+Published [v0.1.29](https://github.com/dearlordylord/bend-idea/releases/tag/v0.1.29)
+from `350ff6010c3bf9ff0f83701ee34613436ebca635`. The shared parser now retains
+indented line-leading declarations accepted by Bend, restoring completion and
+navigation. Stub version 2 invalidates earlier declaration inventories. Manual
+lint no longer loses findings to stale background polling; messages, rule codes
+and source locations appear in notifications/status details. Native XML bean
+properties and an explicit Storage value preserve compiler, library and lint
+settings across IDE restarts.
+
+[Exact-candidate Verify 42339024941](https://github.com/dearlordylord/bend-idea/actions/runs/42339024941)
+passed full JDK 21 check, packaging, structure/configuration and both Plugin
+Verifier targets. Downloaded main CI report: 709 tests, zero failures, nine
+optional skips; both architecture tests passed. Local completion/navigation
+fixtures passed 31 cases, including indented functions, Enter/Tab tail replacement,
+mixed columns and parameter-scope isolation. An earlier combined local build was
+stopped after concurrent-artifact ZipExceptions. A separate local full run had
+four failures from stale Linux paths in the test-only VFS index; all 13 symbol
+search tests passed after preserving and replacing only that fixture cache.
+Neither failed invocation is passing full-check evidence. The exact candidate's
+CI establishes the successful full check.
+
+Local packaging, IC 2025.1/IU 2026.1 compatibility, structure/configuration,
+signing, signature verification and recovery notices passed. Existing verifier
+API notices remain. CI signing was skipped because its signing secrets were
+unavailable; the release uses the existing local identity. Independent signature
+verification against the previous release's anonymously downloaded public
+certificate passed. The public certificate remains byte-for-byte unchanged.
+Packaged ID is `com.dearlordylord.bend.idea`, version `0.1.29`, since-build `251`,
+without an upper bound; notes match the versioned changelog.
+
+Anonymous release downloads matched the locally verified assets and manifest:
+
+| Asset | SHA-256 |
+| --- | --- |
+| `bend-idea-0.1.29-signed.zip` | `469dc1d01eb57a02864455754f9679174a910bea124d96ea941da51a05d90073` |
+| `bend-format-tool-0.1.29.jar` | `76ad5c1d0268a1aedea99ef34af8a1980c1631088bf7e4009716f79ec4e73636` |
+| `bend-idea-signing-certificate.crt` | `4ee352701ce7e03a2c5a78af1f4ccf4d351b03e5ccdaf512a625314df3cf88cc` |
+
+Feed commit `6d2eb41` deployed through Cloudflare Pages. Both canonical URLs,
+`https://idea.dearlordylord.com/updatePlugins.xml` and
+`https://bend-idea-plugins.pages.dev/updatePlugins.xml`, advertise 0.1.29. Their
+ID, name, compatibility range, description and change notes match the signed ZIP.
+The ZIP downloaded again using the feed's URL matched its SHA-256. The Python
+HTTP client received a 403 during one initial feed fetch; anonymous curl fetches
+of both canonical URLs succeeded. The release was promoted only after verifying
+assets and feeds. Anonymous `/releases/latest` resolves to v0.1.29, and GitHub
+reports a stable release with all four expected assets.
+
+Self-review under REVIEWER.md found no remaining issue #5/#89 or A3/A5/A8/A9
+violation. Independent read-only source/artifact review found no actionable
+finding and independently checked CI reports, metadata, notices, hashes and
+signature. No shared API or dependency boundary changed. Real user-IDE lint
+highlights and saved settings were verified through restarts on the pre-versioned
+implementation. Installing this public 0.1.29 update in the user IDE remains
+unverified. No Marketplace submission, native formatter runtime packaging or
+Homebrew update was performed; native formatter links retain their separately
+verified version.
+
+Concluding independent live audit passed. The reviewer anonymously downloaded all
+published assets, checked the manifest, both live feeds and their signed ZIP
+metadata, verified the feed-downloaded ZIP signature using the previous public
+certificate, and confirmed the verified tag plus stable/latest state. It made no
+source or publication changes. The downloaded portable JAR also prints
+`bend-format 0.1.29` under JDK 21.
