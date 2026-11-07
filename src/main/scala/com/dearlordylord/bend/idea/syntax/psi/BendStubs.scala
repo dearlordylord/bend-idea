@@ -101,7 +101,7 @@ final class BendFileElementType
       BendLanguage.instance
     ):
   override def getExternalId: String = "bend.FILE"
-  override def getStubVersion: Int = 1
+  override def getStubVersion: Int = 2
   override def indexStub(stub: PsiFileStub[?], sink: IndexSink): Unit = ()
 
 object BendFileElementType:

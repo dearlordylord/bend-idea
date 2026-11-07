@@ -523,7 +523,9 @@ object BendCheckTransitionPolicy:
             case _ => done(state)
 
         case BackgroundStaleObserved(root) =>
-          if !state.backgroundEnabled || !state.roots
+          if !state.backgroundEnabled || state.active.exists(
+              _.root == root
+            ) || !state.roots
               .get(root)
               .exists(rootState =>
                 rootState.result

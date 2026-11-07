@@ -5,7 +5,7 @@ import com.dearlordylord.bend.idea.syntax.psi.BendElements
 import com.intellij.lang.{ASTNode, PsiBuilder, PsiParser}
 import com.intellij.psi.tree.IElementType
 
-/** Tolerant declaration grammar. A column-zero declaration always ends the
+/** Tolerant declaration grammar. A line-leading declaration always ends the
   * preceding item, including an unfinished header or body. Expressions remain
   * opaque at this stage.
   */
@@ -40,7 +40,7 @@ final class BendSurfaceParser extends PsiParser:
     if p == builder.getCurrentOffset then p - begin else -1
 
   private def declarationStart(builder: PsiBuilder): Boolean =
-    indentation(builder) == 0 &&
+    indentation(builder) >= 0 &&
       ((builder.getTokenType == BendTokens.DeclarationKeyword && BendWords
         .declaration(text(builder))) ||
         (builder.getTokenType == BendTokens.Unsafe && builder.lookAhead(

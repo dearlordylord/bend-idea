@@ -73,6 +73,19 @@ final class BendNavigationTest extends BasePlatformTestCase:
     assertNotNull("Go to Declaration target", result)
     result
 
+  def testMixedIndentedDeclarationsRetainNavigationAndParameterScope(): Unit =
+    val source =
+      "def first(seed: U32) -> U32:\n  seed\n\n      def helper(value: U32) -> U32:\n        value\n\n def main() -> U32:\n   hel<caret>per(1)\n"
+    val ref = reference(source)
+    assertEquals(source.indexOf("helper(value"), target(ref).getTextOffset)
+    assertEquals(source.indexOf("helper(value"), editorTarget().getTextOffset)
+    val offset = myFixture.getEditor.getCaretModel.getOffset
+    assertFalse(
+      BendSourceSymbols
+        .visibleBindings(myFixture.getFile, offset)
+        .exists(_.name == "value")
+    )
+
   def testCachedNamedPackageNavigationTracksChangedNameMapping(): Unit =
     val cache = temporary.resolve("cache")
     val firstHash = "0x" + "a" * 32

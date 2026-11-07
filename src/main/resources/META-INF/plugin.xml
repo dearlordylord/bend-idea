@@ -20,9 +20,11 @@ compiler-backed features. See the
 <a href="https://github.com/dearlordylord/bend-idea#readme">README</a> for setup and current limitations.
     ]]></description>
     <change-notes><![CDATA[
-<p>Version 0.1.28:</p>
+<p>Version 0.1.29:</p>
 <ul>
-  <li>Remove the configured Bend version restriction from optional lint, including the incorrect rejection of Bend 2.0.39. Lint uses its independently verified compiler and reports actual tool outcomes.</li>
+  <li>Restore completion and navigation for indented declarations accepted by Bend.</li>
+  <li>Keep manual lint findings visible during background polling, and show finding messages, rule codes and source locations in notifications and status details.</li>
+  <li>Preserve compiler paths, library choices and optional lint settings across IDE restarts.</li>
 </ul>
 ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>

@@ -12,18 +12,22 @@ import com.intellij.openapi.application.{ApplicationManager, ModalityState}
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.project.RootsChangeRescanningInfo
 import com.intellij.openapi.roots.ex.ProjectRootManagerEx
+import scala.beans.BeanProperty
 
 final class BendSettingsState:
-  var executable: String = ""
-  var baseSource: String = ""
-  var packageCache: String = ""
-  var diagnosticsEnabled: Boolean = true
-  var lintEnabled: Boolean = false
-  var lintBun: String = ""
-  var lintDirectory: String = ""
-  var lintBackground: Boolean = false
+  @BeanProperty var executable: String = ""
+  @BeanProperty var baseSource: String = ""
+  @BeanProperty var packageCache: String = ""
+  @BeanProperty var diagnosticsEnabled: Boolean = true
+  @BeanProperty var lintEnabled: Boolean = false
+  @BeanProperty var lintBun: String = ""
+  @BeanProperty var lintDirectory: String = ""
+  @BeanProperty var lintBackground: Boolean = false
 
-@State(name = "BendSettings", storages = Array(new Storage("BendSettings.xml")))
+@State(
+  name = "BendSettings",
+  storages = Array(new Storage(value = "BendSettings.xml"))
+)
 final class BendSettingsStorage
     extends PersistentStateComponent[BendSettingsState]
     with BendToolchainSettings:

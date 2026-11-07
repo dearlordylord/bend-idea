@@ -13,6 +13,13 @@ version. Use the versioned entry when writing GitHub release notes.
 
 ## Unreleased
 
+## 0.1.29
+
+- Recognize indented line-leading declarations in the shared source model, restoring current-file completion and navigation for functions accepted by Bend.
+- Keep manual lint findings visible when background checking polls during the manual check, without scheduling a redundant check that removes them.
+- Show lint finding messages, rule codes and source locations in manual lint notifications and check status details.
+- Preserve compiler paths, library choices and optional lint settings across IDE restarts.
+
 ## 0.1.28
 
 - Remove the configured Bend version restriction from optional lint. Bend 2.0.39 and compilers with other or unreported versions no longer fail before lint runs. Lint retains its independently verified compiler and reports actual tool outcomes.

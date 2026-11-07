@@ -184,6 +184,65 @@ final class BendCompletionTest extends BasePlatformTestCase:
       undos += 1
     assertEquals("de", myFixture.getEditor.getDocument.getText)
 
+  def testUserIndentedHelpersOfferBothFunctions(): Unit =
+    val prefix =
+      "import Base\n\n  def helper() -> U32:\n    1\n\n  def helpful() -> U32:\n    2\n\n  def main() -> U32:\n    "
+    for tail <- List("hel<caret>", "he<caret>per_old + 2") do
+      val offered = names(prefix + tail)
+      assertTrue(tail + ": " + offered, offered.contains("helper"))
+      assertTrue(tail + ": " + offered, offered.contains("helpful"))
+
+  def testGuideHelperPrefixAndMiddleOfNameOfferBothFunctions(): Unit =
+    val prefix =
+      "import Base\n\ndef helper() -> U32:\n  1\n\ndef helpful() -> U32:\n  2\n\ndef main() -> U32:\n  "
+    for tail <- List("hel<caret>", "hel<caret>per_old + 2") do
+      val offered = names(prefix + tail)
+      assertTrue(tail + ": " + offered, offered.contains("helper"))
+      assertTrue(tail + ": " + offered, offered.contains("helpful"))
+
+  def testGuideHelperPrefixCompletesDuringIndexing(): Unit =
+    com.intellij.testFramework.DumbModeTestUtils.computeInDumbModeSynchronously(
+      getProject,
+      new com.intellij.openapi.util.ThrowableComputable[Unit, Throwable]:
+        override def compute(): Unit =
+          val offered = names(
+            "import Base\n\ndef helper() -> U32:\n  1\n\ndef helpful() -> U32:\n  2\n\ndef main() -> U32:\n  hel<caret>"
+          )
+          assertTrue(offered.toString, offered.contains("helper"))
+          assertTrue(offered.toString, offered.contains("helpful"))
+    )
+
+  def testGuideHelperPrefixAfterTypingOffersBothFunctions(): Unit =
+    myFixture.configureByText(
+      "guide.bend",
+      "import Base\n\ndef helper() -> U32:\n  1\n\ndef helpful() -> U32:\n  2\n\ndef main() -> U32:\n  <caret>"
+    )
+    myFixture.`type`("hel")
+    val offered = Option(myFixture.completeBasic())
+      .map(_.map(_.getLookupString).toSet)
+      .getOrElse(Set.empty[String])
+    assertTrue(offered.toString, offered.contains("helper"))
+    assertTrue(offered.toString, offered.contains("helpful"))
+
+  def testIndentedTopLevelDeclarationsOfferCompletionAndReplaceTail(): Unit =
+    for completionChar <- List('\n', '\t') do
+      myFixture.configureByText(
+        "indented-declarations.bend",
+        "import Base\n\n  def helper() -> U32:\n    1\n\n  def helpful() -> U32:\n    2\n\n  def main() -> U32:\n    hel<caret>per_old + 2"
+      )
+      val items = Option(myFixture.completeBasic())
+        .getOrElse(Array.empty[LookupElement])
+      val selected = items.find(_.getLookupString == "helper")
+      assertTrue(
+        s"Missing helper completion; offered: ${items.map(_.getLookupString).mkString(", ")}",
+        selected.isDefined
+      )
+      myFixture.getLookup.setCurrentItem(selected.get)
+      myFixture.finishLookup(completionChar)
+      myFixture.checkResult(
+        "import Base\n\n  def helper() -> U32:\n    1\n\n  def helpful() -> U32:\n    2\n\n  def main() -> U32:\n    helper<caret> + 2"
+      )
+
   def testOrdinaryCompletionReplacesTheNameTailWithEnterAndTab(): Unit =
     for
       completionChar <- List('\n', '\t')

@@ -345,6 +345,148 @@ final class BendCheckTransitionPolicyTest:
       lateObservation.state.roots.get(captured.root).map(_.generation)
     )
 
+  @Test def stalePollingCannotQueueAReplacementForExplicitLint(): Unit =
+    val captured = snapshot("manual-lint.bend").copy(
+      text = "def BadMain() -> Type:\n  Type\n"
+    )
+    val (first, firstGeneration) = begin(BendCheckState(), captured)
+    val finished = transition(
+      running(first, captured, firstGeneration),
+      WorkerFinished(
+        captured.root,
+        firstGeneration,
+        captured,
+        result(captured, "previous check"),
+        currentFacts
+      )
+    )
+    val existing = transition(
+      finished.state,
+      WorkerExited(captured.root, firstGeneration)
+    ).state
+    val lintSnapshot = captured.copy(lintRequested = true)
+    val (reserved, generation) = begin(existing, lintSnapshot)
+    val reservedPoll =
+      transition(reserved, BackgroundStaleObserved(captured.root))
+    val started = running(reservedPoll.state, lintSnapshot, generation)
+    val runningPoll =
+      transition(started, BackgroundStaleObserved(captured.root))
+    val lint = BendLintResult(
+      BendLintOutcome.Completed,
+      List(
+        BendLintFinding(
+          "layout/case",
+          BendLintSeverity.Warning,
+          "Use snake_case.",
+          captured.root,
+          BendTextRange(4, 11)
+        )
+      ),
+      "One finding."
+    )
+    val checked = result(lintSnapshot, "manual lint").copy(lint = Some(lint))
+    val published = transition(
+      runningPoll.state,
+      WorkerFinished(
+        captured.root,
+        generation,
+        lintSnapshot,
+        checked,
+        currentFacts
+      )
+    )
+    assertEquals(Published(checked), published.decision)
+    val exited =
+      transition(published.state, WorkerExited(captured.root, generation))
+    assertEquals(
+      "A stale-result poll during explicit lint must not queue its replacement",
+      None,
+      exited.state.roots(captured.root).background
+    )
+    assertFalse(
+      (reservedPoll.actions ++ runningPoll.actions ++ exited.actions)
+        .exists(_.isInstanceOf[ScheduleBackground])
+    )
+    assertEquals(Some(checked), exited.state.roots(captured.root).result)
+    val freshPoll =
+      transition(exited.state, BackgroundStaleObserved(captured.root))
+    assertEquals(exited.state, freshPoll.state)
+
+  @Test def stalePollingRetriesAfterExplicitCancellationOrDiscard(): Unit =
+    List(true, false).foreach { cancel =>
+      val captured = snapshot("manual-recovery.bend")
+      val (first, firstGeneration) = begin(BendCheckState(), captured)
+      val finished = transition(
+        running(first, captured, firstGeneration),
+        WorkerFinished(
+          captured.root,
+          firstGeneration,
+          captured,
+          result(captured, "previous check"),
+          currentFacts
+        )
+      )
+      val existing = transition(
+        finished.state,
+        WorkerExited(captured.root, firstGeneration)
+      ).state
+      val (reserved, generation) = begin(existing, captured)
+      val started = running(reserved, captured, generation)
+      val polled = transition(started, BackgroundStaleObserved(captured.root))
+      val interrupted = if cancel then
+        transition(polled.state, CancelRequested(captured.root))
+      else
+        transition(
+          polled.state,
+          WorkerFinished(
+            captured.root,
+            generation,
+            captured,
+            result(captured, "discarded check"),
+            currentFacts.copy(sourceCurrent = false)
+          )
+        )
+      val exited = transition(
+        interrupted.state,
+        WorkerExited(captured.root, generation)
+      )
+      assertTrue(exited.state.roots(captured.root).result.exists(!_.fresh))
+      val retry =
+        transition(exited.state, BackgroundStaleObserved(captured.root))
+      assertTrue(
+        "A stale result must retry once the explicit worker exits",
+        retry.actions.exists(_.isInstanceOf[ScheduleBackground])
+      )
+    }
+
+  @Test def stalePollingPreservesOtherRootsAndGenuineBackgroundRequests()
+      : Unit =
+    val other = snapshot("other-stale-root.bend")
+    val stale = BendCheckState(
+      roots = Map(
+        other.root -> BendRootCheckState(
+          result = Some(result(other, "needs recheck").copy(fresh = false)),
+          snapshot = Some(other)
+        )
+      ),
+      rootOrder = Vector(other.root)
+    )
+    val manual = snapshot("active-lint-root.bend").copy(lintRequested = true)
+    val (reserved, generation) = begin(stale, manual)
+    val started = running(reserved, manual, generation)
+    val otherPoll = transition(started, BackgroundStaleObserved(other.root))
+    assertTrue(otherPoll.actions.exists {
+      case ScheduleBackground(root, _, _) => root == other.root
+      case _                              => false
+    })
+    assertEquals(started.active, otherPoll.state.active)
+    val changed = transition(otherPoll.state, BackgroundRequested(manual.root))
+    assertTrue(changed.actions.exists {
+      case ScheduleBackground(root, _, _) => root == manual.root
+      case _                              => false
+    })
+    assertEquals(started.active, changed.state.active)
+
   @Test def backgroundTokensFenceStaleCaptureAndBoundRetries(): Unit =
     val captured = snapshot("background-retry.bend")
     val requested =

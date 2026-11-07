@@ -13,6 +13,7 @@ import com.intellij.openapi.actionSystem.{
 }
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.notification.{NotificationGroupManager, NotificationType}
+import com.intellij.openapi.util.text.StringUtil
 
 /** The current file is explicitly the root; the worker captures its imports. */
 final class BendRunLintAction extends AnAction("Run bend-lint on Current File"):
@@ -33,7 +34,11 @@ final class BendRunLintAction extends AnAction("Run bend-lint on Current File"):
       NotificationGroupManager
         .getInstance()
         .getNotificationGroup("Bend")
-        .createNotification("bend-lint", message, NotificationType.INFORMATION)
+        .createNotification(
+          "bend-lint",
+          StringUtil.escapeXmlEntities(message).replace("\n", "<br/>"),
+          NotificationType.INFORMATION
+        )
         .notify(project)
     val options = ApplicationManager.getApplication
       .getService(classOf[BendToolchainSettings])
@@ -53,6 +58,6 @@ final class BendRunLintAction extends AnAction("Run bend-lint on Current File"):
             result.lint.fold(
               "bend-lint did not run: " + result.status + ". " + result.details
                 .take(512)
-            )(BendCheckPresentation.lintDetails)
+            )(lint => BendCheckPresentation.lintDetails(lint, result.sources))
           )
       }
